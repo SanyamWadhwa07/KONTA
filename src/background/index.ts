@@ -68,6 +68,27 @@ import {
 // Track registered session listeners (sidepanel tabs)
 const sessionListeners = new Set<number>()
 
+// Utility function to clean URLs (remove chrome-extension prefix)
+function cleanUrl(url: string): string {
+  // Remove chrome-extension://[extension-id]/tabs/ prefix
+  // Extension IDs are 32 lowercase letters
+  const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
+  if (chromeExtPattern.test(url)) {
+    console.log("[cleanUrl] Detected chrome-extension URL:", url)
+    // Extract the actual URL after /tabs/
+    const cleanedUrl = url.replace(chromeExtPattern, '')
+    // Add https:// if it doesn't have a protocol
+    const finalUrl = cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
+    console.log("[cleanUrl] Cleaned URL:", finalUrl)
+    return finalUrl
+  }
+  // Ensure URL has protocol (not relative)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'https://' + url
+  }
+  return url
+}
+
 // Graph state
 let knowledgeGraph: KnowledgeGraph | null = null
 let graphNeedsRebuild = true
@@ -399,8 +420,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "ADD_SITE_TO_PROJECT") {
-    const { projectId, siteUrl, siteTitle, addedBy = 'user' } = message.payload
-    console.log("[ADD_SITE_TO_PROJECT]", { projectId, siteUrl, siteTitle })
+    const { projectId, siteUrl: rawSiteUrl, siteTitle, addedBy = 'user' } = message.payload
+    
+    // Clean the URL to remove any chrome-extension prefix
+    const siteUrl = cleanUrl(rawSiteUrl)
+    
+    console.log("[ADD_SITE_TO_PROJECT]", { projectId, rawSiteUrl, cleanedSiteUrl: siteUrl, siteTitle })
     
     loadProjects()
       .then(async (projects) => {

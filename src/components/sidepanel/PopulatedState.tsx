@@ -1,9 +1,11 @@
-import { X, Search, ChevronDown, Settings, ArrowLeft, ExternalLink, MoreVertical, ExternalLinkIcon, Copy, Trash2, EyeOff, Folder, Calendar, Tag, Edit2, Clock, Bell, BellOff, Check } from "lucide-react"
+import { X, Search, ChevronDown, Settings, ArrowLeft, ExternalLink, MoreVertical, ExternalLinkIcon, Copy, Trash2, EyeOff, Folder, Calendar, Tag, Edit2, Clock, Bell, BellOff, Check, Focus } from "lucide-react"
 import { useEffect, useMemo, useState, useRef, useCallback } from "react"
 import type { PageEvent } from "~/types/page-event"
 import type { Session } from "~/types/session"
 import type { Label } from "~/background/labelsStore"
 import type { Project } from "~/types/project"
+import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
+import { generateClusterLabel, getClusterColor } from "~/lib/knowledge-graph"
 import { CoiPanel } from "./CoiPanel"
 import { GraphPanel } from "./GraphPanel"
 import { FocusPanel } from "./FocusPanel"
@@ -89,9 +91,13 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
   const [expandFilters, setExpandFilters] = useState(false)
   const [selectedFilter, setSelectedFilter] = useState<number | null>(null)
   const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null)
+  const [timelineView, setTimelineView] = useState<"sessions" | "clusters">("sessions")
+  const [clusters, setClusters] = useState<KnowledgeGraph | null>(null)
   const [expandedDays, setExpandedDays] = useState<string[]>(["today"])
   const [expandedSessions, setExpandedSessions] = useState<string[]>([])
   const [expandedProjects, setExpandedProjects] = useState<string[]>([])
+  const [expandedClusterDays, setExpandedClusterDays] = useState<string[]>(["today"])
+  const [expandedClusters, setExpandedClusters] = useState<number[]>([])
   const [showAddLabelModal, setShowAddLabelModal] = useState(false)
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3B82F6")
@@ -291,6 +297,19 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         })
     }
 
+    // Load clusters from knowledge graph
+    const loadClusters = () => {
+      sendMessage<{ graph: KnowledgeGraph }>({ type: "REFRESH_GRAPH" })
+        .then((res) => {
+          if (res?.graph) {
+            setClusters(res.graph)
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load clusters:", err)
+        })
+    }
+
     loadLabels()
 
     // Load projects
@@ -307,11 +326,18 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     loadSessions()
     loadProjects()
     loadLabels()
+    if (timelineView === "clusters") {
+      loadClusters()
+    }
 
     // Poll for session, project, and label updates every 2 seconds to catch real-time changes
     const pollInterval = setInterval(() => {
         if (activeTab === "sessions") {
-            loadSessions()
+            if (timelineView === "sessions") {
+              loadSessions()
+            } else if (timelineView === "clusters") {
+              loadClusters()
+            }
         }
         if (activeTab === "projects") {
             loadProjects()
@@ -324,7 +350,22 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     return () => {
       clearInterval(pollInterval)
     }
-  }, [activeTab])
+  }, [activeTab, timelineView])
+
+  // Reload clusters when switching to clusters view
+  useEffect(() => {
+    if (activeTab === "sessions" && timelineView === "clusters") {
+      sendMessage<{ graph: KnowledgeGraph }>({ type: "REFRESH_GRAPH" })
+        .then((res) => {
+          if (res?.graph) {
+            setClusters(res.graph)
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load clusters:", err)
+        })
+    }
+  }, [timelineView, activeTab])
 
   const pages = useMemo(() => {
     return sessions.flatMap((s) => s.pages)
@@ -379,6 +420,72 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         sessions: data.sessions.sort((a, b) => b.startTime - a.startTime)
       }))
   }, [sessions, selectedLabelId])
+
+  // Group clusters by date
+  const clustersByDay = useMemo(() => {
+    if (!clusters || !clusters.nodes || clusters.nodes.length === 0) {
+      return []
+    }
+
+    const grouped: Map<string, { clusters: Map<number, { nodes: GraphNode[]; timestamp: number }>; date: Date; label: string }> = new Map()
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    // Group nodes by cluster ID
+    const clusterMap = new Map<number, GraphNode[]>()
+    clusters.nodes.forEach((node) => {
+      if (!clusterMap.has(node.cluster)) {
+        clusterMap.set(node.cluster, [])
+      }
+      clusterMap.get(node.cluster)!.push(node)
+    })
+
+    // For each cluster, find the most recent timestamp and group by date
+    clusterMap.forEach((nodes, clusterId) => {
+      // Get the most recent timestamp from nodes in this cluster
+      const latestTimestamp = Math.max(...nodes.map(n => n.timestamp || Date.now()))
+      const clusterDate = new Date(latestTimestamp)
+      const clusterDay = new Date(clusterDate.getFullYear(), clusterDate.getMonth(), clusterDate.getDate())
+      const dateKey = clusterDay.toISOString().split('T')[0]
+
+      if (!grouped.has(dateKey)) {
+        let label = ''
+        if (clusterDay.getTime() === today.getTime()) {
+          const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          label = `Today - ${dayName}, ${dateStr}`
+        } else if (clusterDay.getTime() === yesterday.getTime()) {
+          const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          label = `Yesterday - ${dayName}, ${dateStr}`
+        } else {
+          const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          label = `${dayName}, ${dateStr}`
+        }
+
+        grouped.set(dateKey, { clusters: new Map(), date: clusterDay, label })
+      }
+
+      grouped.get(dateKey)!.clusters.set(clusterId, { nodes, timestamp: latestTimestamp })
+    })
+
+    // Sort by date descending (newest first)
+    return Array.from(grouped.entries())
+      .sort(([, a], [, b]) => b.date.getTime() - a.date.getTime())
+      .map(([, data]) => ({
+        ...data,
+        clusters: Array.from(data.clusters.entries())
+          .sort(([, a], [, b]) => b.timestamp - a.timestamp)
+          .map(([clusterId, clusterData]) => ({
+            clusterId,
+            nodes: clusterData.nodes,
+            timestamp: clusterData.timestamp
+          }))
+      }))
+  }, [clusters])
 
   const handleSearch = async (value: string) => {
     setSearchQuery(value)
@@ -833,6 +940,40 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             </div>
           )}
 
+        {/* View Toggle - Sessions vs Clusters */}
+        {!searchQuery.trim() && (
+          <div className="px-4 py-2 flex items-center gap-2">
+            <span className="text-2xs font-medium" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+              View:
+            </span>
+            <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E5E5E5' }}>
+              <button
+                onClick={() => setTimelineView("sessions")}
+                className="px-3 py-1.5 text-2xs font-medium transition-all"
+                style={{
+                  backgroundColor: timelineView === "sessions" ? '#0072de' : '#FFFFFF',
+                  color: timelineView === "sessions" ? '#FFFFFF' : '#666666',
+                  fontFamily: "'Breeze Sans'",
+                  fontSize: '10px',
+                  borderRight: '1px solid #E5E5E5'
+                }}>
+                Sessions
+              </button>
+              <button
+                onClick={() => setTimelineView("clusters")}
+                className="px-3 py-1.5 text-2xs font-medium transition-all"
+                style={{
+                  backgroundColor: timelineView === "clusters" ? '#0072de' : '#FFFFFF',
+                  color: timelineView === "clusters" ? '#FFFFFF' : '#666666',
+                  fontFamily: "'Breeze Sans'",
+                  fontSize: '10px'
+                }}>
+                Clusters
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Search Results or Timeline */}
         {searchQuery.trim() ? (
           <div className="flex flex-col gap-2 p-2">
@@ -904,47 +1045,99 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           </div>
         ) : (
           <div className="flex flex-col p-0.5">
-            {realSessionsByDay.length === 0 && selectedLabelId ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <Tag className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
-                <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-                  No sessions found with the label<br />
-                  <span style={{ fontWeight: '500' }}>"{labels.find(l => l.id === selectedLabelId)?.name}"</span>
-                </p>
-              </div>
-            ) : realSessionsByDay.length === 0 ? null : (
-              realSessionsByDay.map((dayGroup, dayIndex) => (
-                <DaySection
-                  key={dayGroup.label}
-                  dayKey={dayGroup.label}
-                  dayLabel={dayGroup.label}
-                  sessions={dayGroup.sessions}
-                  isExpanded={expandedDays.includes(dayGroup.label)}
-                  onToggleDay={(key) => {
-                    setExpandedDays((prev) =>
-                      prev.includes(key) ? prev.filter((d) => d !== key) : [...prev, key]
-                    )
-                  }}
-                  expandedSessions={expandedSessions}
-                  onToggleSession={(id) => {
-                    setExpandedSessions((prev) =>
-                      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-                    )
-                  }}                labels={labels}
-                  onUpdateSessionLabel={async (sessionId, labelId) => {
-                    try {
-                      await sendMessage<{ success: boolean }>({
-                        type: "UPDATE_SESSION_LABEL",
-                        payload: { sessionId, labelId }
-                      })
-                    } catch (err) {
-                      console.error("Failed to update session label:", err)
-                    }
-                  }}
-                  onDeleteLabel={handleDeleteLabel}
-                  onOpenCreateLabelModal={() => setShowAddLabelModal(true)}
-                />
-              ))
+            {timelineView === "sessions" ? (
+              // Sessions View
+              <>
+                {realSessionsByDay.length === 0 && selectedLabelId ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Tag className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
+                    <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      No sessions found with the label<br />
+                      <span style={{ fontWeight: '500' }}>"{labels.find(l => l.id === selectedLabelId)?.name}"</span>
+                    </p>
+                  </div>
+                ) : realSessionsByDay.length === 0 ? null : (
+                  realSessionsByDay.map((dayGroup, dayIndex) => (
+                    <DaySection
+                      key={dayGroup.label}
+                      dayKey={dayGroup.label}
+                      dayLabel={dayGroup.label}
+                      sessions={dayGroup.sessions}
+                      isExpanded={expandedDays.includes(dayGroup.label)}
+                      onToggleDay={(key) => {
+                        setExpandedDays((prev) =>
+                          prev.includes(key) ? prev.filter((d) => d !== key) : [...prev, key]
+                        )
+                      }}
+                      expandedSessions={expandedSessions}
+                      onToggleSession={(id) => {
+                        setExpandedSessions((prev) =>
+                          prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+                        )
+                      }}
+                      labels={labels}
+                      onUpdateSessionLabel={async (sessionId, labelId) => {
+                        try {
+                          await sendMessage<{ success: boolean }>({
+                            type: "UPDATE_SESSION_LABEL",
+                            payload: { sessionId, labelId }
+                          })
+                        } catch (err) {
+                          console.error("Failed to update session label:", err)
+                        }
+                      }}
+                      onDeleteLabel={handleDeleteLabel}
+                      onOpenCreateLabelModal={() => setShowAddLabelModal(true)}
+                    />
+                  ))
+                )}
+              </>
+            ) : (
+              // Clusters View
+              <>
+                {!clusters || clustersByDay.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="flex gap-1">
+                      <div
+                        className="w-2 h-2 rounded-full animate-bounce"
+                        style={{ backgroundColor: '#0074FB', animationDelay: '0ms' }}
+                      />
+                      <div
+                        className="w-2 h-2 rounded-full animate-bounce"
+                        style={{ backgroundColor: '#0074FB', animationDelay: '150ms' }}
+                      />
+                      <div
+                        className="w-2 h-2 rounded-full animate-bounce"
+                        style={{ backgroundColor: '#0074FB', animationDelay: '300ms' }}
+                      />
+                    </div>
+                    <p className="text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      Loading clusters...
+                    </p>
+                  </div>
+                ) : (
+                  clustersByDay.map((dayGroup) => (
+                    <ClusterDaySection
+                      key={dayGroup.label}
+                      dayKey={dayGroup.label}
+                      dayLabel={dayGroup.label}
+                      clusters={dayGroup.clusters}
+                      isExpanded={expandedClusterDays.includes(dayGroup.label)}
+                      onToggleDay={(key) => {
+                        setExpandedClusterDays((prev) =>
+                          prev.includes(key) ? prev.filter((d) => d !== key) : [...prev, key]
+                        )
+                      }}
+                      expandedClusters={expandedClusters}
+                      onToggleCluster={(id) => {
+                        setExpandedClusters((prev) =>
+                          prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+                        )
+                      }}
+                    />
+                  ))
+                )}
+              </>
             )}
           </div>
         )}
@@ -1633,6 +1826,207 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Cluster Day Section Component
+interface ClusterDaySectionProps {
+  dayKey: string
+  dayLabel: string
+  clusters: Array<{ clusterId: number; nodes: GraphNode[]; timestamp: number }>
+  isExpanded: boolean
+  onToggleDay: (key: string) => void
+  expandedClusters: number[]
+  onToggleCluster: (id: number) => void
+}
+
+function ClusterDaySection({
+  dayKey,
+  dayLabel,
+  clusters,
+  isExpanded,
+  onToggleDay,
+  expandedClusters,
+  onToggleCluster,
+}: ClusterDaySectionProps) {
+  const visibleCount = isExpanded ? clusters.length : 3
+
+  return (
+    <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
+      {/* Day Header */}
+      <div className="text-sm font-normal px-2 mb-1 mt-4" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+        <span>{dayLabel}</span>
+      </div>
+
+      {/* Clusters List */}
+      <div className="flex flex-col gap-3 pt-0 pb-1">
+        {clusters.slice(0, visibleCount).map((cluster, index) => (
+          <div
+            key={cluster.clusterId}
+            className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+            style={{ animationDelay: `${index * 50}ms` }}>
+            <ClusterItem
+              cluster={cluster}
+              isExpanded={expandedClusters.includes(cluster.clusterId)}
+              onToggle={() => onToggleCluster(cluster.clusterId)}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Show More / Show Less */}
+      {clusters.length > 3 && (
+        <button
+          onClick={() => onToggleDay(dayKey)}
+          className="text-xs font-normal mt-2 mx-2 py-1 hover:underline"
+          style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+          {isExpanded ? `Show less` : `Show ${clusters.length - 3} more`}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Cluster Item Component
+interface ClusterItemProps {
+  cluster: { clusterId: number; nodes: GraphNode[]; timestamp: number }
+  isExpanded: boolean
+  onToggle: () => void
+}
+
+function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
+  const { clusterId, nodes, timestamp } = cluster
+  const clusterColor = getClusterColor(clusterId)
+  const clusterLabel = generateClusterLabel(nodes, clusterId)
+  
+  const startTime = Math.min(...nodes.map(n => n.timestamp))
+  const endTime = Math.max(...nodes.map(n => n.timestamp))
+  const timeRange = new Date(startTime).toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: true 
+  }) + (startTime !== endTime ? ' - ' + new Date(endTime).toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: true 
+  }) : '')
+
+  const handleNodeClick = (node: GraphNode) => {
+    // Open the page
+    chrome.tabs.create({ url: node.url })
+    
+    // Send message to focus node in graph
+    sendMessage({ 
+      type: "FOCUS_NODE_IN_GRAPH", 
+      payload: { nodeId: node.id } 
+    })
+  }
+
+  const handleFocusCluster = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Send message to focus entire cluster in graph
+    sendMessage({ 
+      type: "FOCUS_CLUSTER_IN_GRAPH", 
+      payload: { clusterId } 
+    })
+  }
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden cursor-pointer transition-all"
+      style={{
+        backgroundColor: '#FAFAFA',
+        border: '1px solid #E5E5E5',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+      }}
+      onClick={onToggle}>
+      {/* Cluster Header */}
+      <div className="flex items-center justify-between gap-3 p-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Cluster Color Indicator */}
+          <div 
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: clusterColor }}
+          />
+          
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+              {clusterLabel}
+            </div>
+            <div className="text-2xs mt-0.5 flex items-center gap-2" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
+              <span>{nodes.length} page{nodes.length !== 1 ? 's' : ''}</span>
+              <span>•</span>
+              <span>{timeRange}</span>
+            </div>
+          </div>
+
+          {/* Focus Cluster Button */}
+          <button
+            onClick={handleFocusCluster}
+            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            title="Focus cluster in graph">
+            <Focus className="h-4 w-4" style={{ color: '#9A9FA6' }} />
+          </button>
+        </div>
+
+        {/* Expand/Collapse Icon */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggle()
+          }}
+          className="p-1 hover:bg-gray-100 rounded transition-colors">
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            style={{ color: '#9A9FA6' }}
+          />
+        </button>
+      </div>
+
+      {/* Nodes List */}
+      {isExpanded && (
+        <div className="flex flex-col gap-1 px-3 pb-3 pt-1">
+          {nodes
+            .slice()
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .map((node, index) => {
+              const timeStr = new Date(node.timestamp).toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                hour12: true 
+              })
+
+              return (
+                <div 
+                  key={node.id} 
+                  className="flex items-center justify-between gap-3 py-1.5 px-2 rounded hover:bg-white transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleNodeClick(node)
+                  }}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${node.domain}&sz=16`}
+                      alt=""
+                      className="w-4 h-4 rounded flex-shrink-0"
+                      onError={(e) => {
+                        const img = e.target as HTMLImageElement
+                        img.style.display = 'none'
+                      }}
+                    />
+                    <span className="text-xs leading-tight truncate flex-1" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+                      {node.title}
+                    </span>
+                  </div>
+                  <span className="text-xs flex-shrink-0" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                    {timeStr}
+                  </span>
+                </div>
+              )
+            })}
         </div>
       )}
     </div>

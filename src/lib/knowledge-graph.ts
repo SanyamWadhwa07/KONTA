@@ -2,6 +2,21 @@ import type { PageEvent } from "~/types/page-event"
 import type { Project } from "~/types/project"
 import type { Session } from "~/types/session"
 
+// Clean URL to remove chrome-extension prefix if present
+function cleanUrl(url: string): string {
+  // Remove chrome-extension://[extension-id]/tabs/ prefix
+  const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
+  if (chromeExtPattern.test(url)) {
+    const cleanedUrl = url.replace(chromeExtPattern, '')
+    return cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
+  }
+  // Ensure URL has protocol (not relative)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'https://' + url
+  }
+  return url
+}
+
 export interface GraphNode {
   id: string
   title: string
@@ -284,7 +299,7 @@ export function buildKnowledgeGraph(
   const nodes: GraphNode[] = validPages.map(page => ({
     id: page.title, // Use title as ID to ensure uniqueness by title
     title: page.title,
-    url: page.url,
+    url: cleanUrl(page.url), // Clean URL to remove chrome-extension prefix
     domain: page.domain,
     cluster: -1,
     visitCount: page.visitCount || 1,
@@ -637,18 +652,21 @@ export async function buildProjectGraph(
     
     // Each site becomes a node in the same cluster
     project.sites.forEach((site, siteIndex) => {
+      // Clean the URL to remove chrome-extension prefix
+      const cleanedUrl = cleanUrl(site.url)
+      
       let domain = 'Unknown'
       try {
-        const url = site.url.startsWith('http') ? site.url : `https://${site.url}`
+        const url = cleanedUrl.startsWith('http') ? cleanedUrl : `https://${cleanedUrl}`
         domain = new URL(url).hostname
       } catch (e) {
-        domain = site.url.split('/')[0] || 'Unknown'
+        domain = cleanedUrl.split('/')[0] || 'Unknown'
       }
       
       const node: GraphNode = {
         id: `${project.id}-site-${siteIndex}`,
         title: site.title,
-        url: site.url,
+        url: cleanedUrl,
         domain: domain,
         cluster: projectIndex, // All sites in same project share cluster ID
         visitCount: site.visitCount,

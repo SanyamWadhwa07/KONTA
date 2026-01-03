@@ -4,6 +4,20 @@ import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maxim
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel } from "~/lib/knowledge-graph"
 
+// Clean URL to remove chrome-extension prefix if present
+function cleanUrl(url: string): string {
+  const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
+  if (chromeExtPattern.test(url)) {
+    const cleanedUrl = url.replace(chromeExtPattern, '')
+    return cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
+  }
+  // Ensure URL has protocol (not relative)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'https://' + url
+  }
+  return url
+}
+
 function sendMessage<T>(message: any): Promise<T> {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(message, (response) => {
@@ -448,7 +462,8 @@ export function GraphPanel() {
     } else {
       // Normal mode - open URL
       if (node.url) {
-        chrome.tabs.create({ url: node.url })
+        const cleanedUrl = cleanUrl(node.url)
+        chrome.tabs.create({ url: cleanedUrl })
       }
     }
   }

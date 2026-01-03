@@ -9,6 +9,24 @@ const isNewTabUrl = (url?: string) => {
   return normalized.startsWith("chrome://newtab") || normalized.startsWith("edge://newtab") || normalized === "about:blank"
 }
 
+// Clean URL to remove chrome-extension prefix if present
+const cleanUrl = (url: string): string => {
+  // Remove chrome-extension://[extension-id]/tabs/ prefix
+  const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
+  if (chromeExtPattern.test(url)) {
+    console.log("[ProjectPanel] Cleaning chrome-extension URL:", url)
+    const cleanedUrl = url.replace(chromeExtPattern, '')
+    const finalUrl = cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
+    console.log("[ProjectPanel] Cleaned to:", finalUrl)
+    return finalUrl
+  }
+  // Ensure URL has protocol (not relative)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'https://' + url
+  }
+  return url
+}
+
 async function sendMessage<T>(message: any): Promise<T> {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(message, (response) => {
@@ -179,7 +197,7 @@ function ProjectsPanel({
         type: "ADD_SITE_TO_PROJECT",
         payload: {
           projectId: selectedProjectId,
-          siteUrl: targetPage.url,
+          siteUrl: cleanUrl(targetPage.url),
           siteTitle: targetPage.title,
           addedBy: "user"
         }

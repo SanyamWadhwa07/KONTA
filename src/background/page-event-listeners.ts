@@ -14,6 +14,27 @@ const NOTIFICATION_COOLDOWN_MS = 30000 // 30 seconds
 const manuallyOpenedSites = new Map<string, number>()
 const MANUAL_OPEN_COOLDOWN_MS = 5000 // 5 seconds
 
+// Clean URL to remove chrome-extension prefix if present
+function cleanUrl(url: string): string {
+  // Remove chrome-extension://[extension-id]/tabs/ prefix
+  // Extension IDs are 32 lowercase letters
+  const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
+  if (chromeExtPattern.test(url)) {
+    console.log("[cleanUrl] Detected chrome-extension URL:", url)
+    // Extract the actual URL after /tabs/
+    const cleanedUrl = url.replace(chromeExtPattern, '')
+    // Add https:// if it doesn't have a protocol
+    const finalUrl = cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
+    console.log("[cleanUrl] Cleaned URL:", finalUrl)
+    return finalUrl
+  }
+  // Ensure URL has protocol (not relative)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'https://' + url
+  }
+  return url
+}
+
 // Extract search query from search engine URLs
 function extractSearchQuery(url: string): string | null {
   try {
@@ -167,7 +188,7 @@ export const setupPageVisitListener = () => {
                 payload: {
                   projectId: matchingProject.id,
                   projectName: matchingProject.name,
-                  currentUrl: baseEvent.url
+                  currentUrl: cleanUrl(baseEvent.url)
                 }
               }).catch((err) => {
                 console.log("[ProjectMainSite] Could not send notification:", err)
@@ -219,7 +240,7 @@ export const setupPageVisitListener = () => {
                   payload: {
                     projectId: suggestion.project.id,
                     projectName: suggestion.project.name,
-                    currentUrl: baseEvent.url,
+                    currentUrl: cleanUrl(baseEvent.url),
                     currentTitle: baseEvent.title,
                     score: suggestion.score
                   }
