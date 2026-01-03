@@ -770,9 +770,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
+      <div className={`flex-1 flex flex-col gap-0 ${activeTab === "graph" ? "overflow-hidden" : "overflow-y-auto"}`}>
         {activeTab === "graph" ? (
-          <div className="p-3">
+          <div className="w-full h-full">
             <GraphPanel />
           </div>
         ) : activeTab === "projects" ? (
