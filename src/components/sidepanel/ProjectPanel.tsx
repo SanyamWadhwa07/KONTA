@@ -322,22 +322,24 @@ function ProjectsPanel({
       )}
 
       {/* Header with Action Buttons - Sticky */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 p-4 bg-white border-b" style={{ borderColor: '#E5E5E5' }}>
+      <div className="sticky top-0 z-10 flex items-center justify-center gap-3 p-4 pt-0 bg-white border-b" style={{ borderColor: '#E5E5E5' }}>
         <button
           onClick={() => {
             setShowCreateCard(!showCreateCard)
             setNewProjectName("")
             setNewProjectDescription("")
           }}
-          className="px-4 py-1.5 text-xs rounded-lg text-white transition-colors flex items-center gap-1.5 font-medium"
-          style={{ backgroundColor: showCreateCard ? '#9A9FA6' : '#0072de', fontFamily: "'Breeze Sans'" }}>
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {showCreateCard ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            )}
-          </svg>
+          className="font-normal h-10 mt-4 border-0 focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6 flex items-center gap-1.5 text-xs text-white transition-colors"
+          style={{ backgroundColor: 'var(--primary)', color: 'white', fontFamily: "'Breeze Sans'", border: 'none', outline: 'none', boxShadow: 'none' }}>
+          <span className="flex items-center justify-center rounded-md" style={{ width: '16px', height: '16px', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {showCreateCard ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              )}
+            </svg>
+          </span>
           New Project
         </button>
         <button
@@ -348,11 +350,13 @@ function ProjectsPanel({
             }
           }}
           disabled={!currentPage && !showCurrentPage}
-          className="px-4 py-1.5 text-xs rounded-lg text-white transition-colors flex items-center gap-1.5 font-medium disabled:opacity-50"
-          style={{ backgroundColor: '#0072de', fontFamily: "'Breeze Sans'" }}>
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          className="font-normal h-10 mt-4 border-0 focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6 flex items-center gap-1.5 text-xs text-white transition-colors disabled:opacity-50"
+          style={{ backgroundColor: 'var(--primary)', fontFamily: "'Breeze Sans'", border: 'none', outline: 'none', boxShadow: 'none' }}>
+          <span className="flex items-center justify-center rounded-md" style={{ width: '16px', height: '16px', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </span>
           Add Current Site
         </button>
       </div>
@@ -450,7 +454,7 @@ function ProjectsPanel({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 p-3 pt-0">
           {projects
             .sort((a, b) => b.startDate - a.startDate)
             .map((project) => (

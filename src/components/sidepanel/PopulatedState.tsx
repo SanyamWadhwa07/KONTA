@@ -1158,10 +1158,10 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                   type="text"
                   value={newLabelName}
                   onChange={(e) => setNewLabelName(e.target.value)}
-                  placeholder=""
+                  placeholder="Development"
                   className="w-full mt-1 px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500"
                   style={{ borderColor: '#DDD', fontFamily: "'Breeze Sans'" }}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       handleAddLabel()
                     }
