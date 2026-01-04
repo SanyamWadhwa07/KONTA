@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { ChevronDown, ChevronUp, Plus, Trash2, Download, Upload, Power, PowerOff, Edit2, X, Check } from "lucide-react"
 import type { Blocklist, BlocklistEntry, BlocklistCategory, FocusModeState, CategoryStates } from "~/types/focus-mode"
 import { CATEGORY_INFO } from "~/types/focus-mode"
+import { log, warn } from "~/lib/logger"
 
 function sendMessage<T>(message: any): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -41,15 +42,15 @@ export function FocusPanel() {
         sendMessage<{ blocklist: Blocklist }>({ type: "GET_BLOCKLIST" })
       ])
       
-      console.log("[FocusPanel] State response:", stateResponse)
-      console.log("[FocusPanel] Blocklist response:", blocklistResponse)
+      log("[FocusPanel] State response:", stateResponse)
+      log("[FocusPanel] Blocklist response:", blocklistResponse)
       
       if (stateResponse?.state) {
         setFocusState(stateResponse.state)
       }
       
       if (blocklistResponse?.blocklist) {
-        console.log("[FocusPanel] Blocklist entries:", blocklistResponse.blocklist.entries.length)
+        log("[FocusPanel] Blocklist entries:", blocklistResponse.blocklist.entries.length)
         setBlocklist(blocklistResponse.blocklist)
       }
     } catch (err) {
@@ -61,11 +62,11 @@ export function FocusPanel() {
 
   const toggleFocusMode = async () => {
     try {
-      console.log("[FocusPanel] Toggling focus mode, current state:", focusState.isActive)
+      log("[FocusPanel] Toggling focus mode, current state:", focusState.isActive)
       const response = await sendMessage<{ state: FocusModeState }>({ 
         type: "TOGGLE_FOCUS_MODE" 
       })
-      console.log("[FocusPanel] Toggle response:", response)
+      log("[FocusPanel] Toggle response:", response)
       if (response?.state) {
         setFocusState(response.state)
       }
@@ -218,6 +219,9 @@ export function FocusPanel() {
   return (
     <div className="flex flex-col h-full bg-gray-50" style={{ fontFamily: "'Breeze Sans'" }}>
       {/* Header with Focus Mode Toggle */}
+      <div className="p-4 border-b" style={{ borderColor: '#E5E7EB' }}>
+        {/* <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold" style={{ color: '#1F2937' }}>
       <div className="p-4 bg-white border-b" style={{ borderColor: '#E5E5E5' }}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold" style={{ color: '#080A0B' }}>
@@ -241,7 +245,7 @@ export function FocusPanel() {
               <Upload className="h-4 w-4" />
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Large Focus Mode Toggle Button */}
         <button

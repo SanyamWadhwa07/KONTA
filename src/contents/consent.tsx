@@ -2,6 +2,7 @@ import type { PlasmoCSConfig, PlasmoGetStyle } from "plasmo"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { log, warn } from "~/lib/logger"
 
 import styleText from "data-text:~/style.css"
 
@@ -26,7 +27,7 @@ const ConsentOverlay = () => {
     // Check if we should show consent on page load
     chrome.storage.local.get(['show-consent-on-load'], (result) => {
       if (result['show-consent-on-load'] === true) {
-        console.log("📋 Auto-showing consent from storage flag")
+        log("📋 Auto-showing consent from storage flag")
         setIsVisible(true)
         // Clear the flag after using it
         chrome.storage.local.remove('show-consent-on-load')
@@ -35,7 +36,7 @@ const ConsentOverlay = () => {
 
     // Listen for message to show consent
     const handleMessage = (message: any) => {
-      console.log("Consent overlay received message:", message)
+      log("Consent overlay received message:", message)
       if (message.type === "SHOW_CONSENT") {
         setIsVisible(true)
       }
@@ -52,12 +53,12 @@ const ConsentOverlay = () => {
       setIsVisible(false)
       
       // Send message to background to open sidebar with onboarding flag
-      console.log("📤 Sending OPEN_SIDEPANEL from consent with onboarding flag")
+      log("📤 Sending OPEN_SIDEPANEL from consent with onboarding flag")
       chrome.runtime.sendMessage({ 
         type: "OPEN_SIDEPANEL",
         isOnboarding: true 
       }, (response) => {
-        console.log("📨 Response:", response)
+        log("📨 Response:", response)
       })
     }
   }
@@ -87,11 +88,11 @@ const ConsentOverlay = () => {
         )}
 
         <h1 className="text-[26px] font-semibold text-center mb-1.5" style={{ color: '#080A0B' }}>
-          Welcome to Aegis!
+          Welcome to Konta!
         </h1>
 
         <p className="text-[15px] text-center mb-5 leading-normal" style={{ color: '#9A9FA6' }}>
-          Aegis stores browsing context locally so you can resume work later.
+          Konta stores browsing context locally so you can resume work later.
         </p>
 
         {/* Privacy Features List */}
@@ -159,7 +160,7 @@ const ConsentOverlay = () => {
           What happens next?
         </p>
         <p className="text-center text-xs leading-snug" style={{ color: '#9A9FA6' }}>
-          Aegis will quietly learn this session in the background.
+          Konta will quietly learn this session in the background.
         </p>
 
         {/* Learn More Slide-out Panel */}
@@ -188,7 +189,7 @@ const ConsentOverlay = () => {
               What is stored?
             </h3>
             <p className="text-sm mb-2" style={{ color: '#080A0B' }}>
-              Aegis saves browsing context, not content.
+              Konta saves browsing context, not content.
             </p>
             <ul className="space-y-1 ml-4 list-disc">
               <li className="text-sm" style={{ color: '#9A9FA6' }}>Page titles and domains</li>

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import ForceGraph2D from "react-force-graph-2d"
+import { forceCollide } from "d3-force"
 import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
 import "~/style.css"
+import { log, warn } from "~/lib/logger"
 
 function sendMessage<T>(message: any): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -38,39 +40,21 @@ export default function GraphFullPage() {
   const lastGraphTimestampRef = useRef<number>(0)
   const [dimensions, setDimensions] = useState({ width: 1200, height: 800 })
   const faviconCache = useRef<Map<string, HTMLImageElement>>(new Map())
-  const panBoundaryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const CONTENT_PADDING = 500 // Padding around node bounds
+  const [focusedClusterId, setFocusedClusterId] = useState<number | null>(null)
 
-  // Calculate bounds of all nodes from the actual graph data
-  const calculateNodeBounds = () => {
-    if (!graphRef.current) return null
-    
-    const graphData = graphRef.current.graphData()
-    if (!graphData || !graphData.nodes || graphData.nodes.length === 0) return null
-    
-    let minX = Infinity, maxX = -Infinity
-    let minY = Infinity, maxY = -Infinity
-    
-    graphData.nodes.forEach((node: any) => {
-      if (node.x !== undefined && node.y !== undefined) {
-        minX = Math.min(minX, node.x)
-        maxX = Math.max(maxX, node.x)
-        minY = Math.min(minY, node.y)
-        maxY = Math.max(maxY, node.y)
+  // Check URL parameters for focused cluster
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const clusterParam = urlParams.get('cluster')
+    if (clusterParam) {
+      const clusterId = parseInt(clusterParam, 10)
+      if (!isNaN(clusterId)) {
+        setFocusedClusterId(clusterId)
+        setSelectedClusters(new Set([clusterId]))
+        setShowFilters(true) // Show filters so user can see the cluster is selected
       }
-    })
-    
-    if (minX === Infinity) return null
-    
-    return {
-      minX: minX - CONTENT_PADDING,
-      maxX: maxX + CONTENT_PADDING,
-      minY: minY - CONTENT_PADDING,
-      maxY: maxY + CONTENT_PADDING,
-      width: maxX - minX + 2 * CONTENT_PADDING,
-      height: maxY - minY + 2 * CONTENT_PADDING
     }
-  }
+  }, [])
 
   // Load manual links from storage
   useEffect(() => {
@@ -93,7 +77,7 @@ export default function GraphFullPage() {
       const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
       if (response?.graph) {
         if (response.graph.lastUpdated !== lastGraphTimestampRef.current) {
-          console.log("[GraphFullPage] Graph data changed, updating UI")
+          log("[GraphFullPage] Graph data changed, updating UI")
           setGraph(response.graph)
           lastGraphTimestampRef.current = response.graph.lastUpdated
           hasUserInteractedRef.current = false
@@ -138,17 +122,93 @@ export default function GraphFullPage() {
       const topDomain = getClusterTopDomain(graph.nodes, clusterId)
       if (topDomain && !faviconCache.current.has(topDomain)) {
         loadFavicon(topDomain).catch(err => 
-          console.log('[Graph] Failed to load favicon for', topDomain)
+          log('[Graph] Failed to load favicon for', topDomain)
         )
       }
     })
   }, [graph])
 
   useEffect(() => {
-    if (graph && graphRef.current && !hasUserInteractedRef.current) {
-      setTimeout(() => {
-        graphRef.current?.zoomToFit(400, 50)
-      }, 500)
+    if (graph) {
+      // Configure forces for a more compact layout
+      if (graphRef.current) {
+        // Use collision force for strict spacing without long-range repulsion
+        // This keeps nodes apart (min distance) but allows clusters to be close
+        graphRef.current.d3Force('collide', forceCollide((node: any) => {
+          const baseSize = 6
+          const sizeFactor = Math.log((node.visitCount || 0) + 1) * 4
+          const size = Math.max(baseSize, Math.min(baseSize + sizeFactor, 24))
+          return size * 1.5 + 4 // Radius + padding
+        }).strength(0.7))
+
+        // Reduce charge (repulsion) significantly so clusters can merge
+        // Only keep enough to prevent total collapse
+        graphRef.current.d3Force('charge').strength(-60).distanceMax(200)
+        
+        // Adjust link distance
+        graphRef.current.d3Force('link').distance(55)
+        
+        // Stronger centering to pull clusters together
+        graphRef.current.d3Force('center').strength(0.6)
+
+        // Add "breathing" force for idle animation
+        const breathingForce = () => {
+          let nodes: any[] = []
+          
+          const force = () => {
+            nodes.forEach((node: any) => {
+              // Add random velocity for organic movement
+              // Increased magnitude to make it visible
+              if (node.vx !== undefined && node.vy !== undefined) {
+                node.vx += (Math.random() - 0.5) * 0.3
+                node.vy += (Math.random() - 0.5) * 0.3
+              }
+            })
+          }
+          
+          (force as any).initialize = (_nodes: any[]) => {
+            nodes = _nodes
+          }
+          
+          return force
+        }
+
+        graphRef.current.d3Force('alive', breathingForce())
+        
+        // Restart simulation to ensure new forces take effect
+        graphRef.current.d3ReheatSimulation()
+      }
+
+      // Auto-zoom to focused cluster if specified
+      if (graphRef.current && !hasUserInteractedRef.current && focusedClusterId !== null) {
+        setTimeout(() => {
+          // Get nodes in the focused cluster
+          const clusterNodes = graphData.nodes.filter(n => n.cluster === focusedClusterId)
+          if (clusterNodes.length > 0) {
+            // Calculate bounding box of cluster nodes
+            const nodePositions = clusterNodes.map(n => {
+              const graphNode = graphRef.current.graphData().nodes.find((gn: any) => gn.id === n.id)
+              return graphNode ? { x: graphNode.x, y: graphNode.y } : null
+            }).filter(pos => pos !== null)
+
+            if (nodePositions.length > 0) {
+              const xs = nodePositions.map(p => p!.x)
+              const ys = nodePositions.map(p => p!.y)
+              const centerX = (Math.min(...xs) + Math.max(...xs)) / 2
+              const centerY = (Math.min(...ys) + Math.max(...ys)) / 2
+              
+              // Center on the cluster
+              graphRef.current.centerAt(centerX, centerY, 1000)
+              // Zoom to a reasonable level
+              graphRef.current.zoom(2, 1000)
+            }
+          }
+        }, 1000) // Wait for simulation to settle
+      } else if (graphRef.current && !hasUserInteractedRef.current) {
+        setTimeout(() => {
+          graphRef.current?.zoomToFit(400, 50)
+        }, 500)
+      }
     }
   }, [graph])
 
@@ -602,6 +662,22 @@ export default function GraphFullPage() {
     setSelectedClusters(new Set())
   }
 
+  const calculateNodeSize = (node: any) => {
+    // Check if node is connected (has any edges)
+    const isConnected = graphData.links.some((link: any) => {
+      const sourceId = typeof link.source === 'object' ? link.source.id : link.source
+      const targetId = typeof link.target === 'object' ? link.target.id : link.target
+      return sourceId === node.id || targetId === node.id
+    })
+    
+    const baseSize = 6 // Increased base size from 4
+    const sizeFactor = Math.log(node.visitCount + 1) * 4 // Increased factor
+    const calculatedSize = Math.max(baseSize, Math.min(baseSize + sizeFactor, 24)) // Increased max size
+    
+    // Isolated nodes get 250% size boost for strong visibility
+    return isConnected ? calculatedSize : calculatedSize * 3.5
+  }
+
   const activeFilterCount = 
     (timeFilter !== "all" ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0) +
@@ -868,25 +944,11 @@ export default function GraphFullPage() {
               }
             }}
             nodeColor={(node: any) => node.color}
-            nodeVal={(node: any) => {
-              // Check if node is connected (has any edges)
-              const isConnected = graphData.links.some((link: any) => {
-                const sourceId = typeof link.source === 'object' ? link.source.id : link.source
-                const targetId = typeof link.target === 'object' ? link.target.id : link.target
-                return sourceId === node.id || targetId === node.id
-              })
-              
-              const baseSize = 4
-              const sizeFactor = Math.log(node.visitCount + 1) * 3
-              const calculatedSize = Math.max(baseSize, Math.min(baseSize + sizeFactor, 18))
-              
-              // Isolated nodes get 250% size boost for strong visibility
-              return isConnected ? calculatedSize : calculatedSize * 3.5
-            }}
+            nodeVal={calculateNodeSize}
             nodeRelSize={8}
             nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
               const label = node.label
-              const fontSize = 11 / globalScale
+              const fontSize = 16 / globalScale // Increased from 11
               ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
               
               // Check if node is connected
@@ -896,13 +958,13 @@ export default function GraphFullPage() {
                 return sourceId === node.id || targetId === node.id
               })
               
-              const baseSize = node.__bckgDimensions ? node.__bckgDimensions[0] : 4
+              const baseSize = calculateNodeSize(node) // Use the calculated value from nodeVal
               // Apply size boost for isolated nodes in rendering
               const size = isConnected ? baseSize : baseSize * 1.5
               const isSelected = selectedNodesForLink.includes(node.id)
               
               ctx.beginPath()
-              ctx.arc(node.x, node.y, size * 1.5, 0, 2 * Math.PI, false)
+              ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false)
               ctx.fillStyle = isSelected ? '#0072de' : node.color
               ctx.fill()
               
@@ -912,7 +974,7 @@ export default function GraphFullPage() {
               
               if (isSelected) {
                 ctx.beginPath()
-                ctx.arc(node.x, node.y, size * 2, 0, 2 * Math.PI, false)
+                ctx.arc(node.x, node.y, size * 1.3, 0, 2 * Math.PI, false)
                 ctx.strokeStyle = '#0072de'
                 ctx.lineWidth = 2 / globalScale
                 ctx.setLineDash([5 / globalScale, 5 / globalScale])
@@ -924,11 +986,18 @@ export default function GraphFullPage() {
                 ctx.textAlign = 'center'
                 ctx.textBaseline = 'top'
                 ctx.fillStyle = '#1f2937'
-                ctx.fillText(label, node.x, node.y + (size * 1.5) + 5)
+                // Add background for better readability
+                const textWidth = ctx.measureText(label).width
+                const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+                ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y + size + 2, bckgDimensions[0], bckgDimensions[1])
+                
+                ctx.fillStyle = '#000'
+                ctx.fillText(label, node.x, node.y + size + 2)
               }
             }}
             nodeCanvasObjectMode={() => 'replace'}
-            linkWidth={(link: any) => link.isManual ? 2 : Math.max(0.5, link.value * 1.5)}
+            linkWidth={(link: any) => link.isManual ? 2 : Math.max(1, link.value * 2)}
             linkColor={(link: any) => link.isManual ? '#0072de' : '#cbd5e1'}
             linkLineDash={(link: any) => link.isManual ? [5, 5] : null}
             linkDirectionalParticles={0}
@@ -936,7 +1005,8 @@ export default function GraphFullPage() {
             onNodeHover={null}
             cooldownTicks={150}
             dagMode={null}
-            d3VelocityDecay={0.2}
+            d3VelocityDecay={0.3}
+            d3AlphaDecay={0.02}
             enableNodeDrag={true}
             enableZoomInteraction={true}
             enablePanInteraction={false}

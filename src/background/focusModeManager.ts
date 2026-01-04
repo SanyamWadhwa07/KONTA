@@ -2,6 +2,7 @@
 
 import type { BlocklistCategory, FocusModeState } from "~/types/focus-mode"
 import { loadBlocklist } from "./blocklistStore"
+import { log, warn } from "~/lib/logger"
 
 const FOCUS_MODE_STATE_KEY = "focus-mode-state"
 const RULE_ID_START = 10000 // Start rule IDs at 10000 to avoid conflicts
@@ -13,7 +14,7 @@ let currentState: FocusModeState = {
 
 // Initialize focus mode on extension startup
 export async function initializeFocusMode(): Promise<void> {
-  console.log("[Focus Mode] Initializing...")
+  log("[Focus Mode] Initializing...")
 
   // Load saved state from storage
   const savedState = await loadFocusModeState()
@@ -21,10 +22,10 @@ export async function initializeFocusMode(): Promise<void> {
 
   // If focus mode was active, restore blocking rules
   if (currentState.isActive) {
-    console.log("[Focus Mode] Restoring active focus mode from previous session")
+    log("[Focus Mode] Restoring active focus mode from previous session")
     await updateBlockingRules()
   } else {
-    console.log("[Focus Mode] Focus mode is inactive")
+    log("[Focus Mode] Focus mode is inactive")
   }
 }
 
@@ -64,7 +65,7 @@ async function saveFocusModeState(state: FocusModeState): Promise<void> {
         )
         reject(chrome.runtime.lastError)
       } else {
-        console.log("[Focus Mode] State saved:", state)
+        log("[Focus Mode] State saved:", state)
         resolve()
       }
     })
@@ -95,7 +96,7 @@ async function sweepBlockedTabs(): Promise<void> {
         blockedDomains.add(domain)
       })
 
-    console.log("[Focus Mode] Sweeping tabs for blocked domains:", Array.from(blockedDomains))
+    log("[Focus Mode] Sweeping tabs for blocked domains:", Array.from(blockedDomains))
 
     // Get all open tabs
     const tabs = await chrome.tabs.query({})
@@ -114,7 +115,7 @@ async function sweepBlockedTabs(): Promise<void> {
         )
         
         if (isBlocked) {
-          console.log(`[Focus Mode] Closing blocked tab: ${tab.url}`)
+          log(`[Focus Mode] Closing blocked tab: ${tab.url}`)
           await chrome.tabs.remove(tab.id)
           closedCount++
         }
@@ -124,7 +125,7 @@ async function sweepBlockedTabs(): Promise<void> {
       }
     }
     
-    console.log(`[Focus Mode] Closed ${closedCount} blocked tabs`)
+    log(`[Focus Mode] Closed ${closedCount} blocked tabs`)
   } catch (error) {
     console.error("[Focus Mode] Error sweeping blocked tabs:", error)
   }
@@ -134,7 +135,7 @@ async function sweepBlockedTabs(): Promise<void> {
 export async function toggleFocusMode(): Promise<FocusModeState> {
   currentState.isActive = !currentState.isActive
 
-  console.log(
+  log(
     `[Focus Mode] ${currentState.isActive ? "Activating" : "Deactivating"} focus mode`
   )
 
@@ -161,11 +162,11 @@ export async function toggleCategory(
   if (index === -1) {
     // Enable category
     currentState.enabledCategories.push(category)
-    console.log(`[Focus Mode] Enabled category: ${category}`)
+    log(`[Focus Mode] Enabled category: ${category}`)
   } else {
     // Disable category
     currentState.enabledCategories.splice(index, 1)
-    console.log(`[Focus Mode] Disabled category: ${category}`)
+    log(`[Focus Mode] Disabled category: ${category}`)
   }
 
   // Update blocking rules if focus mode is active
@@ -185,7 +186,7 @@ export async function setEnabledCategories(
 ): Promise<FocusModeState> {
   currentState.enabledCategories = [...categories]
 
-  console.log(`[Focus Mode] Updated enabled categories:`, categories)
+  log(`[Focus Mode] Updated enabled categories:`, categories)
 
   // Update blocking rules if focus mode is active
   if (currentState.isActive) {
@@ -225,12 +226,12 @@ async function updateBlockingRules(): Promise<void> {
       await chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds: ruleIdsToRemove
       })
-      console.log(`[Focus Mode] Removed ${ruleIdsToRemove.length} existing rules`)
+      log(`[Focus Mode] Removed ${ruleIdsToRemove.length} existing rules`)
     }
 
     // If focus mode is inactive, we're done
     if (!currentState.isActive) {
-      console.log("[Focus Mode] No rules added (focus mode inactive)")
+      log("[Focus Mode] No rules added (focus mode inactive)")
       return
     }
 
@@ -240,14 +241,14 @@ async function updateBlockingRules(): Promise<void> {
     // Use the enabled categories from focus mode state
     const activeCategories = currentState.enabledCategories
 
-    console.log(`[Focus Mode] Active categories:`, activeCategories)
+    log(`[Focus Mode] Active categories:`, activeCategories)
 
     // Filter entries by active categories
     const entriesToBlock = blocklist.entries.filter((entry) =>
       activeCategories.includes(entry.category)
     )
 
-    console.log(`[Focus Mode] Entries to block: ${entriesToBlock.length}`)
+    log(`[Focus Mode] Entries to block: ${entriesToBlock.length}`)
 
     // Convert entries to declarativeNetRequest rules
     const rulesToAdd: chrome.declarativeNetRequest.Rule[] = []
@@ -300,12 +301,12 @@ async function updateBlockingRules(): Promise<void> {
         }
       }
 
-      console.log(`[Focus Mode] Rule ${ruleId}: "${rawPattern}" → urlFilter: "${urlFilter}"`)
+      log(`[Focus Mode] Rule ${ruleId}: "${rawPattern}" → urlFilter: "${urlFilter}"`)
 
       // Skip if we've already added this filter (deduplication)
       const filterKey = urlFilter || regexFilter || ""
       if (seenFilters.has(filterKey)) {
-        console.log(`[Focus Mode] Skipping duplicate filter: "${filterKey}"`)
+        log(`[Focus Mode] Skipping duplicate filter: "${filterKey}"`)
         return
       }
       seenFilters.add(filterKey)
@@ -318,7 +319,7 @@ async function updateBlockingRules(): Promise<void> {
       await chrome.declarativeNetRequest.updateDynamicRules({
         addRules: rulesToAdd
       })
-      console.log(`[Focus Mode] Added ${rulesToAdd.length} blocking rules`)
+      log(`[Focus Mode] Added ${rulesToAdd.length} blocking rules`)
     }
   } catch (error) {
     console.error("[Focus Mode] Error updating blocking rules:", error)
@@ -328,7 +329,7 @@ async function updateBlockingRules(): Promise<void> {
 // Refresh blocking rules (call after blocklist changes)
 export async function refreshBlockingRules(): Promise<void> {
   if (currentState.isActive) {
-    console.log("[Focus Mode] Refreshing blocking rules...")
+    log("[Focus Mode] Refreshing blocking rules...")
     await updateBlockingRules()
   }
 }

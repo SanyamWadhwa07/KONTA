@@ -1,4 +1,5 @@
 import { env, pipeline } from "@xenova/transformers"
+import { log, warn } from "~/lib/logger"
 
 // ================================
 // AGGRESSIVE MV3 FIX
@@ -55,7 +56,7 @@ export async function initializeModel(): Promise<SimpleEmbeddingPipeline | null>
   if (loadingPromise) return loadingPromise
 
   try {
-    console.log('🔄 Initializing model with WASM-only backend...')
+    log('🔄 Initializing model with WASM-only backend...')
     
     // Force execution provider to CPU/WASM only
     loadingPromise = pipeline(
@@ -70,7 +71,7 @@ export async function initializeModel(): Promise<SimpleEmbeddingPipeline | null>
     ) as Promise<SimpleEmbeddingPipeline>
 
     embeddingPipeline = await loadingPromise
-    console.log(`✅ Model loaded: ${MODEL_ID}`)
+    log(`✅ Model loaded: ${MODEL_ID}`)
     return embeddingPipeline
   } catch (error) {
     console.error("❌ Failed to load embedding model:", error)

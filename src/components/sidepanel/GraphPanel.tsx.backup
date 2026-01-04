@@ -78,7 +78,7 @@ export function GraphPanel() {
 
   useEffect(() => {
     if (graph) {
-      console.log("[GraphPanel] Graph loaded:", {
+      log("[GraphPanel] Graph loaded:", {
         nodes: graph.nodes.length,
         edges: graph.edges.length,
         nodesSample: graph.nodes.slice(0, 2),

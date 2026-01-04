@@ -1,6 +1,22 @@
 import type { PageEvent } from "~/types/page-event"
 import type { Project } from "~/types/project"
+import { log, warn } from "~/lib/logger"
 import type { Session } from "~/types/session"
+
+// Clean URL to remove chrome-extension prefix if present
+function cleanUrl(url: string): string {
+  // Remove chrome-extension://[extension-id]/tabs/ prefix
+  const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
+  if (chromeExtPattern.test(url)) {
+    const cleanedUrl = url.replace(chromeExtPattern, '')
+    return cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
+  }
+  // Ensure URL has protocol (not relative)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'https://' + url
+  }
+  return url
+}
 
 export interface GraphNode {
   id: string
@@ -237,11 +253,11 @@ export function buildKnowledgeGraph(
     maxNodes = 500
   } = options
 
-  console.log("[KnowledgeGraph] Building graph from pages:", pages.length)
+  log("[KnowledgeGraph] Building graph from pages:", pages.length)
 
   // Filter out utility pages (login, auth, error pages, etc.)
   const contentPages = pages.filter(page => !isUtilityPage(page))
-  console.log("[KnowledgeGraph] Filtered out utility pages:", pages.length - contentPages.length)
+  log("[KnowledgeGraph] Filtered out utility pages:", pages.length - contentPages.length)
 
   // First deduplicate by URL, keeping latest visit
   const pageMap = new Map<string, PageEvent>()
@@ -274,7 +290,7 @@ export function buildKnowledgeGraph(
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, maxNodes)
 
-  console.log("[KnowledgeGraph] Valid pages with embeddings:", validPages.length)
+  log("[KnowledgeGraph] Valid pages with embeddings:", validPages.length)
 
   if (validPages.length === 0) {
     return { nodes: [], edges: [], lastUpdated: Date.now() }
@@ -284,11 +300,12 @@ export function buildKnowledgeGraph(
   const nodes: GraphNode[] = validPages.map(page => ({
     id: page.title, // Use title as ID to ensure uniqueness by title
     title: page.title,
-    url: page.url,
+    url: cleanUrl(page.url), // Clean URL to remove chrome-extension prefix
     domain: page.domain,
     cluster: -1,
     visitCount: page.visitCount || 1,
-    searchQuery: page.searchQuery // Preserve search query if available
+    searchQuery: page.searchQuery, // Preserve search query if available
+    timestamp: page.timestamp // Add timestamp for timeline ordering
   }))
 
   // Count domain occurrences for penalty calculation
@@ -362,7 +379,7 @@ export function buildKnowledgeGraph(
     }
   }
 
-  console.log("[KnowledgeGraph] Built weighted edges:", edges.length)
+  log("[KnowledgeGraph] Built weighted edges:", edges.length)
 
   // Assign clusters using Louvain community detection
   const clusters = louvainClustering(nodes, edges)
@@ -371,7 +388,7 @@ export function buildKnowledgeGraph(
   })
 
   const uniqueClusters = new Set(clusters).size
-  console.log("[KnowledgeGraph] Identified clusters:", uniqueClusters)
+  log("[KnowledgeGraph] Identified clusters:", uniqueClusters)
 
   return {
     nodes,
@@ -620,7 +637,7 @@ export async function buildProjectGraph(
   recentPages: PageEvent[],
   maxNodes: number = 500
 ): Promise<KnowledgeGraph> {
-  console.log("[ProjectGraph] Building project-based graph", {
+  log("[ProjectGraph] Building project-based graph", {
     projects: projects.length
   })
 
@@ -637,18 +654,21 @@ export async function buildProjectGraph(
     
     // Each site becomes a node in the same cluster
     project.sites.forEach((site, siteIndex) => {
+      // Clean the URL to remove chrome-extension prefix
+      const cleanedUrl = cleanUrl(site.url)
+      
       let domain = 'Unknown'
       try {
-        const url = site.url.startsWith('http') ? site.url : `https://${site.url}`
+        const url = cleanedUrl.startsWith('http') ? cleanedUrl : `https://${cleanedUrl}`
         domain = new URL(url).hostname
       } catch (e) {
-        domain = site.url.split('/')[0] || 'Unknown'
+        domain = cleanedUrl.split('/')[0] || 'Unknown'
       }
       
       const node: GraphNode = {
         id: `${project.id}-site-${siteIndex}`,
         title: site.title,
-        url: site.url,
+        url: cleanedUrl,
         domain: domain,
         cluster: projectIndex, // All sites in same project share cluster ID
         visitCount: site.visitCount,
@@ -683,7 +703,7 @@ export async function buildProjectGraph(
     }
   })
 
-  console.log("[ProjectGraph] Built project graph:", {
+  log("[ProjectGraph] Built project graph:", {
     nodes: nodes.length,
     edges: edges.length,
     projects: projects.length

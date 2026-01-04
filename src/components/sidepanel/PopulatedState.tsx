@@ -1,12 +1,19 @@
-import { X, Search, ChevronDown, Settings, ArrowLeft, ExternalLink, MoreVertical, ExternalLinkIcon, Copy, Trash2, EyeOff, Folder, Calendar, Tag, Edit2, Clock } from "lucide-react"
-import { useEffect, useMemo, useState, useRef } from "react"
+import { X, Search, ChevronDown, Settings, ArrowLeft, ExternalLink, MoreVertical, ExternalLinkIcon, Copy, Trash2, EyeOff, Folder, Calendar, Tag, Edit2, Clock, Bell, BellOff, Check, Focus } from "lucide-react"
+import { useEffect, useMemo, useState, useRef, useCallback } from "react"
 import type { PageEvent } from "~/types/page-event"
 import type { Session } from "~/types/session"
 import type { Label } from "~/background/labelsStore"
 import type { Project } from "~/types/project"
+import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
+import { generateClusterLabel, getClusterColor } from "~/lib/knowledge-graph"
 import { CoiPanel } from "./CoiPanel"
 import { GraphPanel } from "./GraphPanel"
 import { FocusPanel } from "./FocusPanel"
+import { ProjectsPanel } from "./ProjectPanel"
+import type { AppSettings } from "~/types/settings"
+import { DEFAULT_SETTINGS, getSensitivityThreshold } from "~/types/settings"
+import { SettingsModal } from "./SettingsModal"
+import { log, warn } from "~/lib/logger"
 
 // Mock filter data - will be fetched from API
 const MOCK_FILTERS = [
@@ -60,6 +67,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
   const [results, setResults] = useState<SearchResult[]>([])
   const [currentPage, setCurrentPage] = useState<{ url: string; title: string } | null>(null)
   const [quickAddRequest, setQuickAddRequest] = useState<{ url: string; title: string } | null>(null)
+  const [showCurrentPage, setShowCurrentPage] = useState(false)
 
   // Update activeTab when initialTab changes
   useEffect(() => {
@@ -87,19 +95,28 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
   const [expandFilters, setExpandFilters] = useState(false)
   const [selectedFilter, setSelectedFilter] = useState<number | null>(null)
   const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null)
+  const [timelineView, setTimelineView] = useState<"sessions" | "clusters">("sessions")
+  const [clusters, setClusters] = useState<KnowledgeGraph | null>(null)
   const [expandedDays, setExpandedDays] = useState<string[]>(["today"])
   const [expandedSessions, setExpandedSessions] = useState<string[]>([])
   const [expandedProjects, setExpandedProjects] = useState<string[]>([])
+  const [expandedClusterDays, setExpandedClusterDays] = useState<string[]>(["today"])
+  const [expandedClusters, setExpandedClusters] = useState<number[]>([])
   const [showAddLabelModal, setShowAddLabelModal] = useState(false)
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3B82F6")
   const [showSettingsModal, setShowSettingsModal] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
-  const [enableNotifications, setEnableNotifications] = useState(true)
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+  const [candidatesCount, setCandidatesCount] = useState(0)
+  const [expandedSettingsSections, setExpandedSettingsSections] = useState<string[]>(['project-detection', 'privacy', 'notifications', 'developer', 'ui', 'about'])
+  const [newExcludedDomain, setNewExcludedDomain] = useState("")
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const tabScrollRef = useRef<HTMLDivElement | null>(null)
+  const labelsScrollRef = useRef<HTMLDivElement | null>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
+  const [canScrollLabelsLeft, setCanScrollLabelsLeft] = useState(false)
+  const [canScrollLabelsRight, setCanScrollLabelsRight] = useState(false)
 
   const fetchCurrentTab = () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -120,18 +137,74 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     }
   }
 
-  useEffect(() => {
-    checkTabScroll()
-    const scrollContainer = tabScrollRef.current
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', checkTabScroll)
-      window.addEventListener('resize', checkTabScroll)
-      return () => {
-        scrollContainer.removeEventListener('scroll', checkTabScroll)
-        window.removeEventListener('resize', checkTabScroll)
-      }
+  const checkLabelsScroll = useCallback(() => {
+    if (labelsScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = labelsScrollRef.current
+      setCanScrollLabelsLeft(scrollLeft > 0)
+      setCanScrollLabelsRight(scrollLeft < scrollWidth - clientWidth - 5)
     }
   }, [])
+
+  useEffect(() => {
+    checkTabScroll()
+    checkLabelsScroll()
+    
+    const tabScrollContainer = tabScrollRef.current
+    const labelsScrollContainer = labelsScrollRef.current
+    let rafId: number | null = null
+    let scrollCheckRafId: number | null = null
+    
+    // Define handleResize before it's used
+    const handleResize = () => {
+      if (rafId) cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => {
+        checkTabScroll()
+        checkLabelsScroll()
+      })
+    }
+    
+    // Tab scroll listener
+    if (tabScrollContainer) {
+      tabScrollContainer.addEventListener('scroll', checkTabScroll)
+    }
+    
+    // Labels scroll listeners
+    if (labelsScrollContainer) {
+      const handleScroll = () => {
+        if (scrollCheckRafId) cancelAnimationFrame(scrollCheckRafId)
+        scrollCheckRafId = requestAnimationFrame(() => {
+          checkLabelsScroll()
+        })
+      }
+      
+      labelsScrollContainer.addEventListener('scroll', handleScroll, { passive: true })
+      
+      // Add resize listener
+      window.addEventListener('resize', handleResize)
+      
+      // Cleanup for this effect
+      return () => {
+        if (tabScrollContainer) {
+          tabScrollContainer.removeEventListener('scroll', checkTabScroll)
+        }
+        labelsScrollContainer.removeEventListener('scroll', handleScroll)
+        if (rafId) cancelAnimationFrame(rafId)
+        if (scrollCheckRafId) cancelAnimationFrame(scrollCheckRafId)
+        window.removeEventListener('resize', handleResize)
+      }
+    }
+    
+    window.addEventListener('resize', handleResize)
+    
+    return () => {
+      if (tabScrollContainer) {
+        tabScrollContainer.removeEventListener('scroll', checkTabScroll)
+      }
+      if (rafId) cancelAnimationFrame(rafId)
+      if (scrollCheckRafId) cancelAnimationFrame(scrollCheckRafId)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [checkLabelsScroll])
 
   const scroll = (direction: 'left' | 'right') => {
     if (tabScrollRef.current) {
@@ -141,6 +214,19 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         behavior: 'smooth'
       })
       setTimeout(checkTabScroll, 300)
+    }
+  }
+
+  const scrollLabels = (direction: 'left' | 'right') => {
+    if (labelsScrollRef.current) {
+      const scrollAmount = 200
+      labelsScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      })
+      // Check scroll state immediately and again after animation completes
+      checkLabelsScroll()
+      setTimeout(checkLabelsScroll, 350)
     }
   }
 
@@ -189,10 +275,17 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
   useEffect(() => {
     // Initial load of sessions
+    let isInitialLoad = true
     const loadSessions = () => {
       sendMessage<{ sessions: Session[] }>({ type: "GET_SESSIONS" })
         .then((res) => {
-          setSessions(res?.sessions ?? [])
+          const loadedSessions = res?.sessions ?? []
+          setSessions(loadedSessions)
+          // Only expand all sessions on initial load, not on subsequent polls
+          if (isInitialLoad) {
+            setExpandedSessions(loadedSessions.map((s) => s.id))
+            isInitialLoad = false
+          }
         })
         .catch((err) => {
           console.error("Failed to load sessions:", err)
@@ -201,13 +294,30 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     }
 
     // Load labels once
-    sendMessage<{ labels: Label[] }>({ type: "GET_LABELS" })
-      .then((res) => {
-        setLabels(res?.labels ?? [])
-      })
-      .catch((err) => {
-        console.error("Failed to load labels:", err)
-      })
+    const loadLabels = () => {
+      sendMessage<{ labels: Label[] }>({ type: "GET_LABELS" })
+        .then((res) => {
+          setLabels(res?.labels ?? [])
+        })
+        .catch((err) => {
+          console.error("Failed to load labels:", err)
+        })
+    }
+
+    // Load clusters from knowledge graph
+    const loadClusters = () => {
+      sendMessage<{ graph: KnowledgeGraph }>({ type: "REFRESH_GRAPH" })
+        .then((res) => {
+          if (res?.graph) {
+            setClusters(res.graph)
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load clusters:", err)
+        })
+    }
+
+    loadLabels()
 
     // Load projects
     const loadProjects = () => {
@@ -222,22 +332,92 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
     loadSessions()
     loadProjects()
+    loadLabels()
+    if (timelineView === "clusters") {
+      loadClusters()
+    }
 
-    // Poll for session and project updates every 2 seconds to catch real-time changes
-    const pollInterval = setInterval(() => {
+    // Poll for session, project, and label updates
+    // Sessions/Clusters: 2 sec interval (fast), Projects/Labels: 2 sec interval
+    const sessionsPollInterval = setInterval(() => {
         if (activeTab === "sessions") {
-            loadSessions()
+            if (timelineView === "sessions") {
+              loadSessions()
+            } else if (timelineView === "clusters") {
+              loadClusters()
+            }
         }
+    }, 2000) // 2 seconds - fast updates when sidebar open
+
+    const otherPollInterval = setInterval(() => {
         if (activeTab === "projects") {
             loadProjects()
         }
+        // Load labels on every poll
+        loadLabels()
     }, 2000)
 
     // Cleanup: stop polling on unmount
     return () => {
-      clearInterval(pollInterval)
+      clearInterval(sessionsPollInterval)
+      clearInterval(otherPollInterval)
     }
-  }, [activeTab])
+  }, [activeTab, timelineView])
+
+  // Reload clusters when switching to clusters view
+  useEffect(() => {
+    if (activeTab === "sessions" && timelineView === "clusters") {
+      sendMessage<{ graph: KnowledgeGraph }>({ type: "REFRESH_GRAPH" })
+        .then((res) => {
+          if (res?.graph) {
+            setClusters(res.graph)
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load clusters:", err)
+        })
+    }
+  }, [timelineView, activeTab])
+
+  // Load settings on mount
+  useEffect(() => {
+    sendMessage<{ settings: AppSettings | null }>({ type: "GET_SETTINGS" })
+      .then((res) => {
+        if (res?.settings) {
+          setSettings(res.settings)
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load settings:", err)
+      })
+
+    // Load candidates count
+    sendMessage<{ count: number }>({ type: "GET_CANDIDATES_COUNT" })
+      .then((res) => {
+        setCandidatesCount(res?.count || 0)
+      })
+      .catch((err) => {
+        console.error("Failed to load candidates count:", err)
+      })
+  }, [])
+
+  // Save settings whenever they change
+  const updateSettings = useCallback((newSettings: AppSettings) => {
+    setSettings(newSettings)
+    sendMessage({ type: "UPDATE_SETTINGS", payload: { settings: newSettings } })
+      .catch((err) => {
+        console.error("Failed to save settings:", err)
+      })
+  }, [])
+
+  // Apply dark mode
+  useEffect(() => {
+    if (settings.ui.darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [settings.ui.darkMode])
 
   const pages = useMemo(() => {
     return sessions.flatMap((s) => s.pages)
@@ -293,6 +473,85 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       }))
   }, [sessions, selectedLabelId])
 
+  // Group clusters by date
+  const clustersByDay = useMemo(() => {
+    if (!clusters || !clusters.nodes || clusters.nodes.length === 0) {
+      return []
+    }
+
+    const grouped: Map<string, { clusters: Map<number, { nodes: GraphNode[]; timestamp: number }>; date: Date; label: string }> = new Map()
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    // Group nodes by cluster ID
+    const clusterMap = new Map<number, GraphNode[]>()
+    clusters.nodes.forEach((node) => {
+      if (!clusterMap.has(node.cluster)) {
+        clusterMap.set(node.cluster, [])
+      }
+      clusterMap.get(node.cluster)!.push(node)
+    })
+
+    // For each cluster, find the most recent timestamp and group by date
+    clusterMap.forEach((nodes, clusterId) => {
+      // Get the most recent timestamp from nodes in this cluster (with validation)
+      const validTimestamps = nodes
+        .map(n => {
+          const ts = n.timestamp || Date.now()
+          // Validate timestamp is a valid number
+          return !isNaN(ts) && ts > 0 ? ts : Date.now()
+        })
+      const latestTimestamp = Math.max(...validTimestamps)
+      const clusterDate = new Date(latestTimestamp)
+      
+      // Validate the date is valid before using it
+      if (isNaN(clusterDate.getTime())) {
+        console.warn("Invalid cluster date, using current time", latestTimestamp)
+        clusterDate.setTime(Date.now())
+      }
+      
+      const clusterDay = new Date(clusterDate.getFullYear(), clusterDate.getMonth(), clusterDate.getDate())
+      const dateKey = clusterDay.toISOString().split('T')[0]
+
+      if (!grouped.has(dateKey)) {
+        let label = ''
+        if (clusterDay.getTime() === today.getTime()) {
+          const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          label = `Today - ${dayName}, ${dateStr}`
+        } else if (clusterDay.getTime() === yesterday.getTime()) {
+          const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          label = `Yesterday - ${dayName}, ${dateStr}`
+        } else {
+          const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          label = `${dayName}, ${dateStr}`
+        }
+
+        grouped.set(dateKey, { clusters: new Map(), date: clusterDay, label })
+      }
+
+      grouped.get(dateKey)!.clusters.set(clusterId, { nodes, timestamp: latestTimestamp })
+    })
+
+    // Sort by date descending (newest first)
+    return Array.from(grouped.entries())
+      .sort(([, a], [, b]) => b.date.getTime() - a.date.getTime())
+      .map(([, data]) => ({
+        ...data,
+        clusters: Array.from(data.clusters.entries())
+          .sort(([, a], [, b]) => b.timestamp - a.timestamp)
+          .map(([clusterId, clusterData]) => ({
+            clusterId,
+            nodes: clusterData.nodes,
+            timestamp: clusterData.timestamp
+          }))
+      }))
+  }, [clusters])
+
   const handleSearch = async (value: string) => {
     setSearchQuery(value)
     
@@ -329,7 +588,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
   const handleClose = () => {
     // Send message to content scripts before closing
-    console.log("Sidepanel sending SIDEPANEL_CLOSED message")
+    log("Sidepanel sending SIDEPANEL_CLOSED message")
     chrome.runtime.sendMessage({ type: "SIDEPANEL_CLOSED" })
     // Also set localStorage as fallback
     localStorage.setItem("aegis-sidebar-closed", "true")
@@ -390,41 +649,137 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     }
   }
 
-  const handleClearAllLabels = async () => {
-    if (!window.confirm("Are you sure you want to reset all labels to defaults? This action cannot be undone.")) {
-      return
-    }
-    try {
-      await sendMessage<{ success: boolean }>({
-        type: "RESET_LABELS_TO_DEFAULT"
-      })
-      const res = await sendMessage<{ labels: Label[] }>({ type: "GET_LABELS" })
-      setLabels(res?.labels ?? [])
-      setSelectedLabelId(null)
-    } catch (err) {
-      console.error("Failed to reset labels:", err)
-    }
-  }
+
 
   const handleExportData = async () => {
     try {
-      const dataToExport = {
-        sessions,
-        labels,
-        exportedAt: new Date().toISOString()
+      const res = await sendMessage<{ data: any }>({ type: "EXPORT_ALL_DATA" })
+      if (res?.data) {
+        const jsonString = JSON.stringify(res.data, null, 2)
+        const blob = new Blob([jsonString], { type: "application/json" })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = `konta-export-${new Date().getTime()}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
       }
-      const jsonString = JSON.stringify(dataToExport, null, 2)
-      const blob = new Blob([jsonString], { type: "application/json" })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `aegis-export-${new Date().getTime()}.json`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
     } catch (err) {
       console.error("Failed to export data:", err)
+    }
+  }
+
+  const handleImportData = async () => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = "application/json"
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      try {
+        const text = await file.text()
+        const data = JSON.parse(text)
+        
+        if (!window.confirm("Import this data? This will merge with existing data.")) {
+          return
+        }
+
+        await sendMessage({ type: "IMPORT_DATA", payload: { data } })
+        
+        // Reload everything
+        window.location.reload()
+      } catch (err) {
+        console.error("Failed to import data:", err)
+        alert("Failed to import data. Please check the file format.")
+      }
+    }
+    input.click()
+  }
+
+  const handleClearAllProjects = async () => {
+    if (!window.confirm("Are you sure you want to delete all projects? This action cannot be undone.")) {
+      return
+    }
+    try {
+      await sendMessage<{ success: boolean }>({ type: "CLEAR_ALL_PROJECTS" })
+      setProjects([])
+    } catch (err) {
+      console.error("Failed to clear projects:", err)
+    }
+  }
+
+  const handleClearAllData = async () => {
+    if (!window.confirm("⚠️ WARNING: This will delete ALL data including sessions, projects, labels, and settings. This action cannot be undone. Are you absolutely sure?")) {
+      return
+    }
+    try {
+      await sendMessage<{ success: boolean }>({ type: "CLEAR_ALL_DATA" })
+      // Reload to reset state
+      window.location.reload()
+    } catch (err) {
+      console.error("Failed to clear all data:", err)
+    }
+  }
+
+  const handleResetAllSettings = async () => {
+    if (!window.confirm("Reset all settings to defaults? This will clear cache and restore default settings.")) {
+      return
+    }
+    try {
+      await sendMessage<{ success: boolean }>({ type: "RESET_ALL_SETTINGS" })
+      setSettings(DEFAULT_SETTINGS)
+      alert("Settings reset successfully. Extension may need to reload.")
+    } catch (err) {
+      console.error("Failed to reset settings:", err)
+    }
+  }
+
+  const handleAddExcludedDomain = () => {
+    if (!newExcludedDomain.trim()) return
+    
+    const domain = newExcludedDomain.trim().toLowerCase()
+      .replace(/^(https?:\/\/)?(www\.)?/, '')
+      .replace(/\/.*$/, '')
+    
+    if (settings.privacy.excludedDomains.includes(domain)) {
+      alert("Domain already excluded")
+      return
+    }
+
+    updateSettings({
+      ...settings,
+      privacy: {
+        ...settings.privacy,
+        excludedDomains: [...settings.privacy.excludedDomains, domain]
+      }
+    })
+    setNewExcludedDomain("")
+  }
+
+  const handleRemoveExcludedDomain = (domain: string) => {
+    updateSettings({
+      ...settings,
+      privacy: {
+        ...settings.privacy,
+        excludedDomains: settings.privacy.excludedDomains.filter(d => d !== domain)
+      }
+    })
+  }
+
+  const toggleSettingsSection = (section: string) => {
+    setExpandedSettingsSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section)
+        : [...prev, section]
+    )
+  }
+
+  const handleReloadExtension = () => {
+    if (window.confirm("Reload extension? This will close all extension pages.")) {
+      chrome.runtime.reload()
     }
   }
 
@@ -458,13 +813,6 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b bg-white" style={{ borderColor: '#E5E5E5' }}>
         <div className="flex items-center gap-3">
-          <button
-            onClick={onShowEmpty}
-            className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none"
-            style={{ color: 'var(--gray)' }}>
-            <ArrowLeft className="h-5 w-5" />
-            <span className="sr-only">Back</span>
-          </button>
           <img src={chrome.runtime.getURL('assets/konta_logo.svg')} alt="Konta" className="w-8 h-8" />
           <h1 
             className="text-xl font"
@@ -483,9 +831,12 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         </button>
       </div>
 
-      {/* <div className="px-3 pt-2">
-        <CoiPanel sessions={sessions} />
-      </div> */}
+      {/* COI Panel - Show when developer setting is enabled */}
+      {settings.developer.showCoiPanel && (
+        <div className="px-3 pt-2">
+          <CoiPanel sessions={sessions} />
+        </div>
+      )}
 
       {/* Tabs with Navigation Arrows */}
       <div className="flex items-center border-b gap-1 px-2" style={{ borderColor: '#E5E5E5' }}>
@@ -576,13 +927,12 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
+      <div className={`flex-1 flex flex-col gap-0 ${activeTab === "graph" ? "overflow-hidden" : "overflow-y-auto"}`}>
         {activeTab === "graph" ? (
-          <div className="p-3">
+          <div className="w-full h-full">
             <GraphPanel />
           </div>
         ) : activeTab === "projects" ? (
-          <div className="p-3">
             <ProjectsPanel 
               projects={projects} 
               sessions={sessions}
@@ -626,7 +976,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                   await sendMessage({
                     type: "DELETE_PROJECT",
                     payload: { projectId }
-                  })
+                  })  
                   // Reload projects
                   const response = await sendMessage<{ projects: Project[] }>({ 
                     type: "GET_PROJECTS" 
@@ -644,7 +994,6 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               onCompleteQuickAdd={() => setQuickAddRequest(null)}
               onRefreshCurrentPage={fetchCurrentTab}
             />
-          </div>
         ) : activeTab === "focus" ? (
           <FocusPanel />
         ) : (
@@ -671,79 +1020,71 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         </div>
 
         {/* Filters Section */}
-        <div className="bg-white px-2 pb-2">
+        {!searchQuery.trim() && (
+        <div className="sticky top-16 z-20 bg-white px-2 pb-1">
           <div className="flex items-center gap-1.5">
-            {/* Always show first 3 labels */}
-            {labels.slice(0, 3).map((label) => (
-              <button
-                key={label.id}
-                onClick={() => {
-                  setSelectedLabelId(selectedLabelId === label.id ? null : label.id)
-                }}
-                className="px-3 py-1.5 rounded-full text-2xs font-medium transition-all"
-                style={{
-                  backgroundColor: selectedLabelId === label.id ? (label.color || '#000000') : '#FFFFFF',
-                  color: selectedLabelId === label.id ? '#FFFFFF' : '#000000',
-                  border: `1px solid ${label.color || '#000000'}`,
-                  fontFamily: "'Breeze Sans'",
-                  fontSize: '10px'
-                }}>
-                {label.name}
-              </button>
-            ))}
+            {/* Left Scroll Arrow */}
+            <button
+              onClick={() => scrollLabels('left')}
+              disabled={!canScrollLabelsLeft}
+              className="flex-shrink-0 p-1 transition-colors rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ color: '#9A9FA6' }}>
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Labels Scroll Container */}
+            <div 
+              ref={labelsScrollRef}
+              className="overflow-x-hidden flex-1"
+              style={{ scrollBehavior: 'smooth' }}>
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                {labels.map((label) => (
+                  <button
+                    key={label.id}
+                    onClick={() => {
+                      setSelectedLabelId(selectedLabelId === label.id ? null : label.id)
+                    }}
+                    className="px-3 py-1.5 rounded-full text-2xs font-medium transition-all flex-shrink-0"
+                    style={{
+                      backgroundColor: selectedLabelId === label.id ? (label.color || '#000000') : '#FFFFFF',
+                      color: selectedLabelId === label.id ? '#FFFFFF' : '#000000',
+                      border: `1px solid ${label.color || '#000000'}`,
+                      fontFamily: "'Breeze Sans'",
+                      fontSize: '10px'
+                    }}>
+                    {label.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Scroll Arrow */}
+            <button
+              onClick={() => scrollLabels('right')}
+              className="flex-shrink-0 p-1 transition-colors rounded hover:bg-gray-100"
+              style={{ color: '#9A9FA6' }}>
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
 
             {/* Add Label Button - Icon Only */}
             <button
               onClick={() => setShowAddLabelModal(true)}
-              className="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all flex items-center justify-center"
+              className="flex-shrink-0 p-2 transition-all rounded-lg hover:bg-blue-50 active:bg-blue-100"
               style={{
-                backgroundColor: '#F5F5F5',
-                color: '#666',
-                border: '1px dashed #CCC',
-                fontFamily: "'Breeze Sans'",
-                width: '28px',
-                height: '28px',
+                color: '#0074FB',
               }}
               title="Add label">
-              +
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
             </button>
-
-            {/* More/Less button */}
-            {labels.length > 3 && (
-              <button
-                onClick={() => setExpandFilters(!expandFilters)}
-                className="inline-flex items-center gap-0.5 text-2xs font-medium transition-colors ml-auto"
-                style={{ color: '#000000', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-                {expandFilters ? "Less" : "More"}
-                <ChevronDown
-                  className={`h-3 w-3 transition-transform ${expandFilters ? "rotate-180" : ""}`}
-                />
-              </button>
-            )}
           </div>
-          {/* Expanded Labels - Display Below in Grid */}
-          {expandFilters && labels.length > 3 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {labels.slice(3).map((label) => (
-                <button
-                  key={label.id}
-                  onClick={() => {
-                    setSelectedLabelId(selectedLabelId === label.id ? null : label.id)
-                  }}
-                  className="px-3 py-1.5 rounded-full text-2xs font-medium transition-all"
-                  style={{
-                    backgroundColor: selectedLabelId === label.id ? (label.color || '#000000') : '#FFFFFF',
-                    color: selectedLabelId === label.id ? '#FFFFFF' : '#000000',
-                    border: `1px solid ${label.color || '#000000'}`,
-                    fontFamily: "'Breeze Sans'",
-                    fontSize: '10px'
-                  }}>
-                  {label.name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
+        )}
             {/* dev: number of pages indexed */}
           {/* <div className="flex items-center justify-between px-1 text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
             <span>{pages.length} pages indexed</span>
@@ -754,20 +1095,11 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             </div>
           )}
 
+
+
         {/* Search Results or Timeline */}
         {searchQuery.trim() ? (
           <div className="flex flex-col gap-2 p-2">
-            {results.length > 0 && (
-              <div className="flex items-center justify-end pb-1">
-                <button
-                  onClick={openAllResults}
-                  className="px-3 py-1 rounded-md text-xs font-medium transition-colors"
-                  style={{ backgroundColor: '#0074FB', color: 'white', fontFamily: "'Breeze Sans'" }}
-                >
-                  Open all ({Math.min(results.length, MAX_OPEN_TABS)}/{results.length})
-                </button>
-              </div>
-            )}
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <div className="flex gap-1">
@@ -799,25 +1131,37 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             {results.map((item, idx) => {
               const { pageEvent, score, layer } = item
               const opened = pageEvent.openedAt || pageEvent.timestamp
-              const openedText = new Date(opened).toLocaleString()
+              const openedDate = new Date(opened)
+              const openedText = `${String(openedDate.getDate()).padStart(2, '0')}/${String(openedDate.getMonth() + 1).padStart(2, '0')}/${openedDate.getFullYear()} ${String(openedDate.getHours()).padStart(2, '0')}:${String(openedDate.getMinutes()).padStart(2, '0')}:${String(openedDate.getSeconds()).padStart(2, '0')}`
+              const faviconUrl = `https://www.google.com/s2/favicons?sz=16&domain=${new URL(pageEvent.url).hostname}`
               return (
                 <div
                   key={`${pageEvent.url}-${opened}-${idx}`}
-                  className="flex flex-col gap-1 p-2 rounded-lg"
+                  onClick={() => chrome.tabs.create({ url: pageEvent.url })}
+                  className="flex flex-col gap-1 p-2 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
                   style={{ backgroundColor: '#FAFAFA', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold truncate" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-                      {pageEvent.title || pageEvent.url}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <img 
+                        src={faviconUrl} 
+                        alt="favicon" 
+                        className="w-4 h-4 flex-shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none'
+                        }}
+                      />
+                      <div className="text-sm font-normal truncate" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+                        {pageEvent.title || pageEvent.url}
+                      </div>
                     </div>
-                    <span className="text-2xs px-2 py-0.5 rounded" style={{ backgroundColor: '#E8E8E8', color: '#555', fontSize: '10px' }}>
-                      {layer} {score ? `• ${score.toFixed(3)}` : ""}
-                    </span>
                   </div>
-                  <div className="text-xs truncate" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-                    {pageEvent.url}
-                  </div>
-                  <div className="text-2xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-                    Opened: {openedText}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-2xs truncate flex-1" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
+                      {pageEvent.url}
+                    </div>
+                    <div className="text-2xs flex-shrink-0" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
+                      {openedText}
+                    </div>
                   </div>
                 </div>
               )
@@ -825,37 +1169,119 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           </div>
         ) : (
           <div className="flex flex-col p-0.5">
-            {realSessionsByDay.map((dayGroup, dayIndex) => (
-              <DaySection
-                key={dayGroup.label}
-                dayKey={dayGroup.label}
-                dayLabel={dayGroup.label}
-                sessions={dayGroup.sessions}
-                isExpanded={expandedDays.includes(dayGroup.label)}
-                onToggleDay={(key) => {
-                  setExpandedDays((prev) =>
-                    prev.includes(key) ? prev.filter((d) => d !== key) : [...prev, key]
-                  )
-                }}
-                expandedSessions={expandedSessions}
-                onToggleSession={(id) => {
-                  setExpandedSessions((prev) =>
-                    prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-                  )
-                }}                labels={labels}
-                onUpdateSessionLabel={async (sessionId, labelId) => {
-                  try {
-                    await sendMessage<{ success: boolean }>({
-                      type: "UPDATE_SESSION_LABEL",
-                      payload: { sessionId, labelId }
-                    })
-                  } catch (err) {
-                    console.error("Failed to update session label:", err)
-                  }
-                }}
-                onDeleteLabel={handleDeleteLabel}
-              />
-            ))}
+            {timelineView === "sessions" ? (
+              // Sessions View
+              <>
+                {realSessionsByDay.length === 0 && selectedLabelId ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Tag className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
+                    <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      No sessions found with the label<br />
+                      <span style={{ fontWeight: '500' }}>"{labels.find(l => l.id === selectedLabelId)?.name}"</span>
+                    </p>
+                  </div>
+                ) : realSessionsByDay.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Clock className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
+                    <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      No sessions yet<br />
+                      <span style={{ fontSize: '0.85em', opacity: 0.8 }}>Start browsing to track activity</span>
+                    </p>
+                  </div>
+                ) : (
+                  realSessionsByDay.map((dayGroup, dayIndex) => (
+                    <DaySection
+                      key={dayGroup.label}
+                      dayKey={dayGroup.label}
+                      dayLabel={dayGroup.label}
+                      sessions={dayGroup.sessions}
+                      isExpanded={expandedDays.includes(dayGroup.label)}
+                      onToggleDay={(key) => {
+                        setExpandedDays((prev) =>
+                          prev.includes(key) ? prev.filter((d) => d !== key) : [...prev, key]
+                        )
+                      }}
+                      expandedSessions={expandedSessions}
+                      onToggleSession={(id) => {
+                        setExpandedSessions((prev) =>
+                          prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+                        )
+                      }}
+                      labels={labels}
+                      onUpdateSessionLabel={async (sessionId, labelId) => {
+                        try {
+                          await sendMessage<{ success: boolean }>({
+                            type: "UPDATE_SESSION_LABEL",
+                            payload: { sessionId, labelId }
+                          })
+                          // Update local state immediately and force re-render
+                          setSessions(prev => {
+                            const updated = prev.map(s => 
+                              s.id === sessionId ? { ...s, labelId } : s
+                            )
+                            return [...updated]
+                          })
+                        } catch (err) {
+                          console.error("Failed to update session label:", err)
+                        }
+                      }}
+                      onDeleteLabel={handleDeleteLabel}
+                      onOpenCreateLabelModal={() => setShowAddLabelModal(true)}
+                      timelineView={timelineView}
+                      onTimelineViewChange={setTimelineView}
+                      isFirstDay={dayIndex === 0}
+                      searchQuery={searchQuery}
+                    />
+                  ))
+                )}
+              </>
+            ) : (
+              // Clusters View
+              <>
+                {!clusters || clusters.nodes?.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Folder className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
+                    <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      No clusters yet<br />
+                      <span style={{ fontSize: '0.85em', opacity: 0.8 }}>Start browsing to see patterns</span>
+                    </p>
+                  </div>
+                ) : clustersByDay.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Folder className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
+                    <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      No clusters on this day<br />
+                      <span style={{ fontSize: '0.85em', opacity: 0.8 }}>Check another date</span>
+                    </p>
+                  </div>
+                ) : (
+                  clustersByDay.map((dayGroup, dayIndex) => (
+                    <ClusterDaySection
+                      key={dayGroup.label}
+                      dayKey={dayGroup.label}
+                      dayLabel={dayGroup.label}
+                      clusters={dayGroup.clusters}
+                      isExpanded={expandedClusterDays.includes(dayGroup.label)}
+                      onToggleDay={(key) => {
+                        setExpandedClusterDays((prev) =>
+                          prev.includes(key) ? prev.filter((d) => d !== key) : [...prev, key]
+                        )
+                      }}
+                      expandedClusters={expandedClusters}
+                      onToggleCluster={(id) => {
+                        setExpandedClusters((prev) =>
+                          prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+                        )
+                      }}
+                      timelineView={timelineView}
+                      onTimelineViewChange={setTimelineView}
+                      isFirstDay={dayIndex === 0}
+                      searchQuery={searchQuery}
+                    />
+                  ))
+                )}
+              </>
+            )}
           </div>
         )}
         </>
@@ -872,295 +1298,114 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         </button>
       </div>
       {showAddLabelModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-80 shadow-lg">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
-              Create New Label
-            </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowAddLabelModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl" style={{ width: '280px' }} onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-4 py-3 border-b" style={{ borderColor: '#E5E5E5' }}>
+              <h2 className="text-sm font-medium" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                Create Label
+              </h2>
+            </div>
             
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="text-xs font-medium" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
-                  Label Name
-                </label>
-                <input
-                  type="text"
-                  value={newLabelName}
-                  onChange={(e) => setNewLabelName(e.target.value)}
-                  placeholder="e.g., Project X"
-                  className="w-full mt-2 px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500"
-                  style={{ borderColor: '#DDD', fontFamily: "'Breeze Sans'" }}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddLabel()
-                    }
-                  }}
-                />
-              </div>
+            {/* Content */}
+            <div className="px-4 py-3">
+              <div className="flex flex-col gap-2.5">
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: '#4B5563', fontFamily: "'Breeze Sans'" }}>
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newLabelName}
+                    onChange={(e) => setNewLabelName(e.target.value)}
+                    placeholder="e.g. Development"
+                    autoFocus
+                    className="w-full px-2.5 py-1.5 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    style={{ borderColor: '#D1D5DB', fontFamily: "'Breeze Sans'" }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newLabelName.trim()) {
+                        handleAddLabel()
+                      } else if (e.key === 'Escape') {
+                        setShowAddLabelModal(false)
+                      }
+                    }}
+                  />
+                </div>
 
-              <div>
-                <label className="text-xs font-medium" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
-                  Color
-                </label>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium" style={{ color: '#4B5563', fontFamily: "'Breeze Sans'" }}>
+                    Color
+                  </label>
                   <input
                     type="color"
                     value={newLabelColor}
                     onChange={(e) => setNewLabelColor(e.target.value)}
-                    className="w-12 h-10 border rounded cursor-pointer"
-                    style={{ borderColor: '#DDD' }}
+                    className="w-8 h-8 border rounded cursor-pointer"
+                    style={{ borderColor: '#D1D5DB' }}
                   />
-                  <span className="text-xs" style={{ color: '#666' }}>
-                    {newLabelColor}
-                  </span>
+                  <div className="text-xs" style={{ color: '#9CA3AF', fontFamily: "'Breeze Sans'" }}>{newLabelColor}</div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() => {
-                    setShowAddLabelModal(false)
-                    setNewLabelName("")
-                    setNewLabelColor("#3B82F6")
-                  }}
-                  className="px-4 py-2 text-xs rounded-lg transition-colors"
-                  style={{
-                    backgroundColor: '#F5F5F5',
-                    color: '#666',
-                    fontFamily: "'Breeze Sans'",
-                  }}>
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddLabel}
-                  disabled={!newLabelName.trim()}
-                  className="px-4 py-2 text-xs rounded-lg text-white transition-colors disabled:opacity-50"
-                  style={{
-                    backgroundColor: newLabelName.trim() ? '#0072DE' : '#CCC',
-                    fontFamily: "'Breeze Sans'",
-                  }}>
-                  Create
-                </button>
-              </div>
+            {/* Footer */}
+            <div className="px-4 py-2.5 border-t flex gap-2 justify-end" style={{ borderColor: '#E5E5E5', backgroundColor: '#F9FAFB' }}>
+              <button
+                onClick={() => {
+                  setShowAddLabelModal(false)
+                  setNewLabelName("")
+                  setNewLabelColor("#3B82F6")
+                }}
+                className="px-3 py-1.5 text-xs rounded transition-colors"
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  color: '#6B7280',
+                  border: '1px solid #D1D5DB',
+                  fontFamily: "'Breeze Sans'",
+                }}>
+                Cancel
+              </button>
+              <button
+                onClick={handleAddLabel}
+                disabled={!newLabelName.trim()}
+                className="px-3 py-1.5 text-xs rounded text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: newLabelName.trim() ? '#0072df' : '#9CA3AF',
+                  fontFamily: "'Breeze Sans'",
+                  fontWeight: 500
+                }}>
+                Create
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Settings Modal */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
-                Settings
-              </h2>
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="p-1 hover:bg-blue-100 rounded transition-colors"
-                style={{ color: '#0072df' }}>
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {/* Preferences Section */}
-              <div className="pb-4 border-b" style={{ borderColor: '#E5E5E5' }}>
-                <h3 className="text-sm font-normal mb-3" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
-                  Preferences
-                </h3>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => setDarkMode(!darkMode)}
-                    className="w-full text-left px-4 py-3 rounded-lg text-sm transition-all hover:bg-gray-50 border flex items-center justify-between"
-                    style={{ 
-                      color: '#080A0B', 
-                      fontFamily: "'Breeze Sans'",
-                      borderColor: '#E5E5E5',
-                      backgroundColor: '#FFFFFF'
-                    }}>
-                    <div>
-                      <div className="font-medium flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m6.364 1.636l-.707-.707M21 12h-1m1.364 6.364l-.707-.707M12 21v1m-6.364-1.636l.707-.707M3 12h1M3.636 5.636l.707-.707" />
-                        </svg>
-                        Dark Mode
-                      </div>
-                      <div className="text-xs" style={{ color: '#9A9FA6', marginTop: '4px' }}>
-                        Toggle dark theme
-                      </div>
-                    </div>
-                    <div 
-                      style={{ 
-                        width: '40px', 
-                        height: '20px', 
-                        backgroundColor: darkMode ? '#0072df' : '#E5E5E5', 
-                        borderRadius: '10px',
-                        transition: 'background-color 0.3s',
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingLeft: darkMode ? '20px' : '2px'
-                      }}>
-                      <div 
-                        style={{ 
-                          width: '16px', 
-                          height: '16px', 
-                          backgroundColor: 'white', 
-                          borderRadius: '50%',
-                          transition: 'all 0.3s'
-                        }} 
-                      />
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setEnableNotifications(!enableNotifications)}
-                    className="w-full text-left px-4 py-3 rounded-lg text-sm transition-all hover:bg-gray-50 border flex items-center justify-between"
-                    style={{ 
-                      color: '#080A0B', 
-                      fontFamily: "'Breeze Sans'",
-                      borderColor: '#E5E5E5',
-                      backgroundColor: '#FFFFFF'
-                    }}>
-                    <div>
-                      <div className="font-medium flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        Notifications
-                      </div>
-                      <div className="text-xs" style={{ color: '#9A9FA6', marginTop: '4px' }}>
-                        Enable notifications for similar content
-                      </div>
-                    </div>
-                    <div 
-                      style={{ 
-                        width: '40px', 
-                        height: '20px', 
-                        backgroundColor: enableNotifications ? '#0072df' : '#E5E5E5', 
-                        borderRadius: '10px',
-                        transition: 'background-color 0.3s',
-                        position: 'relative',
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingLeft: enableNotifications ? '20px' : '2px'
-                      }}>
-                      <div 
-                        style={{ 
-                          width: '16px', 
-                          height: '16px', 
-                          backgroundColor: 'white', 
-                          borderRadius: '50%',
-                          transition: 'all 0.3s'
-                        }} 
-                      />
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Data Management Section */}
-              <div className="pb-4 border-b" style={{ borderColor: '#E5E5E5' }}>
-                <h3 className="text-sm font-normal mb-3" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
-                  Data Management
-                </h3>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => {
-                      handleClearAllSessions()
-                      setShowSettingsModal(false)
-                    }}
-                    className="w-full text-left px-4 py-3 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                    style={{ 
-                      color: '#080A0B', 
-                      fontFamily: "'Breeze Sans'",
-                      borderColor: '#E5E5E5',
-                      backgroundColor: '#FFFFFF'
-                    }}>
-                    <div className="font-medium flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      Clear All Sessions
-                    </div>
-                    <div className="text-xs" style={{ color: '#9A9FA6', marginTop: '4px' }}>
-                      Permanently delete all recorded sessions
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Labels Section */}
-              <div className="pb-4 border-b" style={{ borderColor: '#E5E5E5' }}>
-                <h3 className="text-sm font-normal mb-3" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
-                  Labels
-                </h3>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => {
-                      handleClearAllLabels()
-                      setShowSettingsModal(false)
-                    }}
-                    className="w-full text-left px-4 py-3 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                    style={{ 
-                      color: '#080A0B', 
-                      fontFamily: "'Breeze Sans'",
-                      borderColor: '#E5E5E5',
-                      backgroundColor: '#FFFFFF'
-                    }}>
-                    <div className="font-medium flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Reset Labels to Default
-                    </div>
-                    <div className="text-xs" style={{ color: '#9A9FA6', marginTop: '4px' }}>
-                      Restore default label set and remove custom labels
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* About Section */}
-              <div>
-                <h3 className="text-sm font-normal mb-3" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
-                  About
-                </h3>
-                <div className="px-4 py-3 rounded-lg border" style={{ backgroundColor: '#F5F5F5', borderColor: '#E5E5E5' }}>
-                  <div className="text-xs" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span style={{ color: '#9A9FA6' }}>Sessions recorded:</span>
-                      <span className="font-normal" style={{ fontSize: '0.875rem', color: '#080A0B' }}>{sessions.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span style={{ color: '#9A9FA6' }}>Total labels:</span>
-                      <span className="font-normal" style={{ fontSize: '0.875rem', color: '#080A0B' }}>{labels.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: '#9A9FA6' }}>Pages indexed:</span>
-                      <span className="font-normal" style={{ fontSize: '0.875rem', color: '#080A0B' }}>{pages.length}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex gap-2 justify-end">
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="px-4 py-2 text-xs rounded-lg transition-all font-medium border"
-                style={{
-                  backgroundColor: '#0072df',
-                  color: '#FFFFFF',
-                  fontFamily: "'Breeze Sans'",
-                  borderColor: '#0072df'
-                }}>
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        settings={settings}
+        onUpdateSettings={updateSettings}
+        expandedSections={expandedSettingsSections}
+        onToggleSection={toggleSettingsSection}
+        sessionsCount={sessions.length}
+        labelsCount={labels.length}
+        pagesCount={pages.length}
+        projectsCount={projects.length}
+        candidatesCount={candidatesCount}
+        onClearAllSessions={handleClearAllSessions}
+        onClearAllProjects={handleClearAllProjects}
+        onExportData={handleExportData}
+        onImportData={handleImportData}
+        onClearAllData={handleClearAllData}
+        onResetAllSettings={handleResetAllSettings}
+        onReloadExtension={handleReloadExtension}
+        newExcludedDomain={newExcludedDomain}
+        onNewExcludedDomainChange={setNewExcludedDomain}
+        onAddExcludedDomain={handleAddExcludedDomain}
+        onRemoveExcludedDomain={handleRemoveExcludedDomain}
+      />
     </div>
   )
 }
@@ -1177,6 +1422,11 @@ interface DaySectionProps {
   labels: Label[]
   onUpdateSessionLabel: (sessionId: string, labelId: string | undefined) => Promise<void>
   onDeleteLabel: (labelId: string) => Promise<void>
+  onOpenCreateLabelModal?: () => void
+  timelineView?: "sessions" | "clusters"
+  onTimelineViewChange?: (view: "sessions" | "clusters") => void
+  isFirstDay?: boolean
+  searchQuery?: string
 }
 
 function DaySection({
@@ -1190,18 +1440,52 @@ function DaySection({
   labels,
   onUpdateSessionLabel,
   onDeleteLabel,
+  onOpenCreateLabelModal,
+  timelineView,
+  onTimelineViewChange,
+  isFirstDay,
+  searchQuery,
 }: DaySectionProps) {
   const visibleCount = isExpanded ? sessions.length : 3
 
   return (
-    <div className="flex flex-col gap-3 pb-0 pt-1 p-2">
-      {/* Day Header */}
-      <div className="text-sm font-normal px-2 mb-2" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
-        <span>{dayLabel}</span>
+    <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
+      {/* Day Header with View Toggle */}
+      <div className="flex items-center justify-between px-2 pr-0 mb-1 mt-4">
+        <div className="text-sm font-normal" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+          <span>{dayLabel}</span>
+        </div>
+        {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E5E5E5' }}>
+            <button
+              onClick={() => onTimelineViewChange("sessions")}
+              className="px-2 py-1 text-2xs font-medium transition-all"
+              style={{
+                backgroundColor: timelineView === "sessions" ? '#0072de' : '#FFFFFF',
+                color: timelineView === "sessions" ? '#FFFFFF' : '#666666',
+                fontFamily: "'Breeze Sans'",
+                fontSize: '10px',
+                borderRight: '1px solid #E5E5E5'
+              }}>
+              Sessions
+            </button>
+            <button
+              onClick={() => onTimelineViewChange("clusters")}
+              className="px-2 py-1 text-2xs font-medium transition-all"
+              style={{
+                backgroundColor: timelineView === "clusters" ? '#0072de' : '#FFFFFF',
+                color: timelineView === "clusters" ? '#FFFFFF' : '#666666',
+                fontFamily: "'Breeze Sans'",
+                fontSize: '10px'
+              }}>
+              Clusters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sessions List */}
-      <div className="flex flex-col gap-3 pt-0">
+      <div className="flex flex-col gap-3 pt-0 pb-1">
         {sessions.slice(0, visibleCount).map((session, index) => (
           <div
             key={session.id}
@@ -1212,17 +1496,9 @@ function DaySection({
               isExpanded={expandedSessions.includes(session.id)}
               onToggle={() => onToggleSession(session.id)}
               labels={labels}
-              onUpdateSessionLabel={async (sessionId, labelId) => {
-                try {
-                  await sendMessage<{ success: boolean }>({
-                    type: "UPDATE_SESSION_LABEL",
-                    payload: { sessionId, labelId }
-                  })
-                } catch (err) {
-                  console.error("Failed to update session label:", err)
-                }
-              }}
+              onUpdateSessionLabel={onUpdateSessionLabel}
               onDeleteLabel={onDeleteLabel}
+              onOpenCreateLabelModal={onOpenCreateLabelModal}
             />
           </div>
         ))}
@@ -1251,14 +1527,35 @@ interface SessionItemProps {
   labels: Label[]
   onUpdateSessionLabel: (sessionId: string, labelId: string | undefined) => void
   onDeleteLabel?: (labelId: string) => Promise<void>
+  onOpenCreateLabelModal?: () => void
 }
 
-function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLabel, onDeleteLabel }: SessionItemProps) {
+function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLabel, onDeleteLabel, onOpenCreateLabelModal }: SessionItemProps) {
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null)
   const [showLabelPicker, setShowLabelPicker] = useState(false)
+  const [suggestedLabel, setSuggestedLabel] = useState<{ labelName: string; confidence: number } | null>(null)
+  const [isDismissed, setIsDismissed] = useState(false)
   const timeStart = new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const timeEnd = new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const domains = [...new Set(session.pages.map((p) => new URL(p.url).hostname.replace('www.', '')))].slice(0, 3)
+  
+  // Fetch label suggestion if session has no label
+  useEffect(() => {
+    if (!session.labelId && !isDismissed) {
+      sendMessage<{ suggestion: { labelName: string; confidence: number } | null }>({
+        type: "GET_LABEL_SUGGESTION",
+        payload: { sessionId: session.id }
+      })
+        .then((res) => {
+          if (res?.suggestion) {
+            setSuggestedLabel(res.suggestion)
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to get label suggestion:", err)
+        })
+    }
+  }, [session.id, session.labelId, isDismissed])
   
   // Close menu when clicking outside
   useEffect(() => {
@@ -1266,16 +1563,19 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
       if (openMenuIndex !== null) {
         setOpenMenuIndex(null)
       }
+      if (showLabelPicker) {
+        setShowLabelPicker(false)
+      }
     }
     
-    if (openMenuIndex !== null) {
+    if (openMenuIndex !== null || showLabelPicker) {
       document.addEventListener('click', handleClickOutside)
     }
     
     return () => {
       document.removeEventListener('click', handleClickOutside)
     }
-  }, [openMenuIndex])
+  }, [openMenuIndex, showLabelPicker])
   
   // Generate a title from the most common domain or first page
   const sessionTitle = session.inferredTitle || (session.pages.length > 0 
@@ -1284,115 +1584,163 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
 
   return (
     <div 
-      onClick={onToggle}
-      className="flex flex-col gap-1.5 p-3 rounded-xl transition-all cursor-pointer"
+      className="flex flex-col gap-1.5 p-3 rounded-xl transition-all relative"
       style={{ 
         backgroundColor: isExpanded ? '#F5F5F5' : '#FFFFFF',
         border: '1px solid #BCBCBC'
       }}>
       {/* Session Header */}
-      <div className="flex items-center gap-2 w-full">
+      <div 
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggle()
+        }}
+        className="flex items-center gap-2 w-full cursor-pointer">
         <div className="flex items-center gap-3 flex-1">
           <p
             className="text-sm font-medium leading-tight"
             style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
             {sessionTitle}
           </p>
-          {/* Reload Session Icon */}
-          <button
-            onClick={async (e) => {
-              e.stopPropagation()
-              // Open all pages from the session in a new tab group
-              const tabIds: number[] = []
-              
-              for (const page of session.pages) {
-                const tab = await chrome.tabs.create({ url: page.url })
-                if (tab.id) tabIds.push(tab.id)
-              }
-              
-              // Create a tab group with the session title
-              if (tabIds.length > 0) {
-                const groupId = await chrome.tabs.group({ tabIds })
-                chrome.tabGroups.update(groupId, { 
-                  title: sessionTitle,
-                  collapsed: false
-                }).catch((error) => {
-                  console.error('Failed to update tab group:', error)
-                })
-              }
-            }}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
-            style={{ color: '#9A9FA6' }}>
-            <ExternalLink className="h-4 w-4" />
-          </button>
-          {/* Label Selector */}
-          <div className="relative">
+        </div>
+        {/* Label Badge */}
+        {session.labelId && (
+          <div
+            className="px-2 py-1 text-xs rounded"
+            style={{
+              backgroundColor: labels.find(l => l.id === session.labelId)?.color || '#E8E8E8',
+              color: '#FFFFFF',
+              fontFamily: "'Breeze Sans'",
+              maxWidth: '100px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+            {labels.find(l => l.id === session.labelId)?.name}
+          </div>
+        )}
+        {/* Suggested Label Badge */}
+        {!session.labelId && suggestedLabel && !isDismissed && (
+          <div
+            className="px-2 py-1 text-xs rounded flex items-center gap-1.5"
+            style={{
+              border: '1.5px dashed #9CA3AF',
+              backgroundColor: '#F9FAFB',
+              color: '#6B7280',
+              fontFamily: "'Breeze Sans'"
+            }}>
+            <span>{labels.find(l => l.name === suggestedLabel.labelName)?.name || suggestedLabel.labelName}</span>
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                setShowLabelPicker(!showLabelPicker)
+                const label = labels.find(l => l.name === suggestedLabel.labelName)
+                if (label) {
+                  onUpdateSessionLabel(session.id, label.id)
+                  setSuggestedLabel(null)
+                }
               }}
-              className="px-2 py-1 text-xs rounded transition-colors"
-              style={{
-                backgroundColor: session.labelId 
-                  ? (labels.find(l => l.id === session.labelId)?.color || '#E8E8E8')
-                  : '#E8E8E8',
-                color: session.labelId ? '#FFFFFF' : '#666',
-                fontFamily: "'Breeze Sans'",
-              }}>
-              {session.labelId ? labels.find(l => l.id === session.labelId)?.name || 'Label' : 'Label'}
+              className="hover:bg-green-100 rounded p-0.5 transition-colors"
+              title="Apply suggestion"
+              style={{ color: '#10B981' }}>
+              <Check className="h-3 w-3" />
             </button>
-            {showLabelPicker && (
-              <div
-                className="absolute top-full left-0 mt-1 z-20 bg-white rounded-lg py-1 min-w-[200px]"
-                style={{
-                  border: '1px solid #E5E5E5',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-                }}
-                onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={() => {
-                    onUpdateSessionLabel(session.id, undefined)
-                    setShowLabelPicker(false)
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
-                  style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
-                  No label
-                </button>
-                {labels.map((label) => (
-                  <div
-                    key={label.id}
-                    className="flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-100 transition-colors group">
-                    <button
-                      onClick={() => {
-                        onUpdateSessionLabel(session.id, label.id)
-                        setShowLabelPicker(false)
-                      }}
-                      className="flex-1 text-left flex items-center gap-2"
-                      style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
-                      <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: label.color || '#000' }}
-                      />
-                      {label.name}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (onDeleteLabel) {
-                          onDeleteLabel(label.id)
-                        }
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded ml-1"
-                      title="Delete label"
-                      style={{ color: '#9A9FA6' }}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsDismissed(true)
+                setSuggestedLabel(null)
+              }}
+              className="hover:bg-red-100 rounded p-0.5 transition-colors"
+              title="Dismiss"
+              style={{ color: '#EF4444' }}>
+              <X className="h-3 w-3" />
+            </button>
           </div>
+        )}
+        {/* Label Icon Button with Dropdown */}
+        <div className="relative">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowLabelPicker(!showLabelPicker)
+            }}
+            title="Change label"
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            style={{ color: session.labelId ? (labels.find(l => l.id === session.labelId)?.color || '#9A9FA6') : '#9A9FA6' }}>
+            <Tag className="h-4 w-4" />
+          </button>
+
+          {/* Label Picker Dropdown */}
+          {showLabelPicker && (
+            <div
+              className="absolute bg-white rounded-lg py-1 min-w-fit z-50"
+              style={{
+                border: '1px solid #E5E5E5',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                top: '100%',
+                right: 0,
+                marginTop: '4px'
+              }}
+              onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => {
+                  onUpdateSessionLabel(session.id, undefined)
+                  setShowLabelPicker(false)
+                }}
+                className="w-full text-left px-3 py-2 text-xs transition-colors"
+                style={{
+                  color: '#666',
+                  fontFamily: "'Breeze Sans'",
+                  backgroundColor: !session.labelId ? '#F0F0F0' : 'transparent'
+                }}>
+                No label
+              </button>
+              {labels.map((label) => (
+                <div
+                  key={label.id}
+                  className="flex items-center justify-between px-3 py-2 text-xs transition-colors group"
+                  style={{
+                    backgroundColor: session.labelId === label.id ? '#F0F0F0' : 'transparent'
+                  }}>
+                  <button
+                    onClick={() => {
+                      onUpdateSessionLabel(session.id, label.id)
+                      setShowLabelPicker(false)
+                    }}
+                    className="flex-1 text-left flex items-center gap-2"
+                    style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: label.color || '#000' }}
+                    />
+                    {label.name}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (onDeleteLabel) {
+                        onDeleteLabel(label.id)
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded ml-1"
+                    title="Delete label"
+                    style={{ color: '#9A9FA6' }}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <div className="h-px mx-2 my-1" style={{ backgroundColor: '#E5E5E5' }} />
+              <button
+                onClick={() => {
+                  onOpenCreateLabelModal?.()
+                  setShowLabelPicker(false)
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
+                style={{ color: '#0072DF', fontFamily: "'Breeze Sans'", fontWeight: '500' }}>
+                + Create new label
+              </button>
+            </div>
+          )}
         </div>
         {/* Expand/Collapse Icon */}
         <button
@@ -1431,6 +1779,16 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                     className="hover:bg-gray-200 rounded p-0.5 transition-colors">
                     <MoreVertical className="h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
                   </button>
+                  {/* Favicon for the page */}
+                  <img
+                    src={`https://www.google.com/s2/favicons?domain=${new URL(page.url).hostname}&sz=16`}
+                    alt=""
+                    className="w-4 h-4 rounded flex-shrink-0"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement
+                      img.style.display = 'none'
+                    }}
+                  />
                   <a
                     href={page.url}
                     target="_blank"
@@ -1465,7 +1823,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                     </button>
                     <button
                       onClick={() => {
-                        window.open(page.url, '_blank', 'noopener,noreferrer')
+                        chrome.windows.create({ url: page.url })
                         setOpenMenuIndex(null)
                       }}
                       className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center gap-3"
@@ -1485,10 +1843,16 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                     </button>
                     <div className="h-px mx-2 my-1" style={{ backgroundColor: '#E5E5E5' }} />
                     <button
-                      onClick={() => {
-                        // Delete functionality would be implemented here
-                        console.log('Delete from session:', page.url)
-                        setOpenMenuIndex(null)
+                      onClick={async () => {
+                        try {
+                          await sendMessage<{ success: boolean }>({
+                            type: "DELETE_PAGE_FROM_SESSION",
+                            payload: { sessionId: session.id, pageUrl: page.url }
+                          })
+                          setOpenMenuIndex(null)
+                        } catch (err) {
+                          console.error("Failed to delete page from session:", err)
+                        }
                       }}
                       className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 transition-colors flex items-center gap-3"
                       style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
@@ -1516,851 +1880,265 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
   )
 }
 
-// Projects Panel Component
-interface ProjectsPanelProps {
-  projects: Project[]
-  sessions: Session[]
-  expandedProjects: string[]
-  onToggleProject: (projectId: string) => void
-  onDetectProjects: () => Promise<void>
-  onUpdateProject: (projectId: string, updates: Partial<Project>) => Promise<void>
-  onDeleteProject: (projectId: string) => Promise<void>
-  onProjectsUpdate?: (projects: Project[]) => void
-  currentPage: { url: string; title: string } | null
-  quickAddRequest?: { url: string; title: string } | null
-  onCompleteQuickAdd?: () => void
-  onRefreshCurrentPage?: () => void
+// Cluster Day Section Component
+interface ClusterDaySectionProps {
+  dayKey: string
+  dayLabel: string
+  clusters: Array<{ clusterId: number; nodes: GraphNode[]; timestamp: number }>
+  isExpanded: boolean
+  onToggleDay: (key: string) => void
+  expandedClusters: number[]
+  onToggleCluster: (id: number) => void
+  timelineView?: "sessions" | "clusters"
+  onTimelineViewChange?: (view: "sessions" | "clusters") => void
+  isFirstDay?: boolean
+  searchQuery?: string
 }
 
-function ProjectsPanel({
-  projects,
-  sessions,
-  expandedProjects,
-  onToggleProject,
-  onDetectProjects,
-  onUpdateProject,
-  onDeleteProject,
-  onProjectsUpdate,
-  currentPage,
-  quickAddRequest,
-  onCompleteQuickAdd,
-  onRefreshCurrentPage
-}: ProjectsPanelProps) {
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
-  const [editName, setEditName] = useState("")
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("")
-  const [adding, setAdding] = useState(false)
-  const [addMessage, setAddMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [showCreateCard, setShowCreateCard] = useState(false)
-  const [newProjectName, setNewProjectName] = useState("")
-  const [newProjectDescription, setNewProjectDescription] = useState("")
-  const [creating, setCreating] = useState(false)
-
-  const targetPage = useMemo(() => quickAddRequest || currentPage, [quickAddRequest, currentPage])
-
-  useEffect(() => {
-    if (projects.length > 0 && (!selectedProjectId || !projects.find((p) => p.id === selectedProjectId))) {
-      setSelectedProjectId(projects[0].id)
-    }
-  }, [projects, selectedProjectId])
-
-  useEffect(() => {
-    if (quickAddRequest && projects.length > 0) {
-      setSelectedProjectId(projects[0].id)
-    }
-  }, [quickAddRequest, projects])
-
-  useEffect(() => {
-    setAddMessage(null)
-  }, [targetPage?.url, selectedProjectId])
-
-  const handleStartEdit = (project: Project) => {
-    setEditingProjectId(project.id)
-    setEditName(project.name)
-  }
-
-  const handleSaveEdit = async (projectId: string) => {
-    if (editName.trim()) {
-      await onUpdateProject(projectId, { name: editName.trim() })
-    }
-    setEditingProjectId(null)
-    setEditName("")
-  }
-
-  const handleCancelEdit = () => {
-    setEditingProjectId(null)
-    setEditName("")
-  }
-
-  const handleDelete = async (projectId: string) => {
-    if (window.confirm("Delete this project? Sessions will not be deleted.")) {
-      await onDeleteProject(projectId)
-    }
-  }
-
-  const handleCreateProject = async () => {
-    if (!newProjectName.trim()) return
-
-    setCreating(true)
-    let created = false
-    try {
-      const response = await sendMessage<{ success: boolean; project?: Project }>({
-        type: "ADD_PROJECT",
-        payload: {
-          name: newProjectName.trim(),
-          description: newProjectDescription.trim() || undefined,
-          sessionIds: [],
-          sites: [],
-          autoDetected: false
-        }
-      })
-
-      if (response?.success) {
-        created = true
-        const projectsResponse = await sendMessage<{ projects: Project[] }>({
-          type: "GET_PROJECTS"
-        })
-
-        if (projectsResponse?.projects) {
-          onProjectsUpdate?.(projectsResponse.projects)
-        }
-
-        // Immediately close and reset the create card
-        setShowCreateCard(false)
-        setNewProjectName("")
-        setNewProjectDescription("")
-      }
-    } catch (err) {
-      console.error("Failed to create project:", err)
-    } finally {
-      if (created) {
-        // Fallback: ensure card closes even if re-render timing is off
-        setShowCreateCard(false)
-      }
-      setCreating(false)
-    }
-  }
-
-  const handleAddCurrentPage = async () => {
-    if (!targetPage || !selectedProjectId) return
-
-    setAdding(true)
-    setAddMessage(null)
-
-    try {
-      const response = await sendMessage<{ success: boolean; alreadyAdded?: boolean; error?: string }>({
-        type: "ADD_SITE_TO_PROJECT",
-        payload: {
-          projectId: selectedProjectId,
-          siteUrl: targetPage.url,
-          siteTitle: targetPage.title,
-          addedBy: "user"
-        }
-      })
-
-      if (response?.success || response?.alreadyAdded) {
-        setAddMessage({ type: "success", text: response?.alreadyAdded ? "Already in this project" : "Added to project" })
-        
-        // Reload projects to show updated site list
-        try {
-          const projectsResponse = await sendMessage<{ projects: Project[] }>({ 
-            type: "GET_PROJECTS" 
-          })
-          if (projectsResponse?.projects) {
-            // Update the projects in the parent component
-            const updatedProject = projectsResponse.projects.find(p => p.id === selectedProjectId)
-            if (updatedProject) {
-              await onUpdateProject(selectedProjectId, { sites: updatedProject.sites })
-            }
-          }
-        } catch (refreshErr) {
-          console.error("Failed to refresh projects after adding site:", refreshErr)
-        }
-        
-        onCompleteQuickAdd?.()
-      } else {
-        setAddMessage({ type: "error", text: response?.error || "Unable to add page" })
-      }
-    } catch (err) {
-      setAddMessage({ type: "error", text: "Unable to add page" })
-    } finally {
-      setAdding(false)
-    }
-  }
+function ClusterDaySection({
+  dayKey,
+  dayLabel,
+  clusters,
+  isExpanded,
+  onToggleDay,
+  expandedClusters,
+  onToggleCluster,
+  timelineView,
+  onTimelineViewChange,
+  isFirstDay,
+  searchQuery,
+}: ClusterDaySectionProps) {
+  const visibleCount = isExpanded ? clusters.length : 3
 
   return (
-    <div className="flex flex-col gap-4">
-      {targetPage && (
-        <div
-          className="rounded-xl border p-3 bg-white shadow-sm"
-          style={{ borderColor: '#E5E5E5' }}>
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div className="flex-1 min-w-0">
-              <div className="text-2xs mb-1" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-                Current page
-              </div>
-              <div className="text-sm font-semibold truncate" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-                {targetPage.title || targetPage.url}
-              </div>
-              <div className="text-2xs truncate" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-                {targetPage.url}
-              </div>
-            </div>
-            {onRefreshCurrentPage && (
-              <button
-                onClick={onRefreshCurrentPage}
-                className="px-2 py-1 text-xs rounded border transition-colors"
-                style={{ borderColor: '#E5E5E5', color: '#0072de', fontFamily: "'Breeze Sans'" }}>
-                Refresh
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {(() => {
-              // Filter out projects that already have this site
-              const availableProjects = targetPage 
-                ? projects.filter(p => !p.sites.some(s => s.url === targetPage.url))
-                : projects
-
-              return (
-                <>
-                  <select
-                    value={selectedProjectId && availableProjects.some(p => p.id === selectedProjectId) ? selectedProjectId : (availableProjects[0]?.id || "")}
-                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                    className="flex-1 min-w-[180px] px-3 py-2 text-sm rounded border"
-                    style={{ borderColor: '#E5E5E5', color: '#080A0B', fontFamily: "'Breeze Sans'" }}
-                    disabled={availableProjects.length === 0}>
-                    {availableProjects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleAddCurrentPage}
-                    disabled={!selectedProjectId || adding || availableProjects.length === 0}
-                    className="px-3 py-2 text-sm rounded text-white transition-colors disabled:opacity-60"
-                    style={{ backgroundColor: '#0072de', fontFamily: "'Breeze Sans'" }}>
-                    {adding ? 'Adding...' : 'Add to project'}
-                  </button>
-                </>
-              )
-            })()}
-          </div>
-
-          {(() => {
-            const availableProjects = targetPage 
-              ? projects.filter(p => !p.sites.some(s => s.url === targetPage.url))
-              : projects
-
-            if (availableProjects.length === 0 && projects.length > 0) {
-              return (
-                <div className="text-2xs mt-2" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-                  This page is already in all your projects.
-                </div>
-              )
-            }
-
-            if (availableProjects.length === 0) {
-              return (
-                <div className="text-2xs mt-2" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-                  Create or detect a project to add this page.
-                </div>
-              )
-            }
-
-            return null
-          })()}
-
-          {addMessage && (
-            <div
-              className="text-2xs mt-2"
+    <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
+      {/* Day Header with View Toggle */}
+      <div className="flex items-center justify-between px-2 pr-0 mb-1 mt-4">
+        <div className="text-sm font-normal" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+          <span>{dayLabel}</span>
+        </div>
+        {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E5E5E5' }}>
+            <button
+              onClick={() => onTimelineViewChange("sessions")}
+              className="px-2 py-1 text-2xs font-medium transition-all"
               style={{
-                color: addMessage.type === 'success' ? '#0f9d58' : '#b00020',
+                backgroundColor: timelineView === "sessions" ? '#0072de' : '#FFFFFF',
+                color: timelineView === "sessions" ? '#FFFFFF' : '#666666',
+                fontFamily: "'Breeze Sans'",
+                fontSize: '10px',
+                borderRight: '1px solid #E5E5E5'
+              }}>
+              Sessions
+            </button>
+            <button
+              onClick={() => onTimelineViewChange("clusters")}
+              className="px-2 py-1 text-2xs font-medium transition-all"
+              style={{
+                backgroundColor: timelineView === "clusters" ? '#0072de' : '#FFFFFF',
+                color: timelineView === "clusters" ? '#FFFFFF' : '#666666',
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>
-              {addMessage.text}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Header with Create Project Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-            Projects
-          </h2>
-          <p className="text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            {projects.length === 0 ? "No projects yet" : `${projects.length} project${projects.length === 1 ? '' : 's'}`}
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setShowCreateCard(!showCreateCard)
-            setNewProjectName("")
-            setNewProjectDescription("")
-          }}
-          className="px-3 py-2 text-sm rounded text-white transition-colors flex items-center gap-2"
-          style={{ backgroundColor: showCreateCard ? '#9A9FA6' : '#0072de', fontFamily: "'Breeze Sans'" }}>
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {showCreateCard ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            )}
-          </svg>
-          {showCreateCard ? 'Cancel' : 'New Project'}
-        </button>
+              Clusters
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Create Project Card */}
-      {showCreateCard && (
-        <div
-          className="rounded-xl border p-4 bg-white shadow-sm"
-          style={{ borderColor: '#0072de', borderWidth: '2px' }}>
-          <div className="flex items-center gap-2 mb-3">
-            <Folder className="h-5 w-5" style={{ color: '#0072de' }} />
-            <h3 className="text-base font-semibold" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-              Create New Project
-            </h3>
+      {/* Clusters List */}
+      <div className="flex flex-col gap-3 pt-0 pb-1">
+        {clusters.slice(0, visibleCount).map((cluster, index) => (
+          <div
+            key={cluster.clusterId}
+            className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+            style={{ animationDelay: `${index * 50}ms` }}>
+            <ClusterItem
+              cluster={cluster}
+              isExpanded={expandedClusters.includes(cluster.clusterId)}
+              onToggle={() => onToggleCluster(cluster.clusterId)}
+            />
           </div>
-          
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: '#555', fontFamily: "'Breeze Sans'" }}>
-                Project Name <span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="e.g., Machine Learning Research"
-                className="w-full px-3 py-2 text-sm rounded border"
-                style={{ 
-                  fontFamily: "'Breeze Sans'",
-                  borderColor: '#E5E5E5',
-                  backgroundColor: '#FFFFFF',
-                  color: '#080A0B'
-                }}
-                autoFocus
-              />
-            </div>
-            
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: '#555', fontFamily: "'Breeze Sans'" }}>
-                Description (Optional)
-              </label>
-              <textarea
-                value={newProjectDescription}
-                onChange={(e) => setNewProjectDescription(e.target.value)}
-                placeholder="Add notes about this project..."
-                className="w-full px-3 py-2 text-sm rounded border resize-none"
-                style={{ 
-                  fontFamily: "'Breeze Sans'",
-                  minHeight: '80px',
-                  borderColor: '#E5E5E5',
-                  backgroundColor: '#FFFFFF',
-                  color: '#080A0B'
-                }}
-              />
-            </div>
-            
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowCreateCard(false)
-                  setNewProjectName("")
-                  setNewProjectDescription("")
-                }}
-                disabled={creating}
-                className="px-3 py-2 text-sm rounded border transition-colors"
-                style={{ 
-                  borderColor: '#E5E5E5',
-                  color: '#080A0B',
-                  fontFamily: "'Breeze Sans'",
-                  backgroundColor: '#FFFFFF'
-                }}>
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateProject}
-                disabled={!newProjectName.trim() || creating}
-                className="px-3 py-2 text-sm rounded transition-colors disabled:opacity-50"
-                style={{ 
-                  backgroundColor: '#0072de',
-                  color: 'white',
-                  fontFamily: "'Breeze Sans'"
-                }}>
-                {creating ? 'Creating...' : 'Create Project'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* Projects List */}
-      {projects.length === 0 && !showCreateCard ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <Folder className="h-12 w-12 opacity-30" style={{ color: '#9A9FA6' }} />
-          <div className="text-center">
-            <p className="text-sm mb-1" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-              No projects found
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {projects
-            .sort((a, b) => b.startDate - a.startDate)
-            .map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                sessions={sessions.filter(s => project.sessionIds.includes(s.id))}
-                isExpanded={expandedProjects.includes(project.id)}
-                onToggle={() => onToggleProject(project.id)}
-                isEditing={editingProjectId === project.id}
-                editName={editName}
-                onEditNameChange={setEditName}
-                onStartEdit={() => handleStartEdit(project)}
-                onSaveEdit={() => handleSaveEdit(project.id)}
-                onCancelEdit={handleCancelEdit}
-                onDelete={() => handleDelete(project.id)}
-                onRemoveSite={async (siteUrl) => {
-                  const updatedSites = (project.sites || []).filter(s => s.url !== siteUrl)
-                  await onUpdateProject(project.id, { sites: updatedSites })
-                }}
-              />
-            ))}
-        </div>
+      {/* Show More / Show Less */}
+      {clusters.length > 3 && (
+        <button
+          onClick={() => onToggleDay(dayKey)}
+          className="text-xs font-normal mt-2 mx-2 py-1 hover:underline"
+          style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+          {isExpanded ? `Show less` : `Show ${clusters.length - 3} more`}
+        </button>
       )}
     </div>
   )
 }
 
-// Project Card Component
-interface ProjectCardProps {
-  project: Project
-  sessions: Session[]
+// Cluster Item Component
+interface ClusterItemProps {
+  cluster: { clusterId: number; nodes: GraphNode[]; timestamp: number }
   isExpanded: boolean
   onToggle: () => void
-  isEditing: boolean
-  editName: string
-  onEditNameChange: (name: string) => void
-  onStartEdit: () => void
-  onSaveEdit: () => void
-  onCancelEdit: () => void
-  onDelete: () => void
-  onRemoveSite?: (siteUrl: string) => Promise<void>
 }
 
-function ProjectCard({
-  project,
-  sessions,
-  isExpanded,
-  onToggle,
-  isEditing,
-  editName,
-  onEditNameChange,
-  onStartEdit,
-  onSaveEdit,
-  onCancelEdit,
-  onDelete,
-  onRemoveSite
-}: ProjectCardProps) {
-  const [editingDescription, setEditingDescription] = useState(false)
-  const [editDescriptionValue, setEditDescriptionValue] = useState(project.description || "")
+function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
+  const { clusterId, nodes, timestamp } = cluster
+  const clusterColor = getClusterColor(clusterId)
+  const clusterLabel = generateClusterLabel(nodes, clusterId)
+  
+  // Get valid timestamps only
+  const validTimestamps = nodes
+    .map(n => n.timestamp)
+    .filter(ts => ts && !isNaN(ts) && ts > 0)
+  
+  if (validTimestamps.length === 0) {
+    // No valid timestamps, use current time
+    validTimestamps.push(Date.now())
+  }
+  
+  const startTime = Math.min(...validTimestamps)
+  const endTime = Math.max(...validTimestamps)
+  
+  const startDate = new Date(startTime)
+  const endDate = new Date(endTime)
+  
+  // Validate dates
+  if (isNaN(startDate.getTime())) {
+    console.warn("Invalid start date in cluster", startTime)
+    startDate.setTime(Date.now())
+  }
+  if (isNaN(endDate.getTime())) {
+    console.warn("Invalid end date in cluster", endTime)
+    endDate.setTime(Date.now())
+  }
+  
+  const timeRange = startDate.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: true 
+  }) + (startTime !== endTime ? ' - ' + endDate.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: true 
+  }) : '')
 
-  const duration = Math.ceil((project.endDate - project.startDate) / (1000 * 60 * 60 * 24))
-  const startDateStr = new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const endDateStr = new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-
-  const handleSaveDescription = async () => {
-    console.log("Save description:", editDescriptionValue)
-    
-    // Update project with new description
-    const updatedProject = {
-      ...project,
-      description: editDescriptionValue
-    }
-    
-    // Get all projects and replace the current one
-    const projects = await chrome.storage.local.get("aegis-projects")
-    const allProjects = projects["aegis-projects"] || []
-    const updatedProjects = allProjects.map((p: any) => 
-      p.id === project.id ? updatedProject : p
-    )
-    
-    // Save back to storage
-    await chrome.storage.local.set({ "aegis-projects": updatedProjects })
-    
-    setEditingDescription(false)
+  const handleNodeClick = (node: GraphNode) => {
+    // Just open the page - clicking opens it in a new tab
+    chrome.tabs.create({ url: node.url })
   }
 
-  const handleCancelDescription = () => {
-    setEditDescriptionValue(project.description || "")
-    setEditingDescription(false)
+  const handleFocusCluster = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Open the graph tab with the cluster focused
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('tabs/graph.html') + `?cluster=${clusterId}`
+    })
   }
 
   return (
     <div
-      className="flex flex-col rounded-xl p-4 cursor-pointer transition-all hover:shadow-md"
-      style={{ 
+      className="rounded-xl overflow-hidden cursor-pointer transition-all"
+      style={{
         backgroundColor: '#FAFAFA',
-        border: '1px solid #E5E5E5'
+        border: '1px solid #E5E5E5',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
       }}
       onClick={onToggle}>
-      
-      {/* Project Header - Compact Layout */}
-      <div className="flex items-start gap-3 mb-3">
-        <Folder className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: '#0074FB' }} />
-        
-        <div className="flex-1 min-w-0">
-          {/* Title Row */}
-          <div className="flex items-center gap-2 mb-1">
-            {isEditing ? (
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => onEditNameChange(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                className="flex-1 min-w-0 px-2 py-1 text-base font-semibold rounded border"
-                style={{ 
-                  color: 'var(--dark)', 
-                  fontFamily: "'Breeze Sans'",
-                  borderColor: '#0074FB'
-                }}
-                autoFocus
-              />
-            ) : (
-              <h3 className="text-base font-semibold flex-1 min-w-0" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-                {project.name}
-              </h3>
-            )}
-            
-            {/* Auto-detected Badge */}
-            {!isEditing && project.autoDetected && (
-              <span
-                className="px-2 py-0.5 rounded text-2xs font-medium whitespace-nowrap flex-shrink-0"
-                style={{ 
-                  backgroundColor: '#F3E8FF', 
-                  color: '#6B21A8',
-                  fontSize: '10px',
-                  fontFamily: "'Breeze Sans'"
-                }}>
-                auto
-              </span>
-            )}
-          </div>
-          
-          {/* Metadata Row */}
-          <div className="flex flex-wrap items-center gap-3 text-xs mb-2" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              <span>{duration} day{duration === 1 ? '' : 's'}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span>{project.sessionIds.length} session{project.sessionIds.length === 1 ? '' : 's'}</span>
-            </div>
-            {project.sites && project.sites.length > 0 && (
-              <div className="flex items-center gap-1">
-                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                <span>{project.sites.length} site{project.sites.length === 1 ? '' : 's'}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Keywords */}
-          {project.keywords.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {project.keywords.slice(0, 5).map((keyword, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-0.5 rounded text-2xs"
-                  style={{ 
-                    backgroundColor: '#E8E8E8', 
-                    color: '#555',
-                    fontSize: '10px',
-                    fontFamily: "'Breeze Sans'"
-                  }}>
-                  {keyword}
-                </span>
-              ))}
-              {project.keywords.length > 5 && (
-                <span
-                  className="px-2 py-0.5 rounded text-2xs"
-                  style={{ 
-                    backgroundColor: '#E8E8E8', 
-                    color: '#555',
-                    fontSize: '10px',
-                    fontFamily: "'Breeze Sans'"
-                  }}>
-                  +{project.keywords.length - 5}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Actions Column */}
-        <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-          {isEditing ? (
-            <>
-              <button
-                onClick={onSaveEdit}
-                className="px-2 py-1 rounded text-xs font-medium"
-                style={{ backgroundColor: '#0074FB', color: 'white' }}>
-                Save
-              </button>
-              <button
-                onClick={onCancelEdit}
-                className="px-2 py-1 rounded text-xs font-medium"
-                style={{ backgroundColor: '#E5E5E5', color: '#080A0B' }}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onStartEdit()
-                }}
-                className="hover:bg-gray-200 rounded p-1.5 transition-colors"
-                title="Edit project">
-                <Edit2 className="h-4 w-4" style={{ color: '#9A9FA6' }} />
-              </button>
-              
-              {project.sites && project.sites.length > 0 && (
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    
-                    const tabIds: number[] = []
-                    for (const site of project.sites) {
-                      const url = site.url.startsWith('http') ? site.url : `https://${site.url}`
-                      const tab = await chrome.tabs.create({ url })
-                      if (tab.id) tabIds.push(tab.id)
-                    }
-                    
-                    if (tabIds.length > 0) {
-                      const groupId = await chrome.tabs.group({ tabIds })
-                      chrome.tabGroups.update(groupId, {
-                        title: project.name,
-                        collapsed: false
-                      }).catch((error) => {
-                        console.error('Failed to update tab group:', error)
-                      })
-                    }
-                  }}
-                  className="hover:bg-gray-200 rounded p-1.5 transition-colors"
-                  title="Open all sites">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#9A9FA6' }}>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </button>
-              )}
-              
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete()
-                }}
-                className="hover:bg-red-100 rounded p-1.5 transition-colors"
-                title="Delete project">
-                <Trash2 className="h-4 w-4" style={{ color: '#9A9FA6' }} />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Description */}
-      {editingDescription ? (
-        <div className="flex flex-col gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
-          <textarea
-            value={editDescriptionValue}
-            onChange={(e) => setEditDescriptionValue(e.target.value)}
-            className="flex-1 px-2 py-1 text-xs rounded border"
-            style={{ 
-              color: 'var(--dark)', 
-              fontFamily: "'Breeze Sans'",
-              borderColor: '#0074FB',
-              resize: 'vertical',
-              minHeight: '60px'
-            }}
-            autoFocus
+      {/* Cluster Header */}
+      <div className="flex items-center justify-between gap-3 p-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Cluster Color Indicator */}
+          <div 
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: clusterColor }}
           />
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleSaveDescription}
-              className="px-2 py-1 rounded text-xs font-medium"
-              style={{ backgroundColor: '#0074FB', color: 'white' }}>
-              Save
-            </button>
-            <button
-              onClick={handleCancelDescription}
-              className="px-2 py-1 rounded text-xs font-medium"
-              style={{ backgroundColor: '#E5E5E5', color: '#080A0B' }}>
-              Cancel
-            </button>
+          
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+              {clusterLabel}
+            </div>
+            <div className="text-2xs mt-0.5 flex items-center gap-2" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
+              <span>{nodes.length} page{nodes.length !== 1 ? 's' : ''}</span>
+              <span>•</span>
+              <span>{timeRange}</span>
+            </div>
           </div>
-        </div>
-      ) : project.description ? (
-        <div 
-          className="flex items-start justify-between gap-2 mb-2 p-2 rounded group hover:bg-gray-100 transition-colors"
-          style={{ backgroundColor: '#FAFAFA' }}
-          onClick={(e) => e.stopPropagation()}>
-          <p className="text-xs flex-1" style={{ color: '#64748b', fontFamily: "'Breeze Sans'" }}>
-            {project.description}
-          </p>
+
+          {/* Focus Cluster Button */}
           <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setEditingDescription(true)
-              setEditDescriptionValue(project.description || "")
-            }}
-            className="hover:bg-gray-200 rounded p-1 transition-all flex-shrink-0"
-            title="Edit description">
-            <Edit2 className="h-3 w-3" style={{ color: '#9A9FA6' }} />
+            onClick={handleFocusCluster}
+            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            title="Focus cluster in graph">
+            <Focus className="h-4 w-4" style={{ color: '#9A9FA6' }} />
           </button>
         </div>
-      ) : (
+
+        {/* Expand/Collapse Icon */}
         <button
           onClick={(e) => {
             e.stopPropagation()
-            setEditingDescription(true)
-            setEditDescriptionValue("")
+            onToggle()
           }}
-          className="text-xs mb-2 px-2 py-1 rounded text-left transition-colors hover:bg-gray-100"
-          style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-          + Add description
+          className="p-1 hover:bg-gray-100 rounded transition-colors">
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            style={{ color: '#9A9FA6' }}
+          />
         </button>
-      )}
+      </div>
 
-
-
-      {/* Sites List (shown when expanded) */}
-      {isExpanded && project.sites && project.sites.length > 0 && (
-        <div className="flex flex-col gap-1.5 mb-3 pb-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-          <h4 className="text-xs font-semibold mb-1 flex items-center gap-1.5" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            Sites ({project.sites.length})
-          </h4>
-          {project.sites
-            .sort((a, b) => b.addedAt - a.addedAt)
-            .slice(0, isExpanded ? project.sites.length : 3)
-            .map((site, index) => {
-              const domain = new URL(site.url.startsWith('http') ? site.url : `https://${site.url}`).hostname
-              const timeAgo = (() => {
-                const now = Date.now()
-                const diff = now - site.addedAt
-                const minutes = Math.floor(diff / 60000)
-                const hours = Math.floor(diff / 3600000)
-                const days = Math.floor(diff / 86400000)
-                
-                if (days > 0) return `${days}d ago`
-                if (hours > 0) return `${hours}h ago`
-                if (minutes > 0) return `${minutes}m ago`
-                return 'just now'
-              })()
+      {/* Nodes List */}
+      {isExpanded && (
+        <div className="flex flex-col gap-1 px-3 pb-3 pt-1">
+          {nodes
+            .slice()
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .map((node, index) => {
+              const nodeTimestamp = node.timestamp && !isNaN(node.timestamp) && node.timestamp > 0 
+                ? node.timestamp 
+                : Date.now()
+              const nodeDate = new Date(nodeTimestamp)
+              
+              const timeStr = isNaN(nodeDate.getTime()) 
+                ? 'Unknown time'
+                : nodeDate.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    hour12: true 
+                  })
 
               return (
-                <div
-                  key={`${site.url}-${index}`}
-                  className="flex items-start gap-2 p-2 rounded hover:bg-gray-50 transition-colors group"
-                  style={{ backgroundColor: '#FAFAFA', border: '1px solid #E5E5E5' }}
-                  onClick={(e) => e.stopPropagation()}>
-                  <div 
-                    className="flex-1 min-w-0 cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const fullUrl = site.url.startsWith('http') ? site.url : `https://${site.url}`
-                      chrome.tabs.create({ url: fullUrl })
-                    }}
-                    title={`Open ${site.url}`}>
-                    <p className="text-xs truncate mb-0.5" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'", fontWeight: 500 }}>
-                      {site.title}
-                    </p>
-                    <p className="text-2xs truncate flex items-center gap-1.5" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-                      <span>{domain}</span>
-                      <span>•</span>
-                      <span>{timeAgo}</span>
-                      {site.addedBy === 'auto' && (
-                        <>
-                          <span>•</span>
-                          <span style={{ color: '#667eea' }}>auto</span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const fullUrl = site.url.startsWith('http') ? site.url : `https://${site.url}`
-                        chrome.tabs.create({ url: fullUrl })
+                <div 
+                  key={node.id} 
+                  className="flex items-center justify-between gap-3 py-1.5 px-2 rounded hover:bg-white transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleNodeClick(node)
+                  }}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${node.domain}&sz=16`}
+                      alt=""
+                      className="w-4 h-4 rounded flex-shrink-0"
+                      onError={(e) => {
+                        const img = e.target as HTMLImageElement
+                        img.style.display = 'none'
                       }}
-                      className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-all"
-                      title="Open site">
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#9A9FA6' }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </button>
-                    {onRemoveSite && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (window.confirm(`Remove ${site.title} from this project?`)) {
-                            onRemoveSite(site.url)
-                          }
-                        }}
-                        className="p-1 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-all"
-                        title="Remove site">
-                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#EF4444' }}>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    )}
+                    />
+                    <span className="text-xs leading-tight truncate flex-1" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+                      {node.title}
+                    </span>
                   </div>
+                  <span className="text-xs flex-shrink-0" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                    {timeStr}
+                  </span>
                 </div>
               )
             })}
-          {!isExpanded && project.sites.length > 3 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggle()
-              }}
-              className="text-2xs py-1 px-2 rounded text-left transition-colors hover:bg-gray-100"
-              style={{ color: '#667eea', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-              + {project.sites.length - 3} more site{project.sites.length - 3 === 1 ? '' : 's'}
-            </button>
-          )}    
         </div>
       )}
-
-      {/* Expand Icon */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onToggle()
-        }}
-        className="flex items-center justify-center w-full pt-2 border-t hover:bg-gray-50 transition-colors"
-        style={{ borderColor: '#E5E5E5' }}>
-        <ChevronDown
-          className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-          style={{ color: '#9A9FA6' }}
-        />
-      </button>
     </div>
   )
 }
+

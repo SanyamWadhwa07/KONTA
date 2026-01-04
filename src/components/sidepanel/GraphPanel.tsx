@@ -1,8 +1,24 @@
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import ForceGraph2D from "react-force-graph-2d"
+import { forceCollide } from "d3-force"
 import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2 } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel } from "~/lib/knowledge-graph"
+import { log, warn } from "~/lib/logger"
+
+// Clean URL to remove chrome-extension prefix if present
+function cleanUrl(url: string): string {
+  const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
+  if (chromeExtPattern.test(url)) {
+    const cleanedUrl = url.replace(chromeExtPattern, '')
+    return cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
+  }
+  // Ensure URL has protocol (not relative)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'https://' + url
+  }
+  return url
+}
 
 function sendMessage<T>(message: any): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -58,7 +74,7 @@ export function GraphPanel() {
       if (response?.graph) {
         // Only update if graph has actually changed
         if (response.graph.lastUpdated !== lastGraphTimestampRef.current) {
-          console.log("[GraphPanel] Graph data changed, updating UI")
+          log("[GraphPanel] Graph data changed, updating UI")
           setGraph(response.graph)
           lastGraphTimestampRef.current = response.graph.lastUpdated
           hasUserInteractedRef.current = false // Reset on new graph load
@@ -112,7 +128,7 @@ export function GraphPanel() {
                 const centerY = sumY / count
                 graphRef.current.centerAt(centerX, centerY, 400)
                 graphRef.current.zoom(2, 400)
-                console.log(`[GraphPanel] Focused on cluster ${matchingNode.cluster} for domain ${currentDomain}`)
+                log(`[GraphPanel] Focused on cluster ${matchingNode.cluster} for domain ${currentDomain}`)
               }
             } else {
               // No matching node, zoom to fit all
@@ -143,34 +159,91 @@ export function GraphPanel() {
       const topDomain = getClusterTopDomain(graph.nodes, clusterId)
       if (topDomain && !faviconCache.current.has(topDomain)) {
         loadFavicon(topDomain).catch(err => 
-          console.log('[GraphPanel] Failed to load favicon for', topDomain)
+          log('[GraphPanel] Failed to load favicon for', topDomain)
         )
       }
     })
   }, [graph])
 
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const width = containerRef.current.offsetWidth
-        const height = 400
-        setDimensions({ width, height })
+    if (!containerRef.current) return
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        setDimensions(prev => {
+          // Only update if dimensions changed significantly to prevent loops
+          // And ensure dimensions are valid (> 10px) to avoid zero-width issues
+          if ((width > 10 && Math.abs(prev.width - width) > 2) || 
+              (height > 10 && Math.abs(prev.height - height) > 2)) {
+            return { width, height }
+          }
+          return prev
+        })
       }
-    }
+    })
     
-    updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
+    resizeObserver.observe(containerRef.current)
+    return () => resizeObserver.disconnect()
   }, [])
 
   useEffect(() => {
     if (graph) {
-      console.log("[GraphPanel] Graph loaded:", {
+      log("[GraphPanel] Graph loaded:", {
         nodes: graph.nodes.length,
         edges: graph.edges.length,
         nodesSample: graph.nodes.slice(0, 2),
         edgesSample: graph.edges.slice(0, 2)
       })
+
+      // Configure forces for a more compact layout
+      if (graphRef.current) {
+        // Use collision force for strict spacing without long-range repulsion
+        // This keeps nodes apart (min distance) but allows clusters to be close
+        graphRef.current.d3Force('collide', forceCollide((node: any) => {
+          const baseSize = 6
+          const sizeFactor = Math.log((node.visitCount || 0) + 1) * 4
+          const size = Math.max(baseSize, Math.min(baseSize + sizeFactor, 24))
+          return size * 1.5 + 4 // Radius + padding
+        }).strength(0.7))
+
+        // Reduce charge (repulsion) significantly so clusters can merge
+        // Only keep enough to prevent total collapse
+        graphRef.current.d3Force('charge').strength(-60).distanceMax(200)
+        
+        // Adjust link distance
+        graphRef.current.d3Force('link').distance(55)
+        
+        // Stronger centering to pull clusters together
+        graphRef.current.d3Force('center').strength(0.6)
+
+        // Add "breathing" force for idle animation
+        const breathingForce = () => {
+          let nodes: any[] = []
+          
+          const force = () => {
+            nodes.forEach((node: any) => {
+              // Add random velocity for organic movement
+              // Increased magnitude to make it visible
+              if (node.vx !== undefined && node.vy !== undefined) {
+                node.vx += (Math.random() - 0.5) * 0.3
+                node.vy += (Math.random() - 0.5) * 0.3
+              }
+            })
+          }
+          
+          (force as any).initialize = (_nodes: any[]) => {
+            nodes = _nodes
+          }
+          
+          return force
+        }
+
+        graphRef.current.d3Force('alive', breathingForce())
+        
+        // Restart simulation to ensure new forces take effect
+        graphRef.current.d3ReheatSimulation()
+      }
       
       // Auto-fit when new graph data loads
       if (!hasUserInteractedRef.current && graphRef.current) {
@@ -189,6 +262,95 @@ export function GraphPanel() {
       }
     }
   }, [graph])
+
+  const { clusters, filteredNodes, graphData } = useMemo(() => {
+    if (!graph) {
+      return { 
+        clusters: [], 
+        filteredNodes: [], 
+        graphData: { nodes: [], links: [] } 
+      }
+    }
+
+    const clusters = Array.from(new Set(graph.nodes.map(n => n.cluster)))
+    const allClustersSelected = selectedClusters.size === 0
+
+    // Apply time filter
+    let timeFilteredNodes = graph.nodes
+    if (timeFilter !== "all") {
+      const now = Date.now()
+      const cutoff = timeFilter === "today" 
+        ? now - 24 * 60 * 60 * 1000 
+        : now - 7 * 24 * 60 * 60 * 1000
+      
+      timeFilteredNodes = graph.nodes.filter(n => {
+        return (graph.lastUpdated - (n.visitCount * 1000)) >= cutoff
+      })
+    }
+
+    // Apply search filter
+    const searchFilteredNodes = searchQuery.trim()
+      ? timeFilteredNodes.filter(n => 
+          n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          n.domain.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : timeFilteredNodes
+
+    // Apply cluster filter
+    const filteredNodes = searchFilteredNodes.filter(n => {
+      if (allClustersSelected) return true
+      return selectedClusters.has(n.cluster)
+    })
+
+    // Create set of filtered node IDs
+    const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
+
+    // Filter edges based on cluster-filtered nodes
+    const filteredEdges = graph.edges.filter(e => 
+      (e.weight || e.similarity) >= minSimilarity &&
+      filteredNodeIds.has(e.source) &&
+      filteredNodeIds.has(e.target)
+    )
+
+    // Transform to react-force-graph format
+    const graphData = {
+      nodes: filteredNodes.map(n => {
+        const displayLabel = n.domain
+        return {
+          id: n.id,
+          name: n.title,
+          url: n.url,
+          domain: n.domain,
+          cluster: n.cluster,
+          visitCount: n.visitCount,
+          searchQuery: n.searchQuery,
+          color: getClusterColor(n.cluster),
+          label: displayLabel
+        }
+      }),
+      links: [
+        ...filteredEdges.map(e => ({
+          source: e.source,
+          target: e.target,
+          value: e.similarity,
+          isManual: false
+        })),
+        ...manualLinks
+          .filter(link => 
+            filteredNodeIds.has(link.source) && 
+            filteredNodeIds.has(link.target)
+          )
+          .map(link => ({
+            source: link.source,
+            target: link.target,
+            value: 1,
+            isManual: true
+          }))
+      ]
+    }
+
+    return { clusters, filteredNodes, graphData }
+  }, [graph, searchQuery, timeFilter, selectedClusters, minSimilarity, manualLinks])
 
   if (loading) {
     return (
@@ -227,98 +389,7 @@ export function GraphPanel() {
     )
   }
 
-  const clusters = Array.from(new Set(graph.nodes.map(n => n.cluster)))
   const allClustersSelected = selectedClusters.size === 0
-
-  // Apply time filter
-  let timeFilteredNodes = graph.nodes
-  if (timeFilter !== "all") {
-    const now = Date.now()
-    const cutoff = timeFilter === "today" 
-      ? now - 24 * 60 * 60 * 1000 
-      : now - 7 * 24 * 60 * 60 * 1000
-    
-    timeFilteredNodes = graph.nodes.filter(n => {
-      return (graph.lastUpdated - (n.visitCount * 1000)) >= cutoff
-    })
-  }
-
-  // Apply search filter
-  const searchFilteredNodes = searchQuery.trim()
-    ? timeFilteredNodes.filter(n => 
-        n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.domain.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : timeFilteredNodes
-
-  // Apply cluster filter
-  const filteredNodes = searchFilteredNodes.filter(n => {
-    if (allClustersSelected) return true
-    return selectedClusters.has(n.cluster)
-  })
-
-  // Create set of filtered node IDs
-  const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
-
-  // Filter edges based on cluster-filtered nodes
-  // Use weight (composite) instead of similarity (embedding-only) for multi-factor filtering
-  const filteredEdges = graph.edges.filter(e => 
-    (e.weight || e.similarity) >= minSimilarity &&
-    filteredNodeIds.has(e.source) &&
-    filteredNodeIds.has(e.target)
-  )
-
-  // Group nodes by cluster and find clusters with at least 2 nodes
-  const nodesByCluster = new Map<number, typeof filteredNodes>()
-  filteredNodes.forEach(n => {
-    if (!nodesByCluster.has(n.cluster)) {
-      nodesByCluster.set(n.cluster, [])
-    }
-    nodesByCluster.get(n.cluster)!.push(n)
-  })
-  
-  const clustersWithMultipleNodes = Array.from(nodesByCluster.entries())
-    .filter(([, nodes]) => nodes.length >= 2)
-    .map(([clusterId]) => clusterId)
-
-  // Transform to react-force-graph format
-  const graphData = {
-    nodes: filteredNodes.map(n => {
-      // Use domain as label for clean, readable display
-      const displayLabel = n.domain
-      
-      return {
-        id: n.id,
-        name: n.title,
-        url: n.url,
-        domain: n.domain,
-        cluster: n.cluster,
-        visitCount: n.visitCount,
-        searchQuery: n.searchQuery,
-        color: getClusterColor(n.cluster),
-        label: displayLabel
-      }
-    }),
-    links: [
-      ...filteredEdges.map(e => ({
-        source: e.source,
-        target: e.target,
-        value: e.similarity,
-        isManual: false
-      })),
-      ...manualLinks
-        .filter(link => 
-          filteredNodeIds.has(link.source) && 
-          filteredNodeIds.has(link.target)
-        )
-        .map(link => ({
-          source: link.source,
-          target: link.target,
-          value: 1,
-          isManual: true
-        }))
-    ]
-  }
 
   const handleNodeClick = (node: any) => {
     if (manualLinkMode) {
@@ -344,12 +415,12 @@ export function GraphPanel() {
           // Link exists - remove it
           const updatedLinks = manualLinks.filter((_, idx) => idx !== existingLinkIndex)
           saveManualLinks(updatedLinks)
-          console.log('[GraphPanel] Removed manual link between', firstNode, 'and', node.id)
+          log('[GraphPanel] Removed manual link between', firstNode, 'and', node.id)
         } else {
           // Link doesn't exist - create it
           const newLink = { source: firstNode, target: node.id }
           saveManualLinks([...manualLinks, newLink])
-          console.log('[GraphPanel] Created manual link between', firstNode, 'and', node.id)
+          log('[GraphPanel] Created manual link between', firstNode, 'and', node.id)
         }
         
         // Clear selection
@@ -358,7 +429,8 @@ export function GraphPanel() {
     } else {
       // Normal mode - open URL
       if (node.url) {
-        chrome.tabs.create({ url: node.url })
+        const cleanedUrl = cleanUrl(node.url)
+        chrome.tabs.create({ url: cleanedUrl })
       }
     }
   }
@@ -454,6 +526,9 @@ export function GraphPanel() {
 
   // Draw cluster boundaries for clusters with 2+ nodes
   const drawClusterBoundaries = (ctx: CanvasRenderingContext2D, globalScale: number) => {
+    // Safety check for graphData
+    if (!graphData || !graphData.nodes || !graphData.links) return
+
     // Only draw if zoomed out too much
     if (globalScale < 0.5) return
     
@@ -666,49 +741,45 @@ export function GraphPanel() {
     (minSimilarity !== 0.50 ? 1 : 0)
 
   return (
-    <div className="flex flex-col gap-0">
+    <div className="flex flex-col gap-0 w-full h-full">
       {/* Compact Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-        <div className="flex items-center gap-3">
-          <h3 className="text-sm font-medium" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+      <div className="flex items-center justify-between px-3 py-3 border-b border-gray-200">
+        <div className="flex items-center gap-3 min-w-0">
+          <h3 className="text-sm font-medium text-gray-900 font-sans whitespace-nowrap">
             Knowledge Graph
           </h3>
-          <span className="text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            {filteredNodes.length} nodes
-          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => {
               chrome.tabs.create({ url: chrome.runtime.getURL('tabs/graph.html') })
             }}
-            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50"
-            style={{ color: '#9A9FA6' }}
+            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50 text-gray-400"
             title="Open in full page">
             <Maximize2 className="h-4 w-4" />
           </button>
           <button
             onClick={() => setShowLabels(!showLabels)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
-            style={{ 
-              color: showLabels ? '#0072de' : '#080A0B', 
-              fontFamily: "'Breeze Sans'", 
-              border: `1px solid ${showLabels ? '#0072de' : '#E5E5E5'}`,
-              backgroundColor: showLabels ? '#eff6ff' : 'transparent'
-            }}
+            className={`p-1.5 rounded-lg transition-all hover:bg-gray-50 border ${
+              showLabels 
+                ? 'text-blue-600 border-blue-600 bg-blue-50' 
+                : 'text-gray-400 border-transparent'
+            }`}
             title="Toggle node labels">
-            <span>Labels</span>
+            <span className="text-xs font-bold">Aa</span>
           </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
-            style={{ color: '#080A0B', fontFamily: "'Breeze Sans'", border: '1px solid #E5E5E5' }}>
-            <Sliders className="h-3.5 w-3.5" />
-            <span>Filters</span>
+            className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 border ${
+              showFilters
+                ? 'text-blue-600 border-blue-600 bg-blue-50'
+                : 'text-gray-400 border-transparent'
+            }`}
+            title="Filters">
+            <Sliders className="h-4 w-4" />
             {activeFilterCount > 0 && (
               <span 
-                className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full"
-                style={{ backgroundColor: '#0072de', color: 'white' }}>
+                className="absolute -top-1 -right-1 flex items-center justify-center w-3.5 h-3.5 text-[9px] font-bold rounded-full bg-blue-600 text-white">
                 {activeFilterCount}
               </span>
             )}
@@ -718,33 +789,28 @@ export function GraphPanel() {
               setManualLinkMode(!manualLinkMode)
               setSelectedNodesForLink([])
             }}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
-            style={{ 
-              color: manualLinkMode ? '#FFFFFF' : '#080A0B', 
-              fontFamily: "'Breeze Sans'", 
-              border: '1px solid #E5E5E5',
-              backgroundColor: manualLinkMode ? '#0072de' : 'transparent'
-            }}
-            title="Click two nodes to create a manual link">
-            <Link className="h-3.5 w-3.5" />
-            <span>Link</span>
+            className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 border ${
+              manualLinkMode
+                ? 'text-white bg-blue-600 border-blue-600'
+                : 'text-gray-400 border-transparent'
+            }`}
+            title="Link nodes">
+            <Link className="h-4 w-4" />
           </button>
           <button
             onClick={() => setShowExplanations(!showExplanations)}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
-            style={{ 
-              color: showExplanations ? '#FFFFFF' : '#080A0B', 
-              fontFamily: "'Breeze Sans'", 
-              border: '1px solid #E5E5E5',
-              backgroundColor: showExplanations ? '#0072de' : 'transparent'
-            }}
+            className={`p-1.5 rounded-lg transition-all hover:bg-gray-50 border ${
+              showExplanations
+                ? 'text-white bg-blue-600 border-blue-600'
+                : 'text-gray-400 border-transparent'
+            }`}
             title="Explain connections">
-            <span>📊</span>
+            <span className="text-sm">📊</span>
           </button>
           <button
             onClick={handleRefresh}
-            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50"
-            style={{ color: '#9A9FA6' }}>
+            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50 text-gray-400"
+            title="Refresh graph">
             <RotateCw className="h-4 w-4" />
           </button>
         </div>
@@ -752,11 +818,11 @@ export function GraphPanel() {
 
       {/* Manual Link Mode Banner */}
       {manualLinkMode && (
-        <div className="px-3 py-2 bg-blue-50 border-b" style={{ borderColor: '#E5E5E5' }}>
+        <div className="px-3 py-2 bg-blue-50 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Link className="h-4 w-4" style={{ color: '#0072de' }} />
-              <span className="text-xs font-medium" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+              <Link className="h-4 w-4 text-blue-600" />
+              <span className="text-xs font-medium text-gray-900 font-sans">
                 {selectedNodesForLink.length === 0 
                   ? 'Click two nodes to link them (or unlink if already connected)' 
                   : 'Click second node to toggle link'}
@@ -765,8 +831,7 @@ export function GraphPanel() {
             {selectedNodesForLink.length > 0 && (
               <button
                 onClick={() => setSelectedNodesForLink([])}
-                className="text-xs px-2 py-1 rounded hover:bg-blue-100"
-                style={{ color: '#0072de', fontFamily: "'Breeze Sans'" }}>
+                className="text-xs px-2 py-1 rounded hover:bg-blue-100 text-blue-600 font-sans">
                 Cancel
               </button>
             )}
@@ -775,27 +840,20 @@ export function GraphPanel() {
       )}
 
       {/* Always Visible Search Bar */}
-      <div className="px-3 py-2 border-b bg-white" style={{ borderColor: '#E5E5E5' }}>
+      <div className="px-3 py-2 border-b bg-white border-gray-200">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
           <input
             type="text"
             placeholder="Search pages..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
-            style={{ 
-              border: '1px solid #E5E5E5', 
-              backgroundColor: 'white',
-              color: '#080A0B',
-              fontFamily: "'Breeze Sans'"
-            }}
+            className="w-full pl-9 pr-9 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 border border-gray-200 bg-white text-gray-900 font-sans"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70"
-              style={{ color: '#9A9FA6' }}>
+              className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70 text-gray-400">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -804,10 +862,10 @@ export function GraphPanel() {
 
       {/* Collapsible Filters Section */}
       {showFilters && (
-        <div className="px-3 py-3 border-b bg-gray-50/50 flex flex-col gap-3" style={{ borderColor: '#E5E5E5' }}>
+        <div className="px-3 py-3 border-b bg-gray-50/50 flex flex-col gap-3 border-gray-200">
           {/* Time Filter Chips */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+            <span className="text-xs font-medium text-gray-900 font-sans">
               Time:
             </span>
             <div className="flex gap-1.5">
@@ -815,13 +873,11 @@ export function GraphPanel() {
                 <button
                   key={filter}
                   onClick={() => setTimeFilter(filter)}
-                  className="px-3 py-1 text-xs font-medium rounded-full transition-all"
-                  style={{
-                    backgroundColor: timeFilter === filter ? '#000000' : '#FFFFFF',
-                    color: timeFilter === filter ? '#FFFFFF' : '#000000',
-                    border: '1px solid #000000',
-                    fontFamily: "'Breeze Sans'"
-                  }}>
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-all font-sans border ${
+                    timeFilter === filter
+                      ? 'bg-black text-white border-black'
+                      : 'bg-white text-black border-black'
+                  }`}>
                   {filter === "all" ? "All Time" : filter === "today" ? "Today" : "This Week"}
                 </button>
               ))}
@@ -830,7 +886,7 @@ export function GraphPanel() {
 
           {/* Similarity Slider */}
           <div className="flex items-center gap-3">
-            <span className="text-xs font-medium whitespace-nowrap" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+            <span className="text-xs font-medium whitespace-nowrap text-gray-900 font-sans">
               Similarity:
             </span>
             <div className="flex-1 flex items-center gap-2">
@@ -846,7 +902,7 @@ export function GraphPanel() {
                   background: `linear-gradient(to right, #0072de 0%, #0072de ${((minSimilarity - 0.2) / 0.4) * 100}%, #E5E5E5 ${((minSimilarity - 0.2) / 0.4) * 100}%, #E5E5E5 100%)`
                 }}
               />
-              <span className="text-xs font-mono w-10 text-right" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+              <span className="text-xs font-mono w-10 text-right text-gray-900">
                 {minSimilarity.toFixed(2)}
               </span>
             </div>
@@ -855,23 +911,23 @@ export function GraphPanel() {
           {/* Cluster Filter Chips */}
           {clusters.length > 0 && (
             <div className="flex items-start gap-2">
-              <span className="text-xs font-medium pt-1 whitespace-nowrap" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+              <span className="text-xs font-medium pt-1 whitespace-nowrap text-gray-900 font-sans">
                 Clusters:
               </span>
               <div className="flex-1 flex flex-wrap gap-1.5">
                 {clusters.map(clusterId => {
                   const isActive = allClustersSelected || selectedClusters.has(clusterId)
                   const clusterLabel = generateClusterLabel(graph.nodes, clusterId)
+                  const clusterColor = getClusterColor(clusterId)
                   return (
                     <button
                       key={clusterId}
                       onClick={() => toggleCluster(clusterId)}
-                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all"
+                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all font-sans"
                       style={{
-                        backgroundColor: isActive ? getClusterColor(clusterId) : '#FFFFFF',
+                        backgroundColor: isActive ? clusterColor : '#FFFFFF',
                         color: isActive ? '#FFFFFF' : '#080A0B',
-                        border: `1px solid ${isActive ? getClusterColor(clusterId) : '#E5E5E5'}`,
-                        fontFamily: "'Breeze Sans'"
+                        border: `1px solid ${isActive ? clusterColor : '#E5E5E5'}`,
                       }}>
                       {clusterLabel}
                     </button>
@@ -880,8 +936,7 @@ export function GraphPanel() {
                 {!allClustersSelected && (
                   <button
                     onClick={clearClusterFilter}
-                    className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline"
-                    style={{ color: '#0072de', fontFamily: "'Breeze Sans'" }}>
+                    className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-blue-600 font-sans">
                     Clear
                   </button>
                 )}
@@ -892,29 +947,26 @@ export function GraphPanel() {
       )}
 
       {/* Graph Container */}
-      <div ref={containerRef} className="relative bg-white overflow-hidden" style={{ height: "400px", width: "100%" }}>
+      <div ref={containerRef} className="relative bg-white overflow-hidden w-full flex-1">
         {/* Navigation Controls */}
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
           <button
             onClick={handleZoomIn}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95"
-            style={{ border: '2px solid #E5E5E5' }}
+            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95 border border-gray-200"
             title="Zoom in (scroll up)">
-            <ZoomIn className="h-5 w-5" style={{ color: '#080A0B' }} />
+            <ZoomIn className="h-5 w-5 text-gray-900" />
           </button>
           <button
             onClick={handleZoomReset}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95"
-            style={{ border: '2px solid #E5E5E5' }}
+            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95 border border-gray-200"
             title="Reset zoom">
-            <RotateCw className="h-5 w-5" style={{ color: '#080A0B' }} />
+            <RotateCw className="h-5 w-5 text-gray-900" />
           </button>
           <button
             onClick={handleZoomOut}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95"
-            style={{ border: '2px solid #E5E5E5' }}
+            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95 border border-gray-200"
             title="Zoom out (scroll down)">
-            <ZoomOut className="h-5 w-5" style={{ color: '#080A0B' }} />
+            <ZoomOut className="h-5 w-5 text-gray-900" />
           </button>
         </div>
 
@@ -937,9 +989,9 @@ export function GraphPanel() {
                 return sourceId === node.id || targetId === node.id
               })
               
-              const baseSize = 4
-              const sizeFactor = Math.log(node.visitCount + 1) * 3
-              const calculatedSize = Math.max(baseSize, Math.min(baseSize + sizeFactor, 18))
+              const baseSize = 6 // Increased base size from 4
+              const sizeFactor = Math.log(node.visitCount + 1) * 4 // Increased factor
+              const calculatedSize = Math.max(baseSize, Math.min(baseSize + sizeFactor, 24)) // Increased max size
               
               // Isolated nodes get 250% size boost for strong visibility
               return isConnected ? calculatedSize : calculatedSize * 3.5
@@ -947,7 +999,7 @@ export function GraphPanel() {
             nodeRelSize={8}
             nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
               const label = node.label
-              const fontSize = 11 / globalScale
+              const fontSize = 12 / globalScale // Increased font size
               ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
               
               // Check if node is connected
@@ -957,7 +1009,7 @@ export function GraphPanel() {
                 return sourceId === node.id || targetId === node.id
               })
               
-              const baseSize = node.__bckgDimensions ? node.__bckgDimensions[0] : 4
+              const baseSize = node.__bckgDimensions ? node.__bckgDimensions[0] : 6
               // Apply size boost for isolated nodes in rendering
               const size = isConnected ? baseSize : baseSize * 1.5
               const isSelected = selectedNodesForLink.includes(node.id)
@@ -985,7 +1037,7 @@ export function GraphPanel() {
               }
               
               // Only draw labels when zoomed in enough (>1.5x) and labels are enabled
-              if (showLabels && globalScale > 1.5) {
+              if (showLabels && globalScale > 1.2) { // Show labels sooner (1.2x instead of 1.5x)
                 ctx.textAlign = 'center'
                 ctx.textBaseline = 'top'
                 ctx.fillStyle = '#1f2937'
@@ -993,7 +1045,7 @@ export function GraphPanel() {
               }
             }}
             nodeCanvasObjectMode={() => 'replace'}
-            linkWidth={(link: any) => link.isManual ? 2 : Math.max(0.5, link.value * 1.5)}
+            linkWidth={(link: any) => link.isManual ? 2 : Math.max(0.5, link.value * 2)} // Thicker links
             linkColor={(link: any) => link.isManual ? '#0072de' : '#cbd5e1'}
             linkLineDash={(link: any) => link.isManual ? [5, 5] : null}
             linkDirectionalParticles={0}
@@ -1001,7 +1053,8 @@ export function GraphPanel() {
             onNodeHover={null}
             cooldownTicks={150}
             dagMode={null}
-            d3VelocityDecay={0.2}
+            d3VelocityDecay={0.3} // Increased decay for more stable layout
+            d3AlphaDecay={0.02} // Slower cooling for better initial layout
             enableNodeDrag={true}
             enableZoomInteraction={true}
             enablePanInteraction={true}
@@ -1025,7 +1078,7 @@ export function GraphPanel() {
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+            <p className="text-xs text-gray-400 font-sans">
               No nodes match current filters
             </p>
           </div>

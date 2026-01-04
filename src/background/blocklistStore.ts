@@ -1,6 +1,7 @@
 // Blocklist Storage Manager
 
 import type { Blocklist, BlocklistEntry, CategoryStates } from "~/types/focus-mode"
+import { log, warn } from "~/lib/logger"
 
 const BLOCKLIST_KEY = "focus-mode-blocklist"
 
@@ -426,7 +427,7 @@ export function saveBlocklist(blocklist: Blocklist): Promise<void> {
         console.error("[Blocklist] Error saving:", chrome.runtime.lastError)
         reject(chrome.runtime.lastError)
       } else {
-        console.log("[Blocklist] Saved successfully")
+        log("[Blocklist] Saved successfully")
         resolve()
       }
     })

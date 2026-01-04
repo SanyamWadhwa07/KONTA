@@ -6,10 +6,10 @@ import {
   setupOpenSidepanelListener
 } from "./sidepanel-listeners"
 import { setupConsentListener } from "./consent-listener"
-import { getSessions, initializeSessions, updateSessionLabel } from "./sessionManager"
+import { getSessions, initializeSessions, updateSessionLabel, deletePageFromSession, deleteSession } from "./sessionManager"
 import { executeSearch } from "./search-coordinator"
 import { loadLabels, addLabel, deleteLabel, getLabelById } from "./labelsStore"
-import { loadLearnedAssociations, learnFromSession } from "./contextLearning"
+import { loadLearnedAssociations, learnFromSession, predictLabelForSession } from "./contextLearning"
 import { 
   detectProjects, 
   loadProjects, 
@@ -55,9 +55,40 @@ import {
   exportBlocklist
 } from "./blocklistStore"
 import type { BlocklistEntry, BlocklistCategory } from "~/types/focus-mode"
+import {
+  scheduleReminder,
+  cancelReminder,
+  snoozeReminder,
+  dismissReminder,
+  reregisterAllReminders,
+  openProjectInTabGroup,
+  handleReminderAlarm
+} from "./reminderManager"
+import { log, warn } from "~/lib/logger"
 
 // Track registered session listeners (sidepanel tabs)
 const sessionListeners = new Set<number>()
+
+// Utility function to clean URLs (remove chrome-extension prefix)
+function cleanUrl(url: string): string {
+  // Remove chrome-extension://[extension-id]/tabs/ prefix
+  // Extension IDs are 32 lowercase letters
+  const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
+  if (chromeExtPattern.test(url)) {
+    log("[cleanUrl] Detected chrome-extension URL:", url)
+    // Extract the actual URL after /tabs/
+    const cleanedUrl = url.replace(chromeExtPattern, '')
+    // Add https:// if it doesn't have a protocol
+    const finalUrl = cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
+    log("[cleanUrl] Cleaned URL:", finalUrl)
+    return finalUrl
+  }
+  // Ensure URL has protocol (not relative)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'https://' + url
+  }
+  return url
+}
 
 // Graph state
 let knowledgeGraph: KnowledgeGraph | null = null
@@ -65,18 +96,34 @@ let graphNeedsRebuild = true
 
 // Initialize sessions from IndexedDB on startup
 initializeSessions().then(() => {
-  console.log("[Background] Sessions initialized from IndexedDB")
+  console.log("Welcome to Konta! we hope you like it :)")
+  log("[Background] Sessions initialized from IndexedDB")
   rebuildGraphIfNeeded()
 })
 
 // Initialize learned context associations
 loadLearnedAssociations().then(() => {
-  console.log("[Background] Context learning initialized")
+  log("[Background] Context learning initialized")
 })
 
 // Initialize focus mode on startup
 initializeFocusMode().then(() => {
-  console.log("[Background] Focus mode initialized")
+  log("[Background] Focus mode initialized")
+})
+
+// Initialize reminder alarms on startup
+reregisterAllReminders().then(() => {
+  log("[Background] Reminder alarms reregistered")
+}).catch((error) => {
+  console.error("[Background] Failed to reregister reminders:", error)
+})
+
+// Listen for alarm triggers
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name.startsWith("project-reminder-")) {
+    log("[Background] Alarm triggered:", alarm.name)
+    handleReminderAlarm(alarm)
+  }
 })
 
 // Initialize all listeners
@@ -112,7 +159,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabId = sender.tab?.id
     if (tabId && !sessionListeners.has(tabId)) {
       sessionListeners.add(tabId)
-      console.log("[Background] Session listener registered for tab", tabId)
+      log("[Background] Session listener registered for tab", tabId)
     }
     sendResponse({ success: true })
     return true
@@ -190,6 +237,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (message.type === "GET_LABEL_SUGGESTION") {
+    const { sessionId } = message.payload
+    const session = getSessions().find(s => s.id === sessionId)
+    
+    if (!session || session.labelId) {
+      sendResponse({ suggestion: null })
+      return true
+    }
+
+    // Get all domains from session pages
+    const domains = new Set(
+      session.pages
+        .map(page => {
+          try {
+            return new URL(page.url).hostname.replace(/^www\./, '')
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean)
+    )
+
+    // Get predictions for each domain and pick the most confident one
+    let bestPrediction: { labelName: string; confidence: number } | null = null
+    
+    for (const domain of domains) {
+      const prediction = predictLabelForSession({ pages: session.pages } as any)
+      if (prediction && (!bestPrediction || prediction.confidence > bestPrediction.confidence)) {
+        bestPrediction = prediction
+      }
+    }
+
+    sendResponse({ suggestion: bestPrediction })
+    return true
+  }
+
   if (message.type === "UPDATE_SESSION_LABEL") {
     const { sessionId, labelId } = message.payload
     updateSessionLabel(sessionId, labelId)
@@ -217,6 +300,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     addLabel({ name, color })
       .then((newLabel) => {
         sendResponse({ label: newLabel })
+        broadcastLabelUpdate()
       })
       .catch((error) => {
         console.error("ADD_LABEL failed:", error)
@@ -230,9 +314,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     deleteLabel(labelId)
       .then(() => {
         sendResponse({ success: true })
+        broadcastLabelUpdate()
       })
       .catch((error) => {
         console.error("DELETE_LABEL failed:", error)
+        sendResponse({ success: false })
+      })
+    return true
+  }
+
+  if (message.type === "DELETE_PAGE_FROM_SESSION") {
+    const { sessionId, pageUrl } = message.payload
+    deletePageFromSession(sessionId, pageUrl)
+      .then(() => {
+        sendResponse({ success: true })
+        broadcastSessionUpdate()
+      })
+      .catch((error) => {
+        console.error("DELETE_PAGE_FROM_SESSION failed:", error)
+        sendResponse({ success: false })
+      })
+    return true
+  }
+
+  if (message.type === "DELETE_SESSION") {
+    const { sessionId } = message.payload
+    deleteSession(sessionId)
+      .then(() => {
+        sendResponse({ success: true })
+        broadcastSessionUpdate()
+      })
+      .catch((error) => {
+        console.error("DELETE_SESSION failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -308,7 +421,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       score: autoDetected ? 0 : 100
     })
       .then((newProject) => {
-        console.log("[ADD_PROJECT] Created new project:", newProject.name)
+        log("[ADD_PROJECT] Created new project:", newProject.name)
         sendResponse({ success: true, project: newProject })
       })
       .catch((error) => {
@@ -345,8 +458,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "ADD_SITE_TO_PROJECT") {
-    const { projectId, siteUrl, siteTitle, addedBy = 'user' } = message.payload
-    console.log("[ADD_SITE_TO_PROJECT]", { projectId, siteUrl, siteTitle })
+    const { projectId, siteUrl: rawSiteUrl, siteTitle, addedBy = 'user' } = message.payload
+    
+    // Clean the URL to remove any chrome-extension prefix
+    const siteUrl = cleanUrl(rawSiteUrl)
+    
+    log("[ADD_SITE_TO_PROJECT]", { projectId, rawSiteUrl, cleanedSiteUrl: siteUrl, siteTitle })
     
     loadProjects()
       .then(async (projects) => {
@@ -377,8 +494,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const otherProjects = projects.filter(p => p.id !== projectId)
         await chrome.storage.local.set({ "aegis-projects": [...otherProjects, project] })
         
-        console.log("[ADD_SITE_TO_PROJECT] Site added successfully to project:", project.name)
-        console.log(`  → Site can now belong to multiple projects`)
+        log("[ADD_SITE_TO_PROJECT] Site added successfully to project:", project.name)
+        log(`  → Site can now belong to multiple projects`)
         sendResponse({ success: true, project })
       })
       .catch((error) => {
@@ -390,7 +507,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "DISMISS_PROJECT_SUGGESTION") {
     const { projectId, url } = message.payload
-    console.log("[DISMISS_PROJECT_SUGGESTION]", { projectId, url })
+    log("[DISMISS_PROJECT_SUGGESTION]", { projectId, url })
     
     loadProjects()
       .then(async (projects) => {
@@ -415,7 +532,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const otherProjects = projects.filter(p => p.id !== projectId)
         await chrome.storage.local.set({ "aegis-projects": [...otherProjects, project] })
         
-        console.log("[DISMISS_PROJECT_SUGGESTION] Dismissal recorded, will not suggest again for 24 hours")
+        log("[DISMISS_PROJECT_SUGGESTION] Dismissal recorded, will not suggest again for 24 hours")
         sendResponse({ success: true })
       })
       .catch((error) => {
@@ -462,7 +579,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           candidate.snoozeCount = (candidate.snoozeCount || 0) + 1
           candidate.status = 'watching'
           candidate.notificationShown = false
-          console.log(`[Snooze] Candidate snoozed. Will need ${2 * candidate.snoozeCount} more visits`)
+          log(`[Snooze] Candidate snoozed. Will need ${2 * candidate.snoozeCount} more visits`)
           await saveCandidates(candidates)
           sendResponse({ success: true })
         } else {
@@ -478,14 +595,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "PROMOTE_CANDIDATE") {
     const { candidateId } = message.payload
-    console.log("[PROMOTE_CANDIDATE] Processing candidateId:", candidateId)
+    log("[PROMOTE_CANDIDATE] Processing candidateId:", candidateId)
     
     // Get all candidates (not just ready ones) to find the one to promote
     loadCandidates()
       .then(async (candidates) => {
-        console.log("[PROMOTE_CANDIDATE] Found", candidates.length, "total candidates")
+        log("[PROMOTE_CANDIDATE] Found", candidates.length, "total candidates")
         const candidate = candidates.find(c => c.id === candidateId)
-        console.log("[PROMOTE_CANDIDATE] Target candidate found:", !!candidate)
+        log("[PROMOTE_CANDIDATE] Target candidate found:", !!candidate)
         if (!candidate) {
           console.error("[PROMOTE_CANDIDATE] Candidate not found:", candidateId)
           sendResponse({ success: false, error: "Candidate not found" })
@@ -564,11 +681,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "OPEN_SIDEPANEL_TO_PROJECTS") {
     // Open sidepanel and notify it to switch to projects tab
-    console.log("[Background] Opening sidepanel to projects tab")
+    log("[Background] Opening sidepanel to projects tab")
     
     // Store the preferred tab in chrome storage so sidepanel can read it
     chrome.storage.local.set({ "sidepanel-active-tab": "projects" }, () => {
-      console.log("[Background] Set sidepanel tab preference to 'projects'")
+      log("[Background] Set sidepanel tab preference to 'projects'")
     })
     
     // Get the active tab and open sidepanel for it
@@ -579,7 +696,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             console.error("[Background] Failed to open sidepanel:", chrome.runtime.lastError)
             sendResponse({ success: false, error: chrome.runtime.lastError.message })
           } else {
-            console.log("[Background] Sidepanel opened successfully")
+            log("[Background] Sidepanel opened successfully")
             sendResponse({ success: true })
           }
         })
@@ -647,10 +764,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "GET_BLOCKLIST") {
-    console.log("[Background] GET_BLOCKLIST request received")
+    log("[Background] GET_BLOCKLIST request received")
     loadBlocklist()
       .then((blocklist) => {
-        console.log("[Background] Sending blocklist with", blocklist.entries.length, "entries")
+        log("[Background] Sending blocklist with", blocklist.entries.length, "entries")
         sendResponse({ blocklist })
       })
       .catch((error) => {
@@ -746,6 +863,241 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
     return true
   }
+
+  // Project reminder operations
+  if (message.type === "SET_PROJECT_REMINDER") {
+    const { projectId, reminder } = message.payload
+    log("[SET_PROJECT_REMINDER]", { projectId, reminder })
+    
+    scheduleReminder(projectId, reminder)
+      .then(() => {
+        sendResponse({ success: true })
+      })
+      .catch((error) => {
+        console.error("SET_PROJECT_REMINDER failed:", error)
+        sendResponse({ success: false, error: error.message })
+      })
+    return true
+  }
+
+  if (message.type === "CANCEL_PROJECT_REMINDER") {
+    const { projectId } = message.payload
+    log("[CANCEL_PROJECT_REMINDER]", { projectId })
+    
+    cancelReminder(projectId)
+      .then(() => {
+        sendResponse({ success: true })
+      })
+      .catch((error) => {
+        console.error("CANCEL_PROJECT_REMINDER failed:", error)
+        sendResponse({ success: false, error: error.message })
+      })
+    return true
+  }
+
+  if (message.type === "SNOOZE_REMINDER") {
+    const { projectId } = message.payload
+    log("[SNOOZE_REMINDER]", { projectId })
+    
+    snoozeReminder(projectId)
+      .then(() => {
+        sendResponse({ success: true })
+      })
+      .catch((error) => {
+        console.error("SNOOZE_REMINDER failed:", error)
+        sendResponse({ success: false, error: error.message })
+      })
+    return true
+  }
+
+  if (message.type === "DISMISS_REMINDER") {
+    const { projectId } = message.payload
+    log("[DISMISS_REMINDER]", { projectId })
+    
+    dismissReminder(projectId)
+      .then(() => {
+        sendResponse({ success: true })
+      })
+      .catch((error) => {
+        console.error("DISMISS_REMINDER failed:", error)
+        sendResponse({ success: false, error: error.message })
+      })
+    return true
+  }
+
+  if (message.type === "DISMISS_SNOOZE") {
+    const { projectId } = message.payload
+    log("[DISMISS_SNOOZE]", { projectId })
+    
+    loadProjects()
+      .then(async (projects) => {
+        const project = projects.find(p => p.id === projectId)
+        if (!project || !project.reminder) {
+          sendResponse({ success: false, error: "Project or reminder not found" })
+          return
+        }
+        
+        // Clear snooze state
+        project.reminder.snoozeCount = 0
+        project.reminder.snoozedUntil = undefined
+        
+        // Save updated project
+        const otherProjects = projects.filter(p => p.id !== projectId)
+        await chrome.storage.local.set({ "aegis-projects": [...otherProjects, project] })
+        
+        // Reschedule alarm immediately
+        await scheduleReminder(projectId, project.reminder)
+        
+        log("[DISMISS_SNOOZE] Snooze dismissed, reminder rescheduled for project:", projectId)
+        sendResponse({ success: true })
+      })
+      .catch((error) => {
+        console.error("DISMISS_SNOOZE failed:", error)
+        sendResponse({ success: false, error: error.message })
+      })
+    return true
+  }
+
+  if (message.type === "OPEN_PROJECT_IN_TAB_GROUP") {
+    const { projectId } = message.payload
+    log("[OPEN_PROJECT_IN_TAB_GROUP]", { projectId })
+    
+    openProjectInTabGroup(projectId)
+      .then(() => {
+        sendResponse({ success: true })
+      })
+      .catch((error) => {
+        console.error("OPEN_PROJECT_IN_TAB_GROUP failed:", error)
+        sendResponse({ success: false, error: error.message })
+      })
+    return true
+  }
+
+  // Settings Handlers
+  if (message.type === "GET_SETTINGS") {
+    chrome.storage.local.get(["aegis-settings"], (result) => {
+      sendResponse({ settings: result["aegis-settings"] || null })
+    })
+    return true
+  }
+
+  if (message.type === "UPDATE_SETTINGS") {
+    const { settings } = message.payload
+    chrome.storage.local.set({ "aegis-settings": settings }, () => {
+      sendResponse({ success: true })
+    })
+    return true
+  }
+
+  if (message.type === "RESET_ALL_SETTINGS") {
+    // Clear all settings and cache
+    chrome.storage.local.remove(["aegis-settings"], () => {
+      sendResponse({ success: true })
+    })
+    return true
+  }
+
+  if (message.type === "CLEAR_ALL_DATA") {
+    // Nuclear option: clear everything
+    ;(async () => {
+      try {
+        await chrome.storage.local.clear()
+        sendResponse({ success: true })
+      } catch (error) {
+        console.error("CLEAR_ALL_DATA failed:", error)
+        sendResponse({ success: false })
+      }
+    })()
+    return true
+  }
+
+  if (message.type === "CLEAR_ALL_PROJECTS") {
+    chrome.storage.local.set({ "aegis-projects": [] }, () => {
+      sendResponse({ success: true })
+    })
+    return true
+  }
+
+  if (message.type === "CLEAR_ALL_SESSIONS") {
+    chrome.storage.local.set({ "aegis-sessions": [] }, () => {
+      broadcastSessionUpdate()
+      sendResponse({ success: true })
+    })
+    return true
+  }
+
+  if (message.type === "EXPORT_ALL_DATA") {
+    ;(async () => {
+      try {
+        const sessions = getSessions()
+        const labels = await loadLabels()
+        const projects = await loadProjects()
+        const settings = await new Promise((resolve) => {
+          chrome.storage.local.get(["aegis-settings"], (result) => {
+            resolve(result["aegis-settings"])
+          })
+        })
+        
+        const exportData = {
+          version: "1.0",
+          exportedAt: new Date().toISOString(),
+          data: {
+            sessions,
+            labels,
+            projects,
+            settings
+          }
+        }
+        
+        sendResponse({ data: exportData })
+      } catch (error) {
+        console.error("EXPORT_ALL_DATA failed:", error)
+        sendResponse({ data: null })
+      }
+    })()
+    return true
+  }
+
+  if (message.type === "IMPORT_DATA") {
+    const { data } = message.payload
+    ;(async () => {
+      try {
+        // Import sessions, labels, projects, settings
+        if (data.data?.sessions) {
+          // Sessions are handled by sessionManager
+          // We'd need to implement an import function there
+        }
+        if (data.data?.labels) {
+          await chrome.storage.local.set({ "aegis-labels": data.data.labels })
+        }
+        if (data.data?.projects) {
+          await chrome.storage.local.set({ "aegis-projects": data.data.projects })
+        }
+        if (data.data?.settings) {
+          await chrome.storage.local.set({ "aegis-settings": data.data.settings })
+        }
+        
+        sendResponse({ success: true })
+      } catch (error) {
+        console.error("IMPORT_DATA failed:", error)
+        sendResponse({ success: false })
+      }
+    })()
+    return true
+  }
+
+  if (message.type === "GET_CANDIDATES_COUNT") {
+    loadCandidates()
+      .then((candidates) => {
+        const active = candidates.filter(c => c.status !== 'dismissed').length
+        sendResponse({ count: active })
+      })
+      .catch((error) => {
+        console.error("GET_CANDIDATES_COUNT failed:", error)
+        sendResponse({ count: 0 })
+      })
+    return true
+  }
 })
 
 // Periodic broadcaster to capture dwell/idle changes
@@ -790,7 +1142,13 @@ async function broadcastCoiUpdate() {
 export function broadcastSessionUpdate() {
   // Sessions are already persisted to IndexedDB by sessionManager
   // PopulatedState will poll for updates
-  console.log("[Background] Session updated, count:", getSessions().length)
+  log("[Background] Session updated, count:", getSessions().length)
+}
+
+export function broadcastLabelUpdate() {
+  // Labels are persisted by labelsStore
+  // PopulatedState will poll for updates
+  log("[Background] Labels updated")
 }
 
 function rebuildGraphIfNeeded() {
@@ -806,7 +1164,7 @@ function rebuildGraphIfNeeded() {
       allPages.push(...session.pages)
     }
 
-    console.log("[Background] Rebuilding knowledge graph from pages:", allPages.length)
+    log("[Background] Rebuilding knowledge graph from pages:", allPages.length)
     
     knowledgeGraph = buildKnowledgeGraph(allPages, {
       similarityThreshold: 0.35,
@@ -816,7 +1174,7 @@ function rebuildGraphIfNeeded() {
     
     graphNeedsRebuild = false
     
-    console.log("[Background] Graph rebuilt with nodes:", knowledgeGraph.nodes.length, "edges:", knowledgeGraph.edges.length)
+    log("[Background] Graph rebuilt with nodes:", knowledgeGraph.nodes.length, "edges:", knowledgeGraph.edges.length)
   } catch (err) {
     console.error("[Background] Failed to rebuild knowledge graph:", err)
     knowledgeGraph = { nodes: [], edges: [], lastUpdated: Date.now() }
@@ -846,8 +1204,8 @@ if (typeof globalThis !== 'undefined') {
       loadCandidates,
       loadProjects
     }
-    console.log("%c🧪 Test helpers loaded!", "background: #4CAF50; color: white; padding: 4px 8px; font-weight: bold")
-    console.log("%cQuick start: testHelpers.runAllTests()", "color: #2196F3; font-weight: bold")
-    console.log("%cInteractive: testHelpers.interactiveTest()", "color: #FF9800; font-weight: bold")
+    log("%c🧪 Test helpers loaded!", "background: #4CAF50; color: white; padding: 4px 8px; font-weight: bold")
+    log("%cQuick start: testHelpers.runAllTests()", "color: #2196F3; font-weight: bold")
+    log("%cInteractive: testHelpers.interactiveTest()", "color: #FF9800; font-weight: bold")
   })
 }

@@ -12,14 +12,15 @@
 //  */
 
 // import type { PlasmoCSConfig } from "plasmo"
+// import { log, warn } from "~/lib/logger"
 
 // export const config: PlasmoCSConfig = {
 //   matches: ["<all_urls>"],
 //   run_at: "document_start"
 // }
 
-// console.log("[AddToProjectButton] LEGACY content script - DISABLED")
-// console.log("[AddToProjectButton] All functionality migrated to indicator hub and sidebar")
+// log("[AddToProjectButton] LEGACY content script - DISABLED")
+// log("[AddToProjectButton] All functionality migrated to indicator hub and sidebar")
 
 //     // Listen for storage changes
 //     const handleStorageChange = (changes: any) => {
@@ -47,7 +48,7 @@
 //     }, (response) => {
 //       if (response?.success) {
 //         // Show success feedback
-//         console.log("✅ Site added to project")
+//         log("✅ Site added to project")
 //         setIsOpen(false)
         
 //         // Show temporary success message
