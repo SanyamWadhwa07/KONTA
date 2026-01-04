@@ -1,4 +1,4 @@
-import { X, Folder, Edit2, ExternalLink, Bell, BellOff, Trash2, Clock, ChevronDown } from "lucide-react"
+import { X, Folder, Edit2, ExternalLink, Bell, BellOff, Trash2, Clock, ChevronDown, RefreshCw } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import type { Session } from "~/types/session"
 import type { Project } from "~/types/project"
@@ -247,8 +247,21 @@ function ProjectsPanel({
             {/* Site Info */}
             <div className="flex items-start gap-2 mb-2">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium mb-0.5 truncate text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
-                  {targetPage.title || targetPage.url}
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium mb-0.5 truncate text-[#080A0B] dark:text-[#FFFFFF] flex-1" style={{ fontFamily: "'Breeze Sans'" }}>
+                    {targetPage.title || targetPage.url}
+                  </div>
+                  {onRefreshCurrentPage && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRefreshCurrentPage()
+                      }}
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-[#3A3A3C] transition-colors flex-shrink-0"
+                      title="Refresh current page info">
+                      <RefreshCw className="h-3.5 w-3.5 text-[#9A9FA6] dark:text-[#8E8E93]" />
+                    </button>
+                  )}
                 </div>
                 <div className="text-2xs truncate text-[#9A9FA6] dark:text-[#8E8E93]" style={{ fontFamily: "'Breeze Sans'", fontSize: '11px' }}>
                   {targetPage.url}
@@ -261,14 +274,20 @@ function ProjectsPanel({
               <div className="text-2xs text-center py-2 dark:text-[#8E8E93]" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
                 Create a project first to add this site
               </div>
+            ) : projects.filter(p => !p.sites?.some(s => cleanUrl(s.url) === cleanUrl(targetPage.url))).length === 0 ? (
+              <div className="text-2xs text-center py-2 dark:text-[#8E8E93]" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
+                This site is already in all your projects
+              </div>
             ) : (
               <div className="flex gap-1.5 items-center w-full">
                 <select
-                  value={selectedProjectId && projects.some(p => p.id === selectedProjectId) ? selectedProjectId : (projects[0]?.id || "")}
+                  value={selectedProjectId && projects.some(p => p.id === selectedProjectId) ? selectedProjectId : (projects.filter(p => !p.sites?.some(s => cleanUrl(s.url) === cleanUrl(targetPage.url)))[0]?.id || "")}
                   onChange={(e) => setSelectedProjectId(e.target.value)}
                   className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded-lg border border-[#DDD] dark:border-[#3A3A3C] outline-none focus:border-blue-500 truncate bg-white dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF]"
                   style={{ fontFamily: "'Breeze Sans'" }}>
-                  {projects.map((project) => (
+                  {projects
+                    .filter(p => !p.sites?.some(s => cleanUrl(s.url) === cleanUrl(targetPage.url)))
+                    .map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
                     </option>
@@ -754,7 +773,7 @@ function ProjectCard({
                       e.stopPropagation()
                       setEditingDescription(true)
                     }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 dark:hover:bg-[#3A3A3C] rounded"
                     title="Edit description">
                     <Edit2 className="h-3 w-3" style={{ color: '#9A9FA6' }} />
                   </button>
