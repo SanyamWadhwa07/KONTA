@@ -1202,7 +1202,7 @@ async function showNativeChromeNotification(score: number, threshold: number) {
   try {
     await chrome.notifications.create({
       type: 'basic',
-      iconUrl: chrome.runtime.getURL('assets/icon64.png'),
+      iconUrl: chrome.runtime.getURL('assets/icon.png'),
       title: '🧠 Focus Alert',
       message: `Your distraction level is ${Math.round(score * 100)}%. Consider taking a short break to refocus.`,
       priority: 2,
@@ -1285,8 +1285,8 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
     // Update last alert timestamp
     lastCoiAlertTimestamp = now
 
-    // Get active tab to send notification
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+    // Get active tab to send notification (remove currentWindow to handle cases where DevTools or other windows are focused)
+    const tabs = await chrome.tabs.query({ active: true })
     console.log("[COI Alert] Active tabs found:", tabs.length)
     if (tabs.length === 0) return
 
@@ -1298,20 +1298,53 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
 
     console.log(`[COI Alert] Attempting to send notification to tab ${activeTab.id} (${activeTab.url})`)
     
-    // Send COI_ALERT notification using safe sender
-    const success = await safelySendToContentScript(activeTab.id, {
-      type: "COI_ALERT",
-      payload: {
-        score: sessionCoiScore,
-        threshold,
-        message: `You've been switching between tasks frequently. Taking a short break might help you refocus.`
-      }
-    })
-
-    if (success) {
+    // Try sending directly to content script
+    try {
+      await chrome.tabs.sendMessage(activeTab.id, {
+        type: "COI_ALERT",
+        payload: {
+          score: sessionCoiScore,
+          threshold,
+          message: `You've been switching between tasks frequently. Taking a short break might help you refocus.`
+        }
+      })
       console.log("[COI Alert] ✅ In-page notification delivered")
-    } else {
-      console.log("[COI Alert] ⚠️ Content script unavailable, using native notification fallback")
+    } catch (err) {
+      const error = err as Error
+      console.log("[COI Alert] ⚠️ Content script unavailable:", error.message)
+      
+      // If the error is "Receiving end does not exist", try injecting the content script
+      if (error.message.includes("Receiving end does not exist")) {
+        console.log("[COI Alert] Attempting to inject content script...")
+        try {
+          // Inject the indicator content script
+          await chrome.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            files: ['contents/indicator.tsx']
+          })
+          console.log("[COI Alert] Content script injected, retrying notification...")
+          
+          // Wait a bit for the script to initialize
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Retry sending the message
+          await chrome.tabs.sendMessage(activeTab.id, {
+            type: "COI_ALERT",
+            payload: {
+              score: sessionCoiScore,
+              threshold,
+              message: `You've been switching between tasks frequently. Taking a short break might help you refocus.`
+            }
+          })
+          console.log("[COI Alert] ✅ In-page notification delivered after injection")
+          return
+        } catch (injectErr) {
+          console.log("[COI Alert] Failed to inject/retry:", (injectErr as Error).message)
+        }
+      }
+      
+      // Fallback to native notification
+      console.log("[COI Alert] Using native notification fallback")
       await showNativeChromeNotification(sessionCoiScore, threshold)
     }
   } catch (err) {
