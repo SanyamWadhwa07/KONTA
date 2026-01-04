@@ -53,7 +53,8 @@
       "alarms",
       "declarativeNetRequest",
       "declarativeNetRequestFeedback",
-      "history"
+      "history",
+      "scripting"
     ],
     "side_panel": {
       "default_path": "sidepanel.html"

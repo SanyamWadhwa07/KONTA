@@ -79,6 +79,16 @@ const Indicator = () => {
 
   // Load saved position and check onboarding status
   useEffect(() => {
+    // Send ready signal to background script
+    chrome.runtime.sendMessage({ type: "CONTENT_SCRIPT_READY" }, (response) => {
+      if (chrome.runtime.lastError) {
+        // Background might not be ready yet, that's okay
+        log("[Indicator] Background not ready yet:", chrome.runtime.lastError.message)
+      } else {
+        log("[Indicator] ✅ Ready signal sent to background")
+      }
+    })
+
     chrome.storage.local.get(['konta-position', 'onboarding-complete'], (result) => {
       // Check if onboarding is complete
       const onboardingDone = result['onboarding-complete'] === true
