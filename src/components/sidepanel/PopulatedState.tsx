@@ -154,6 +154,15 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     let rafId: number | null = null
     let scrollCheckRafId: number | null = null
     
+    // Define handleResize before it's used
+    const handleResize = () => {
+      if (rafId) cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => {
+        checkTabScroll()
+        checkLabelsScroll()
+      })
+    }
+    
     // Tab scroll listener
     if (tabScrollContainer) {
       tabScrollContainer.addEventListener('scroll', checkTabScroll)
@@ -170,6 +179,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       
       labelsScrollContainer.addEventListener('scroll', handleScroll, { passive: true })
       
+      // Add resize listener
+      window.addEventListener('resize', handleResize)
+      
       // Cleanup for this effect
       return () => {
         if (tabScrollContainer) {
@@ -182,13 +194,6 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       }
     }
     
-    const handleResize = () => {
-      if (rafId) cancelAnimationFrame(rafId)
-      rafId = requestAnimationFrame(() => {
-        checkTabScroll()
-        checkLabelsScroll()
-      })
-    }
     window.addEventListener('resize', handleResize)
     
     return () => {
@@ -1201,6 +1206,13 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                             type: "UPDATE_SESSION_LABEL",
                             payload: { sessionId, labelId }
                           })
+                          // Update local state immediately and force re-render
+                          setSessions(prev => {
+                            const updated = prev.map(s => 
+                              s.id === sessionId ? { ...s, labelId } : s
+                            )
+                            return [...updated]
+                          })
                         } catch (err) {
                           console.error("Failed to update session label:", err)
                         }
@@ -1282,71 +1294,84 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         </button>
       </div>
       {showAddLabelModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-5 w-72 shadow-lg">
-            <h2 className="text-base font-normal mb-4" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
-              Create New Label
-            </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowAddLabelModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl" style={{ width: '280px' }} onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-4 py-3 border-b" style={{ borderColor: '#E5E5E5' }}>
+              <h2 className="text-sm font-medium" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                Create Label
+              </h2>
+            </div>
             
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className="text-xs font-normal" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
-                  Label Name
-                </label>
-                <input
-                  type="text"
-                  value={newLabelName}
-                  onChange={(e) => setNewLabelName(e.target.value)}
-                  placeholder="Development"
-                  className="w-full mt-1 px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500"
-                  style={{ borderColor: '#DDD', fontFamily: "'Breeze Sans'" }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddLabel()
-                    }
-                  }}
-                />
-              </div>
+            {/* Content */}
+            <div className="px-4 py-3">
+              <div className="flex flex-col gap-2.5">
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: '#4B5563', fontFamily: "'Breeze Sans'" }}>
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newLabelName}
+                    onChange={(e) => setNewLabelName(e.target.value)}
+                    placeholder="e.g. Development"
+                    autoFocus
+                    className="w-full px-2.5 py-1.5 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    style={{ borderColor: '#D1D5DB', fontFamily: "'Breeze Sans'" }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newLabelName.trim()) {
+                        handleAddLabel()
+                      } else if (e.key === 'Escape') {
+                        setShowAddLabelModal(false)
+                      }
+                    }}
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-normal" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
-                  Colour
-                </label>
-                <input
-                  type="color"
-                  value={newLabelColor}
-                  onChange={(e) => setNewLabelColor(e.target.value)}
-                  className="w-10 h-10 border rounded cursor-pointer"
-                  style={{ borderColor: '#DDD' }}
-                />
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium" style={{ color: '#4B5563', fontFamily: "'Breeze Sans'" }}>
+                    Color
+                  </label>
+                  <input
+                    type="color"
+                    value={newLabelColor}
+                    onChange={(e) => setNewLabelColor(e.target.value)}
+                    className="w-8 h-8 border rounded cursor-pointer"
+                    style={{ borderColor: '#D1D5DB' }}
+                  />
+                  <div className="text-xs" style={{ color: '#9CA3AF', fontFamily: "'Breeze Sans'" }}>{newLabelColor}</div>
+                </div>
               </div>
+            </div>
 
-              <div className="flex gap-2 justify-end mt-2">
-                <button
-                  onClick={() => {
-                    setShowAddLabelModal(false)
-                    setNewLabelName("")
-                    setNewLabelColor("#3B82F6")
-                  }}
-                  className="px-4 py-1.5 text-xs rounded-lg transition-colors"
-                  style={{
-                    backgroundColor: '#F5F5F5',
-                    color: '#666',
-                    fontFamily: "'Breeze Sans'",
-                  }}>
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddLabel}
-                  disabled={!newLabelName.trim()}
-                  className="px-4 py-2 text-xs rounded-lg text-white transition-colors disabled:opacity-50"
-                  style={{
-                    backgroundColor: newLabelName.trim() ? '#0072DE' : '#CCC',
-                    fontFamily: "'Breeze Sans'",
-                  }}>
-                  Create
-                </button>
-              </div>
+            {/* Footer */}
+            <div className="px-4 py-2.5 border-t flex gap-2 justify-end" style={{ borderColor: '#E5E5E5', backgroundColor: '#F9FAFB' }}>
+              <button
+                onClick={() => {
+                  setShowAddLabelModal(false)
+                  setNewLabelName("")
+                  setNewLabelColor("#3B82F6")
+                }}
+                className="px-3 py-1.5 text-xs rounded transition-colors"
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  color: '#6B7280',
+                  border: '1px solid #D1D5DB',
+                  fontFamily: "'Breeze Sans'",
+                }}>
+                Cancel
+              </button>
+              <button
+                onClick={handleAddLabel}
+                disabled={!newLabelName.trim()}
+                className="px-3 py-1.5 text-xs rounded text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: newLabelName.trim() ? '#0072df' : '#9CA3AF',
+                  fontFamily: "'Breeze Sans'",
+                  fontWeight: 500
+                }}>
+                Create
+              </button>
             </div>
           </div>
         </div>
@@ -1467,16 +1492,7 @@ function DaySection({
               isExpanded={expandedSessions.includes(session.id)}
               onToggle={() => onToggleSession(session.id)}
               labels={labels}
-              onUpdateSessionLabel={async (sessionId, labelId) => {
-                try {
-                  await sendMessage<{ success: boolean }>({
-                    type: "UPDATE_SESSION_LABEL",
-                    payload: { sessionId, labelId }
-                  })
-                } catch (err) {
-                  console.error("Failed to update session label:", err)
-                }
-              }}
+              onUpdateSessionLabel={onUpdateSessionLabel}
               onDeleteLabel={onDeleteLabel}
               onOpenCreateLabelModal={onOpenCreateLabelModal}
             />

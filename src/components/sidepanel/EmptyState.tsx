@@ -138,34 +138,7 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
               Konta will quietly learn from your browsing context. You can always come back here to view your sessions and projects.
             </p>
           </>
-        ) : (
-          // Normal empty state message
-          <>
-            <h2
-              className="text-2xl font mb-6"
-              style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-              Your Memory Timeline
-            </h2>
-
-            <p
-              className="text-lg mb-4"
-              style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-              Your browsing memory lives here!
-            </p>
-
-            <p
-              className="text-xs leading-relaxed"
-              style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
-              As you browse, Aegis will remember the pages you visit. Your timeline will appear here, organized by session.
-            </p>
-
-            <p
-              className="text-xs leading-relaxed "
-              style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
-              Everything stays on your device. Nothing leaves unless you decide to share it.
-            </p>
-          </>
-        )}
+        ) : null}
         </div>
 
         {/* Bottom section with demo button and dev buttons */}
@@ -181,48 +154,7 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
               }}>
               Let's go!
             </Button>
-          ) : (
-            // Normal empty state buttons
-            <>
-              <p
-                className="text-sm leading-relaxed mb-1"
-                style={{ color: '#0072de', fontFamily: "'Breeze Sans'" }}>
-                Want to see an example?
-              </p>
-
-              <div className="flex justify-center mb-2">
-                <Button
-                  onClick={() => {}}
-                  className="h-[46px] font text-base rounded-full"
-                  style={{
-                    backgroundColor: '#0072de',
-                    color: 'white'
-                  }}>
-                  Enable Demo History
-                </Button>
-              </div>
-
-              <p
-                className="text-xs leading-relaxed"
-                style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
-                Try a short demo timeline.
-              </p>
-
-              <button
-                onClick={handleReset}
-                className="text-xs underline underline-offset-4 opacity-70 transition-opacity hover:opacity-100"
-                style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
-                Reset onboarding (dev)
-              </button>
-
-              <button
-                onClick={onShowPopulated}
-                className="text-xs underline underline-offset-4 opacity-70 transition-opacity hover:opacity-100"
-                style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
-                Show populated state (dev)
-              </button>
-            </>
-          )}
+          ) : null}
         </div>
       </div>
 
