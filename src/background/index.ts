@@ -1305,7 +1305,7 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
         payload: {
           score: sessionCoiScore,
           threshold,
-          message: `You've been switching between tasks frequently. Taking a short break might help you refocus.`
+          message: `Working for a while. Taking a short break might help you.`
         }
       })
       console.log("[COI Alert] ✅ In-page notification delivered")
@@ -1333,7 +1333,7 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
             payload: {
               score: sessionCoiScore,
               threshold,
-              message: `You've been switching between tasks frequently. Taking a short break might help you refocus.`
+              message: `Working for a while. Taking a short break might help you.`
             }
           })
           console.log("[COI Alert] ✅ In-page notification delivered after injection")
