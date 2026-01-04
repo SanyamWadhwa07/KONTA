@@ -1180,7 +1180,15 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                       <span style={{ fontWeight: '500' }}>"{labels.find(l => l.id === selectedLabelId)?.name}"</span>
                     </p>
                   </div>
-                ) : realSessionsByDay.length === 0 ? null : (
+                ) : realSessionsByDay.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Clock className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
+                    <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      No sessions yet<br />
+                      <span style={{ fontSize: '0.85em', opacity: 0.8 }}>Start browsing to track activity</span>
+                    </p>
+                  </div>
+                ) : (
                   realSessionsByDay.map((dayGroup, dayIndex) => (
                     <DaySection
                       key={dayGroup.label}
@@ -1230,24 +1238,20 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             ) : (
               // Clusters View
               <>
-                {!clusters || clustersByDay.length === 0 ? (
+                {!clusters || clusters.nodes?.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
-                    <div className="flex gap-1">
-                      <div
-                        className="w-2 h-2 rounded-full animate-bounce"
-                        style={{ backgroundColor: '#0074FB', animationDelay: '0ms' }}
-                      />
-                      <div
-                        className="w-2 h-2 rounded-full animate-bounce"
-                        style={{ backgroundColor: '#0074FB', animationDelay: '150ms' }}
-                      />
-                      <div
-                        className="w-2 h-2 rounded-full animate-bounce"
-                        style={{ backgroundColor: '#0074FB', animationDelay: '300ms' }}
-                      />
-                    </div>
-                    <p className="text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-                      Loading clusters...
+                    <Folder className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
+                    <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      No clusters yet<br />
+                      <span style={{ fontSize: '0.85em', opacity: 0.8 }}>Start browsing to see patterns</span>
+                    </p>
+                  </div>
+                ) : clustersByDay.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Folder className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
+                    <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                      No clusters on this day<br />
+                      <span style={{ fontSize: '0.85em', opacity: 0.8 }}>Check another date</span>
                     </p>
                   </div>
                 ) : (
