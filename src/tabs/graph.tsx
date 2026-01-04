@@ -41,6 +41,7 @@ export default function GraphFullPage() {
   const [dimensions, setDimensions] = useState({ width: 1200, height: 800 })
   const faviconCache = useRef<Map<string, HTMLImageElement>>(new Map())
   const [focusedClusterId, setFocusedClusterId] = useState<number | null>(null)
+  const [showAllClusters, setShowAllClusters] = useState(false)
 
   // Check URL parameters for focused cluster
   useEffect(() => {
@@ -112,6 +113,14 @@ export default function GraphFullPage() {
     loadGraph()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Reload graph when mode changes
+  useEffect(() => {
+    if (graph) {
+      loadGraph()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphMode])
 
   // Preload favicons when graph updates
   useEffect(() => {
@@ -674,8 +683,10 @@ export default function GraphFullPage() {
     const sizeFactor = Math.log(node.visitCount + 1) * 4 // Increased factor
     const calculatedSize = Math.max(baseSize, Math.min(baseSize + sizeFactor, 24)) // Increased max size
     
-    // Isolated nodes get 250% size boost for strong visibility
-    return isConnected ? calculatedSize : calculatedSize * 3.5
+    // Isolated nodes get modest boost for visibility, but cap at max threshold
+    const maxNodeSize = 20 // Maximum size threshold for any node
+    const finalSize = isConnected ? calculatedSize : calculatedSize * 1.8
+    return Math.min(finalSize, maxNodeSize)
   }
 
   const activeFilterCount = 
@@ -727,7 +738,6 @@ export default function GraphFullPage() {
             onClick={() => {
               const newMode = graphMode === 'semantic' ? 'projects' : 'semantic'
               setGraphMode(newMode)
-              loadGraph()
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
             style={{ 
@@ -859,7 +869,7 @@ export default function GraphFullPage() {
                   Clusters:
                 </span>
                 <div className="flex-1 flex flex-wrap gap-1.5">
-                  {clusters.map(clusterId => {
+                  {(showAllClusters ? clusters : clusters.slice(0, 3)).map(clusterId => {
                     const isActive = allClustersSelected || selectedClusters.has(clusterId)
                     const clusterLabel = graphMode === 'projects'
                       ? generateProjectClusterLabel(graph.nodes, clusterId)
@@ -879,6 +889,19 @@ export default function GraphFullPage() {
                       </button>
                     )
                   })}
+                  {clusters.length > 3 && (
+                    <button
+                      onClick={() => setShowAllClusters(!showAllClusters)}
+                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all"
+                      style={{
+                        backgroundColor: '#FFFFFF',
+                        color: '#080A0B',
+                        border: '1px solid #E5E5E5',
+                        fontFamily: "'Breeze Sans'"
+                      }}>
+                      {showAllClusters ? 'Show Less' : `+${clusters.length - 3} More`}
+                    </button>
+                  )}
                   {!allClustersSelected && (
                     <button
                       onClick={clearClusterFilter}
