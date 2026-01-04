@@ -1234,21 +1234,21 @@ async function safelySendToContentScript(
 /**
  * Show native Chrome notification as fallback when content script is unavailable
  */
-async function showNativeChromeNotification(score: number, threshold: number) {
-  try {
-    await chrome.notifications.create({
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('assets/icon.png'),
-      title: '🧠 Focus Alert',
-      message: `Your distraction level is ${Math.round(score * 100)}%. Consider taking a short break to refocus.`,
-      priority: 2,
-      requireInteraction: false
-    })
-    log("[COI Alert] ✅ Native notification shown as fallback")
-  } catch (err) {
-    console.error("[COI Alert] Failed to show native notification:", err)
-  }
-}
+// async function showNativeChromeNotification(score: number, threshold: number) {
+//   try {
+//     await chrome.notifications.create({
+//       type: 'basic',
+//       iconUrl: chrome.runtime.getURL('assets/icon.png'),
+//       title: '🧠 Focus Alert',
+//       message: `Your distraction level is ${Math.round(score * 100)}%. Consider taking a short break to refocus.`,
+//       priority: 2,
+//       requireInteraction: false
+//     })
+//     log("[COI Alert] ✅ Native notification shown as fallback")
+//   } catch (err) {
+//     console.error("[COI Alert] Failed to show native notification:", err)
+//   }
+// }
 
 async function broadcastCoiUpdate() {
   try {
@@ -1380,8 +1380,8 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
       }
       
       // Fallback to native notification
-      log("[COI Alert] Using native notification fallback")
-      await showNativeChromeNotification(sessionCoiScore, threshold)
+      // log("[COI Alert] Using native notification fallback")
+      // await showNativeChromeNotification(sessionCoiScore, threshold)
     }
   } catch (err) {
     console.warn("[Background] Failed to check COI threshold", err)
@@ -1475,9 +1475,9 @@ async function testCoiAlert() {
   if (success) {
     log("[Test] ✅ Test COI alert sent successfully (in-page notification)!")
   } else {
-    log("[Test] ⚠️ Content script not ready, showing native notification instead")
-    await showNativeChromeNotification(0.85, 0.7)
-    log("[Test] ✅ Native notification shown as fallback")
+    // log("[Test] ⚠️ Content script not ready, showing native notification instead")
+    // await showNativeChromeNotification(0.85, 0.7)
+    // log("[Test] ✅ Native notification shown as fallback")
   }
 }
 

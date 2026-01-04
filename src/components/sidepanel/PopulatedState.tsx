@@ -1295,14 +1295,14 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       </div>
 
       {/* Footer */}
-      <div className="sticky bottom-0 border-t bg-white dark:bg-[#1C1C1E] px-4 py-3 border-[#E5E5E5] dark:border-[#3A3A3C]">
+      {/* <div className="sticky bottom-0 border-t bg-white dark:bg-[#1C1C1E] px-4 py-3 border-[#E5E5E5] dark:border-[#3A3A3C]">
         <button
           onClick={onShowEmpty}
           className="w-full text-xs opacity-70 transition-opacity hover:opacity-100 text-[#9A9FA6] dark:text-[#9A9FA6]"
           style={{ fontFamily: "'Breeze Sans'" }}>
           ← Back to empty state
         </button>
-      </div>
+      </div> */}
       {showAddLabelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowAddLabelModal(false)}>
           <div className="bg-white dark:bg-[#2C2C2E] rounded-lg shadow-xl" style={{ width: '280px' }} onClick={(e) => e.stopPropagation()}>
