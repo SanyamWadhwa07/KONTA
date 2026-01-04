@@ -11,7 +11,7 @@ function IndexSidePanel() {
 
   useEffect(() => {
     // Check if there's a preferred tab stored
-    chrome.storage.local.get(["sidepanel-active-tab", "sidepanel-onboarding"], (result) => {
+    chrome.storage.local.get(["sidepanel-active-tab", "sidepanel-onboarding", "aegis-settings"], (result) => {
       if (result["sidepanel-active-tab"]) {
         const tab = result["sidepanel-active-tab"]
         log("[Sidepanel] Setting active tab from storage:", tab)
@@ -27,6 +27,14 @@ function IndexSidePanel() {
         setIsOnboarding(true)
         // Clear the flag after using it
         chrome.storage.local.remove("sidepanel-onboarding")
+      }
+      
+      // Apply dark mode from settings
+      if (result["aegis-settings"]?.ui?.darkMode) {
+        log("[Sidepanel] Applying dark mode from settings")
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
       }
     })
 
@@ -45,8 +53,25 @@ function IndexSidePanel() {
 
     chrome.runtime.onMessage.addListener(messageListener)
 
+    // Listen for storage changes (for dark mode updates)
+    const storageListener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'local' && changes['aegis-settings']) {
+        const newSettings = changes['aegis-settings'].newValue
+        if (newSettings?.ui?.darkMode) {
+          log("[Sidepanel] Dark mode enabled via storage change")
+          document.documentElement.classList.add('dark')
+        } else {
+          log("[Sidepanel] Dark mode disabled via storage change")
+          document.documentElement.classList.remove('dark')
+        }
+      }
+    }
+
+    chrome.storage.onChanged.addListener(storageListener)
+
     return () => {
       chrome.runtime.onMessage.removeListener(messageListener)
+      chrome.storage.onChanged.removeListener(storageListener)
     }
   }, [])
 

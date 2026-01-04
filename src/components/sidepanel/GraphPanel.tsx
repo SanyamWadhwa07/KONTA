@@ -743,9 +743,9 @@ export function GraphPanel() {
   return (
     <div className="flex flex-col gap-0 w-full h-full">
       {/* Compact Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-gray-200">
+      <div className="flex items-center justify-between px-3 py-3 border-b border-gray-200 dark:border-[#3A3A3C]">
         <div className="flex items-center gap-3 min-w-0">
-          <h3 className="text-sm font-medium text-gray-900 font-sans whitespace-nowrap">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white font-sans whitespace-nowrap">
             Knowledge Graph
           </h3>
         </div>
@@ -754,26 +754,26 @@ export function GraphPanel() {
             onClick={() => {
               chrome.tabs.create({ url: chrome.runtime.getURL('tabs/graph.html') })
             }}
-            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50 text-gray-400"
+            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-[#2C2C2E] text-gray-400 dark:text-gray-400"
             title="Open in full page">
             <Maximize2 className="h-4 w-4" />
           </button>
           <button
             onClick={() => setShowLabels(!showLabels)}
-            className={`p-1.5 rounded-lg transition-all hover:bg-gray-50 border ${
+            className={`p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
               showLabels 
-                ? 'text-blue-600 border-blue-600 bg-blue-50' 
-                : 'text-gray-400 border-transparent'
+                ? 'text-blue-600 dark:text-[#4A9FFF] border-blue-600 dark:border-[#4A9FFF] bg-blue-50 dark:bg-blue-900/20' 
+                : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Toggle node labels">
             <span className="text-xs font-bold">Aa</span>
           </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 border ${
+            className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
               showFilters
-                ? 'text-blue-600 border-blue-600 bg-blue-50'
-                : 'text-gray-400 border-transparent'
+                ? 'text-blue-600 dark:text-[#4A9FFF] border-blue-600 dark:border-[#4A9FFF] bg-blue-50 dark:bg-blue-900/20'
+                : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Filters">
             <Sliders className="h-4 w-4" />
@@ -789,27 +789,27 @@ export function GraphPanel() {
               setManualLinkMode(!manualLinkMode)
               setSelectedNodesForLink([])
             }}
-            className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 border ${
+            className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
               manualLinkMode
-                ? 'text-white bg-blue-600 border-blue-600'
-                : 'text-gray-400 border-transparent'
+                ? 'text-white bg-blue-600 dark:bg-[#4A9FFF] border-blue-600 dark:border-[#4A9FFF]'
+                : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Link nodes">
             <Link className="h-4 w-4" />
           </button>
           <button
             onClick={() => setShowExplanations(!showExplanations)}
-            className={`p-1.5 rounded-lg transition-all hover:bg-gray-50 border ${
+            className={`p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
               showExplanations
-                ? 'text-white bg-blue-600 border-blue-600'
-                : 'text-gray-400 border-transparent'
+                ? 'text-white bg-blue-600 dark:bg-[#4A9FFF] border-blue-600 dark:border-[#4A9FFF]'
+                : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Explain connections">
             <span className="text-sm">📊</span>
           </button>
           <button
             onClick={handleRefresh}
-            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50 text-gray-400"
+            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-[#2C2C2E] text-gray-400 dark:text-gray-400"
             title="Refresh graph">
             <RotateCw className="h-4 w-4" />
           </button>
@@ -818,11 +818,11 @@ export function GraphPanel() {
 
       {/* Manual Link Mode Banner */}
       {manualLinkMode && (
-        <div className="px-3 py-2 bg-blue-50 border-b border-gray-200">
+        <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-[#3A3A3C]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Link className="h-4 w-4 text-blue-600" />
-              <span className="text-xs font-medium text-gray-900 font-sans">
+              <Link className="h-4 w-4 text-blue-600 dark:text-[#4A9FFF]" />
+              <span className="text-xs font-medium text-gray-900 dark:text-white font-sans">
                 {selectedNodesForLink.length === 0 
                   ? 'Click two nodes to link them (or unlink if already connected)' 
                   : 'Click second node to toggle link'}
@@ -831,7 +831,7 @@ export function GraphPanel() {
             {selectedNodesForLink.length > 0 && (
               <button
                 onClick={() => setSelectedNodesForLink([])}
-                className="text-xs px-2 py-1 rounded hover:bg-blue-100 text-blue-600 font-sans">
+                className="text-xs px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-800/30 text-blue-600 dark:text-[#4A9FFF] font-sans">
                 Cancel
               </button>
             )}
@@ -840,20 +840,20 @@ export function GraphPanel() {
       )}
 
       {/* Always Visible Search Bar */}
-      <div className="px-3 py-2 border-b bg-white border-gray-200">
+      <div className="px-3 py-2 border-b bg-white dark:bg-[#1C1C1E] border-gray-200 dark:border-[#3A3A3C]">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
             placeholder="Search pages..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 border border-gray-200 bg-white text-gray-900 font-sans"
+            className="w-full pl-9 pr-9 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-[#4A9FFF] border border-gray-200 dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E] text-gray-900 dark:text-white font-sans placeholder:text-gray-400 dark:placeholder:text-gray-500"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70 text-gray-400">
+              className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70 text-gray-400 dark:text-gray-500">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -862,10 +862,10 @@ export function GraphPanel() {
 
       {/* Collapsible Filters Section */}
       {showFilters && (
-        <div className="px-3 py-3 border-b bg-gray-50/50 flex flex-col gap-3 border-gray-200">
+        <div className="px-3 py-3 border-b bg-gray-50/50 dark:bg-[#1C1C1E] flex flex-col gap-3 border-gray-200 dark:border-[#3A3A3C]">
           {/* Time Filter Chips */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-900 font-sans">
+            <span className="text-xs font-medium text-gray-900 dark:text-white font-sans">
               Time:
             </span>
             <div className="flex gap-1.5">
@@ -875,8 +875,8 @@ export function GraphPanel() {
                   onClick={() => setTimeFilter(filter)}
                   className={`px-3 py-1 text-xs font-medium rounded-full transition-all font-sans border ${
                     timeFilter === filter
-                      ? 'bg-black text-white border-black'
-                      : 'bg-white text-black border-black'
+                      ? 'bg-black dark:bg-[#4A9FFF] text-white border-black dark:border-[#4A9FFF]'
+                      : 'bg-white dark:bg-[#2C2C2E] text-black dark:text-white border-black dark:border-[#3A3A3C]'
                   }`}>
                   {filter === "all" ? "All Time" : filter === "today" ? "Today" : "This Week"}
                 </button>
@@ -886,7 +886,7 @@ export function GraphPanel() {
 
           {/* Similarity Slider */}
           <div className="flex items-center gap-3">
-            <span className="text-xs font-medium whitespace-nowrap text-gray-900 font-sans">
+            <span className="text-xs font-medium whitespace-nowrap text-gray-900 dark:text-white font-sans">
               Similarity:
             </span>
             <div className="flex-1 flex items-center gap-2">
@@ -902,7 +902,7 @@ export function GraphPanel() {
                   background: `linear-gradient(to right, #0072de 0%, #0072de ${((minSimilarity - 0.2) / 0.4) * 100}%, #E5E5E5 ${((minSimilarity - 0.2) / 0.4) * 100}%, #E5E5E5 100%)`
                 }}
               />
-              <span className="text-xs font-mono w-10 text-right text-gray-900">
+              <span className="text-xs font-mono w-10 text-right text-gray-900 dark:text-white">
                 {minSimilarity.toFixed(2)}
               </span>
             </div>
@@ -911,7 +911,7 @@ export function GraphPanel() {
           {/* Cluster Filter Chips */}
           {clusters.length > 0 && (
             <div className="flex items-start gap-2">
-              <span className="text-xs font-medium pt-1 whitespace-nowrap text-gray-900 font-sans">
+              <span className="text-xs font-medium pt-1 whitespace-nowrap text-gray-900 dark:text-white font-sans">
                 Clusters:
               </span>
               <div className="flex-1 flex flex-wrap gap-1.5">
@@ -936,7 +936,7 @@ export function GraphPanel() {
                 {!allClustersSelected && (
                   <button
                     onClick={clearClusterFilter}
-                    className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-blue-600 font-sans">
+                    className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-blue-600 dark:text-[#4A9FFF] font-sans">
                     Clear
                   </button>
                 )}
@@ -947,26 +947,26 @@ export function GraphPanel() {
       )}
 
       {/* Graph Container */}
-      <div ref={containerRef} className="relative bg-white overflow-hidden w-full flex-1">
+      <div ref={containerRef} className="relative bg-white dark:bg-[#1C1C1E] overflow-hidden w-full flex-1">
         {/* Navigation Controls */}
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
           <button
             onClick={handleZoomIn}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95 border border-gray-200"
+            className="p-3 rounded-lg bg-white dark:bg-[#2C2C2E] shadow-md transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C] active:scale-95 border border-gray-200 dark:border-[#3A3A3C]"
             title="Zoom in (scroll up)">
-            <ZoomIn className="h-5 w-5 text-gray-900" />
+            <ZoomIn className="h-5 w-5 text-gray-900 dark:text-white" />
           </button>
           <button
             onClick={handleZoomReset}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95 border border-gray-200"
+            className="p-3 rounded-lg bg-white dark:bg-[#2C2C2E] shadow-md transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C] active:scale-95 border border-gray-200 dark:border-[#3A3A3C]"
             title="Reset zoom">
-            <RotateCw className="h-5 w-5 text-gray-900" />
+            <RotateCw className="h-5 w-5 text-gray-900 dark:text-white" />
           </button>
           <button
             onClick={handleZoomOut}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95 border border-gray-200"
+            className="p-3 rounded-lg bg-white dark:bg-[#2C2C2E] shadow-md transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C] active:scale-95 border border-gray-200 dark:border-[#3A3A3C]"
             title="Zoom out (scroll down)">
-            <ZoomOut className="h-5 w-5 text-gray-900" />
+            <ZoomOut className="h-5 w-5 text-gray-900 dark:text-white" />
           </button>
         </div>
 
@@ -1040,7 +1040,17 @@ export function GraphPanel() {
               if (showLabels && globalScale > 1.2) { // Show labels sooner (1.2x instead of 1.5x)
                 ctx.textAlign = 'center'
                 ctx.textBaseline = 'top'
-                ctx.fillStyle = '#1f2937'
+                
+                // Measure text for background
+                const textWidth = ctx.measureText(label).width
+                const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2)
+                
+                // Draw background for better readability
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+                ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y + (size * 1.5) + 5, bckgDimensions[0], bckgDimensions[1])
+                
+                // Draw text
+                ctx.fillStyle = '#000'
                 ctx.fillText(label, node.x, node.y + (size * 1.5) + 5)
               }
             }}
@@ -1078,7 +1088,7 @@ export function GraphPanel() {
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-xs text-gray-400 font-sans">
+            <p className="text-xs text-gray-400 dark:text-gray-500 font-sans">
               No nodes match current filters
             </p>
           </div>
@@ -1087,20 +1097,19 @@ export function GraphPanel() {
 
       {/* Explanation Panel - Compact for Sidepanel */}
       {showExplanations && graph && (
-        <div className="absolute top-16 right-2 w-80 max-h-96 bg-white rounded-lg shadow-xl border overflow-hidden flex flex-col z-50"
-             style={{ borderColor: '#E5E5E5' }}>
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-blue-50" style={{ borderColor: '#E5E5E5' }}>
-            <h3 className="font-semibold text-xs" style={{ fontFamily: "'Breeze Sans'", color: '#080A0B' }}>
+        <div className="absolute top-16 right-2 w-80 max-h-96 bg-white dark:bg-[#1C1C1E] rounded-lg shadow-xl border border-[#E5E5E5] dark:border-[#3A3A3C] overflow-hidden flex flex-col z-50">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[#E5E5E5] dark:border-[#3A3A3C] bg-blue-50 dark:bg-blue-900/20">
+            <h3 className="font-semibold text-xs text-[#080A0B] dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
               📊 Connection Explanations
             </h3>
             <button 
               onClick={() => setShowExplanations(false)}
-              className="text-gray-400 hover:text-gray-600">
+              className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
           
-          <div className="overflow-y-auto p-2 space-y-2 text-[10px]" style={{ fontFamily: "'Breeze Sans'" }}>
+          <div className="overflow-y-auto p-2 space-y-2 text-[10px] text-[#080A0B] dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
             {Array.from(new Set(graph.nodes.map(n => n.cluster))).slice(0, 3).map(clusterId => {
               const clusterNodes = graph.nodes.filter(n => n.cluster === clusterId)
               if (clusterNodes.length < 2) return null
@@ -1117,7 +1126,7 @@ export function GraphPanel() {
               const clusterColor = getClusterColor(clusterId)
               
               return (
-                <div key={clusterId} className="border rounded" style={{ borderColor: clusterColor + '40' }}>
+                <div key={clusterId} className="border rounded border-opacity-40" style={{ borderColor: clusterColor + '40' }}>
                   <div className="px-2 py-1.5" style={{ backgroundColor: clusterColor + '10' }}>
                     <div className="font-semibold" style={{ color: clusterColor }}>
                       {clusterLabel}
@@ -1130,22 +1139,22 @@ export function GraphPanel() {
                       if (!breakdown) return null
                       
                       return (
-                        <div key={idx} className="pb-1.5 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
+                        <div key={idx} className="pb-1.5 border-b last:border-0 border-gray-100 dark:border-gray-700">
                           <div className="space-y-0.5">
                             <div className="flex justify-between">
-                              <span className="text-gray-600">🧠 Semantic</span>
+                              <span className="text-gray-600 dark:text-gray-400">🧠 Semantic</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.embedding * 100).toFixed(0)}%
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-600">🔤 Keywords</span>
+                              <span className="text-gray-600 dark:text-gray-400">🔤 Keywords</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.keyword * 100).toFixed(0)}%
                               </span>
                             </div>
                             {breakdown.sameDomain && (
-                              <div className="flex justify-between text-blue-600">
+                              <div className="flex justify-between text-blue-600 dark:text-blue-400">
                                 <span>🌐 Same domain</span>
                                 <span className="font-mono font-semibold">+{((breakdown.domainBoost - 1) * 100).toFixed(0)}%</span>
                               </div>
@@ -1158,7 +1167,7 @@ export function GraphPanel() {
                 </div>
               )
             })}
-            <div className="text-center text-gray-400 pt-1">
+            <div className="text-center text-gray-400 dark:text-gray-500 pt-1">
               Open full view for complete details
             </div>
           </div>

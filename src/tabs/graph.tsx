@@ -44,6 +44,19 @@ export default function GraphFullPage() {
   const [showAllClusters, setShowAllClusters] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'))
 
+  // Load dark mode setting on mount
+  useEffect(() => {
+    chrome.storage.local.get(['aegis-settings'], (result) => {
+      if (result['aegis-settings']?.ui?.darkMode) {
+        document.documentElement.classList.add('dark')
+        setIsDarkMode(true)
+      } else {
+        document.documentElement.classList.remove('dark')
+        setIsDarkMode(false)
+      }
+    })
+  }, [])
+
   // Monitor dark mode changes
   useEffect(() => {
     const observer = new MutationObserver((mutations) => {
@@ -58,8 +71,27 @@ export default function GraphFullPage() {
       attributes: true,
       attributeFilter: ['class']
     })
+
+    // Listen for storage changes (for dark mode updates)
+    const storageListener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'local' && changes['aegis-settings']) {
+        const newSettings = changes['aegis-settings'].newValue
+        if (newSettings?.ui?.darkMode) {
+          document.documentElement.classList.add('dark')
+          setIsDarkMode(true)
+        } else {
+          document.documentElement.classList.remove('dark')
+          setIsDarkMode(false)
+        }
+      }
+    }
+
+    chrome.storage.onChanged.addListener(storageListener)
     
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      chrome.storage.onChanged.removeListener(storageListener)
+    }
   }, [])
 
   // Check URL parameters for focused cluster
@@ -729,11 +761,13 @@ export default function GraphFullPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowLabels(!showLabels)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF] hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
             style={{ 
               fontFamily: "'Breeze Sans'", 
               border: '1px solid',
-              backgroundColor: showLabels ? '#eff6ff' : undefined
+              borderColor: showLabels ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: showLabels ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : 'rgba(0, 114, 222, 0.1)') : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+              color: showLabels ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#080A0B')
             }}
             title="Toggle node labels">
             <span>Labels</span>
@@ -1076,20 +1110,19 @@ export default function GraphFullPage() {
 
       {/* Explanation Panel */}
       {showExplanations && graph && (
-        <div className="absolute top-20 right-6 w-96 max-h-[calc(100vh-7rem)] bg-white rounded-lg shadow-2xl border-2 overflow-hidden flex flex-col"
-             style={{ borderColor: '#E5E5E5' }}>
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-white" style={{ borderColor: '#E5E5E5' }}>
-            <h3 className="font-semibold text-sm" style={{ fontFamily: "'Breeze Sans'", color: '#080A0B' }}>
+        <div className="absolute top-20 right-6 w-96 max-h-[calc(100vh-7rem)] bg-white dark:bg-[#1C1C1E] rounded-lg shadow-2xl border-2 border-[#E5E5E5] dark:border-[#3A3A3C] overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E5E5] dark:border-[#3A3A3C] bg-gradient-to-r from-blue-50 to-white dark:from-blue-900/20 dark:to-[#1C1C1E]">
+            <h3 className="font-semibold text-sm text-[#080A0B] dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
               📊 Connection Explanations
             </h3>
             <button 
               onClick={() => setShowExplanations(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors">
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
               <X className="h-4 w-4" />
             </button>
           </div>
           
-          <div className="overflow-y-auto p-4 space-y-4 flex-1" style={{ fontFamily: "'Breeze Sans'" }}>
+          <div className="overflow-y-auto p-4 space-y-4 flex-1 text-[#080A0B] dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
             {Array.from(new Set(graph.nodes.map(n => n.cluster))).map(clusterId => {
               const clusterNodes = graph.nodes.filter(n => n.cluster === clusterId)
               if (clusterNodes.length < 2) return null
@@ -1113,7 +1146,7 @@ export default function GraphFullPage() {
                     <div className="font-semibold text-xs" style={{ color: clusterColor }}>
                       {clusterLabel}
                     </div>
-                    <div className="text-[10px] text-gray-500 mt-0.5">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                       {clusterNodes.length} pages · {clusterEdges.length} connections
                     </div>
                   </div>
@@ -1127,42 +1160,42 @@ export default function GraphFullPage() {
                       const targetNode = graph.nodes.find(n => n.id === edge.target)
                       
                       return (
-                        <div key={idx} className="text-[11px] space-y-1 pb-2 border-b last:border-0" style={{ borderColor: '#f3f4f6' }}>
-                          <div className="font-medium text-gray-700 leading-tight">
+                        <div key={idx} className="text-[11px] space-y-1 pb-2 border-b last:border-0 border-gray-100 dark:border-gray-700">
+                          <div className="font-medium text-gray-700 dark:text-gray-300 leading-tight">
                             {sourceNode?.title.substring(0, 40)}{sourceNode?.title.length! > 40 ? '...' : ''}
                           </div>
-                          <div className="text-gray-500 text-[10px]">↓ connected to</div>
-                          <div className="font-medium text-gray-700 leading-tight">
+                          <div className="text-gray-500 dark:text-gray-400 text-[10px]">↓ connected to</div>
+                          <div className="font-medium text-gray-700 dark:text-gray-300 leading-tight">
                             {targetNode?.title.substring(0, 40)}{targetNode?.title.length! > 40 ? '...' : ''}
                           </div>
                           
                           <div className="mt-2 space-y-0.5 pl-2 border-l-2" style={{ borderColor: clusterColor + '40' }}>
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600">🧠 Semantic similarity</span>
+                              <span className="text-gray-600 dark:text-gray-400">🧠 Semantic similarity</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.embedding * 100).toFixed(0)}%
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600">🔤 Keyword overlap</span>
+                              <span className="text-gray-600 dark:text-gray-400">🔤 Keyword overlap</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.keyword * 100).toFixed(0)}%
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600">⏰ Time proximity</span>
+                              <span className="text-gray-600 dark:text-gray-400">⏰ Time proximity</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.temporal * 100).toFixed(0)}%
                               </span>
                             </div>
                             {breakdown.sameDomain && (
-                              <div className="flex justify-between items-center text-blue-600">
+                              <div className="flex justify-between items-center text-blue-600 dark:text-blue-400">
                                 <span>🌐 Same domain boost</span>
                                 <span className="font-mono font-semibold">+{((breakdown.domainBoost - 1) * 100).toFixed(0)}%</span>
                               </div>
                             )}
-                            <div className="flex justify-between items-center pt-1 mt-1 border-t" style={{ borderColor: '#f3f4f6' }}>
-                              <span className="font-semibold text-gray-700">Total Strength</span>
+                            <div className="flex justify-between items-center pt-1 mt-1 border-t border-gray-100 dark:border-gray-700">
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">Total Strength</span>
                               <span className="font-mono font-bold" style={{ color: clusterColor }}>
                                 {(edge.weight! * 100).toFixed(0)}%
                               </span>
@@ -1172,7 +1205,7 @@ export default function GraphFullPage() {
                       )
                     })}
                     {clusterEdges.length > 10 && (
-                      <div className="text-[10px] text-gray-400 text-center pt-1">
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 text-center pt-1">
                         ... and {clusterEdges.length - 10} more connections
                       </div>
                     )}

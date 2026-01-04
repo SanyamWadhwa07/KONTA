@@ -102,10 +102,14 @@ export function SettingsModal({
               </h3>
               <div className="flex flex-col gap-2">
                 <div
-                  onClick={() => onUpdateSettings({
-                    ...settings,
-                    ui: { ...settings.ui, darkMode: !settings.ui.darkMode }
-                  })}
+                  onClick={() => {
+                    const newSettings = {
+                      ...settings,
+                      ui: { ...settings.ui, darkMode: !settings.ui.darkMode }
+                    }
+                    console.log('[Settings] Toggling dark mode to:', !settings.ui.darkMode)
+                    onUpdateSettings(newSettings)
+                  }}
                   className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E] cursor-pointer">
                   <div>
                     <div className="font-medium flex items-center gap-2 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>

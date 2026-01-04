@@ -18,11 +18,36 @@ function IndexPopup() {
   }
 
   useEffect(() => {
-    chrome.storage.local.get(["aegis-consent"], (result) => {
+    chrome.storage.local.get(["aegis-consent", "aegis-settings"], (result) => {
       if (result["aegis-consent"] === true) {
         setPhase("welcomeback")
       }
+      
+      // Apply dark mode from settings
+      if (result["aegis-settings"]?.ui?.darkMode) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
     })
+
+    // Listen for storage changes (for dark mode updates)
+    const storageListener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'local' && changes['aegis-settings']) {
+        const newSettings = changes['aegis-settings'].newValue
+        if (newSettings?.ui?.darkMode) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+      }
+    }
+
+    chrome.storage.onChanged.addListener(storageListener)
+
+    return () => {
+      chrome.storage.onChanged.removeListener(storageListener)
+    }
   }, [])
 
   const handleWelcomeAccept = () => {
