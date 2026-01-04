@@ -918,7 +918,7 @@ export default function GraphFullPage() {
       )}
 
       {/* Graph Container */}
-      <div ref={containerRef} className="flex-1 relative bg-white overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative bg-white" style={{ overflow: 'hidden' }}>
         {/* Zoom Controls */}
         <div className="absolute bottom-6 right-6 z-10 flex flex-col gap-2">
           <button
@@ -1032,7 +1032,7 @@ export default function GraphFullPage() {
             d3AlphaDecay={0.02}
             enableNodeDrag={true}
             enableZoomInteraction={true}
-            enablePanInteraction={true}
+            enablePanInteraction={false}
             onRenderFramePre={(ctx: CanvasRenderingContext2D, globalScale: number) => {
               drawClusterBoundaries(ctx, globalScale)
             }}
@@ -1042,7 +1042,7 @@ export default function GraphFullPage() {
                 graphRef.current.zoomToFit(400, 50)
               }
             }}
-            onZoom={() => {
+            onZoom={(transform: any) => {
               hasUserInteractedRef.current = true
             }}
             onNodeDragEnd={(node: any) => {

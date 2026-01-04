@@ -1761,6 +1761,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
         <div className="flex flex-col gap-1 pt-2" onClick={(e) => e.stopPropagation()}>
           {/* Individual Links */}
           {session.pages
+            .filter((page) => page.title && page.title.trim() !== "") // Skip pages without valid titles
             .slice()
             .sort((a, b) => (b.timestamp || b.openedAt) - (a.timestamp || a.openedAt))
             .map((page, index) => {

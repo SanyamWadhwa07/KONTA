@@ -305,9 +305,106 @@ export function SettingsModal({
                   }}>
                   <div>
                     <div className="font-medium">Show COI Panel</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Display cognitive overload metrics</div>
                   </div>
                   <ToggleSwitch enabled={settings.developer.showCoiPanel} onChange={() => {}} />
                 </button>
+
+                <button
+                  onClick={() => onUpdateSettings({
+                    ...settings,
+                    developer: { ...settings.developer, showCoiNotifications: !settings.developer.showCoiNotifications }
+                  })}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border flex items-center justify-between"
+                  style={{ 
+                    color: '#080A0B', 
+                    fontFamily: "'Breeze Sans'",
+                    borderColor: '#E5E5E5',
+                    backgroundColor: '#FFFFFF'
+                  }}>
+                  <div>
+                    <div className="font-medium">COI Notifications</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Alert when distraction level is high</div>
+                  </div>
+                  <ToggleSwitch enabled={settings.developer.showCoiNotifications} onChange={() => {}} />
+                </button>
+
+                {settings.developer.showCoiNotifications && (
+                  <div className="px-3 py-2 rounded-lg text-sm border flex flex-col gap-3"
+                    style={{ 
+                      fontFamily: "'Breeze Sans'",
+                      borderColor: '#E5E5E5',
+                      backgroundColor: '#F9FAFB'
+                    }}>
+                    <div>
+                      <div className="font-medium text-gray-700 mb-2">Alert Threshold</div>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={Math.round(settings.developer.coiThreshold * 100)}
+                          onChange={(e) => onUpdateSettings({
+                            ...settings,
+                            developer: { 
+                              ...settings.developer, 
+                              coiThreshold: parseInt(e.target.value) / 100 
+                            }
+                          })}
+                          style={{
+                            flex: 1,
+                            height: '4px',
+                            borderRadius: '2px',
+                            appearance: 'none',
+                            background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${settings.developer.coiThreshold * 100}%, #E5E5E5 ${settings.developer.coiThreshold * 100}%, #E5E5E5 100%)`,
+                            cursor: 'pointer'
+                          }}
+                          className="slider"
+                        />
+                        <span className="text-sm font-medium text-gray-700 min-w-[45px]">
+                          {Math.round(settings.developer.coiThreshold * 100)}%
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Alert when COI score exceeds this threshold
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="font-medium text-gray-700 mb-2">Cooldown Period</div>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="1"
+                          max="30"
+                          value={settings.developer.coiNotificationCooldownMinutes}
+                          onChange={(e) => onUpdateSettings({
+                            ...settings,
+                            developer: { 
+                              ...settings.developer, 
+                              coiNotificationCooldownMinutes: parseInt(e.target.value)
+                            }
+                          })}
+                          style={{
+                            flex: 1,
+                            height: '4px',
+                            borderRadius: '2px',
+                            appearance: 'none',
+                            background: `linear-gradient(to right, #0072df 0%, #0072df ${(settings.developer.coiNotificationCooldownMinutes / 30) * 100}%, #E5E5E5 ${(settings.developer.coiNotificationCooldownMinutes / 30) * 100}%, #E5E5E5 100%)`,
+                            cursor: 'pointer'
+                          }}
+                          className="slider"
+                        />
+                        <span className="text-sm font-medium text-gray-700 min-w-[60px]">
+                          {settings.developer.coiNotificationCooldownMinutes} min
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Minimum time between alerts
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   onClick={onResetAllSettings}

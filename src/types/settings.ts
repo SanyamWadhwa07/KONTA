@@ -31,6 +31,9 @@ export interface AppSettings {
     debugMode: boolean
     devModeThresholds: boolean
     showCoiPanel: boolean
+    showCoiNotifications: boolean
+    coiThreshold: number // 0.0 - 1.0, trigger alert when exceeded
+    coiNotificationCooldownMinutes: number
     showPerformanceMetrics: boolean
   }
   
@@ -71,6 +74,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     debugMode: false,
     devModeThresholds: false,
     showCoiPanel: false,
+    showCoiNotifications: false,
+    coiThreshold: 0.55,
+    coiNotificationCooldownMinutes: 5,
     showPerformanceMetrics: false
   },
   ui: {
