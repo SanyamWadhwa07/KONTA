@@ -78,6 +78,7 @@ function ProjectsPanel({
   const [showCreateCard, setShowCreateCard] = useState(false)
   const [newProjectName, setNewProjectName] = useState("")
   const [newProjectDescription, setNewProjectDescription] = useState("")
+  const [newProjectColor, setNewProjectColor] = useState<string>("#0072de")
   const [creating, setCreating] = useState(false)
   const [showCurrentPage, setShowCurrentPage] = useState(false)
 
@@ -154,6 +155,7 @@ function ProjectsPanel({
         payload: {
           name: newProjectName.trim(),
           description: newProjectDescription.trim() || undefined,
+          color: newProjectColor,
           sessionIds: [],
           sites: [],
           autoDetected: false
@@ -174,6 +176,7 @@ function ProjectsPanel({
         setShowCreateCard(false)
         setNewProjectName("")
         setNewProjectDescription("")
+        setNewProjectColor("#0072de")
       }
     } catch (err) {
       console.error("Failed to create project:", err)
@@ -234,139 +237,91 @@ function ProjectsPanel({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Add Current Site Modal - Fixed Overlay */}
-      {showCurrentPage && targetPage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div
-            className="rounded-lg p-5 w-72 shadow-lg bg-white"
-            style={{ borderColor: '#DDD', borderWidth: '1px' }}>
-            <h3 className="text-base font-normal mb-4" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
-              Add Current Site
-            </h3>
-            
-            <div className="flex flex-col gap-3">
-              {/* Site Info */}
-              <div className="bg-gray-50 rounded-lg p-3" style={{ borderColor: '#E5E5E5', borderWidth: '1px' }}>
-                <div className="text-xs font-normal mb-2" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
+    <div className="flex flex-col gap-0">
+
+      {/* Current Site Card */}
+      {targetPage && (
+        <div className="sticky top-0 z-10 p-3 pt-3 bg-white">
+          <div 
+            className="flex flex-col rounded-xl p-3 transition-all"
+            style={{ 
+              backgroundColor: '#FAFAFA',
+              border: '1px solid #E5E5E5'
+            }}>
+            {/* Site Info */}
+            <div className="flex items-start gap-2 mb-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium mb-0.5 truncate" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
                   {targetPage.title || targetPage.url}
                 </div>
-                <div className="text-2xs truncate" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
+                <div className="text-2xs truncate" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '11px' }}>
                   {targetPage.url}
                 </div>
               </div>
+            </div>
 
-              {/* Project Selection or Create Message */}
-              {projects.length === 0 ? (
-                <div className="text-xs text-center py-4" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-                  Create a project first to add this site
-                </div>
-              ) : (
-                <div>
-                  <label className="text-xs font-normal block mb-2" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
-                    Select Project
-                  </label>
-                  <select
-                    value={selectedProjectId && projects.some(p => p.id === selectedProjectId) ? selectedProjectId : (projects[0]?.id || "")}
-                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border outline-none focus:border-blue-500"
-                    style={{ borderColor: '#DDD', color: '#080A0B', fontFamily: "'Breeze Sans'", backgroundColor: '#FFFFFF' }}>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Buttons */}
-              <div className="flex gap-2 justify-end mt-2">
-                <button
-                  onClick={() => setShowCurrentPage(false)}
-                  className="px-4 py-1.5 text-xs rounded-lg transition-colors"
-                  style={{ 
-                    backgroundColor: '#F5F5F5',
-                    color: '#666',
-                    fontFamily: "'Breeze Sans'"
-                  }}>
-                  Cancel
-                </button>
+            {/* Project Selection and Add Button */}
+            {projects.length === 0 ? (
+              <div className="text-2xs text-center py-2" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
+                Create a project first to add this site
+              </div>
+            ) : (
+              <div className="flex gap-2 items-center">
+                <select
+                  value={selectedProjectId && projects.some(p => p.id === selectedProjectId) ? selectedProjectId : (projects[0]?.id || "")}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="flex-1 px-2 py-1.5 text-xs rounded-lg border outline-none focus:border-blue-500"
+                  style={{ borderColor: '#DDD', color: '#080A0B', fontFamily: "'Breeze Sans'", backgroundColor: '#FFFFFF' }}>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
                 <button
                   onClick={handleAddCurrentPage}
                   disabled={!selectedProjectId || adding || projects.length === 0}
-                  className="px-4 py-1.5 text-xs rounded-lg text-white transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 text-xs rounded-lg text-white transition-colors disabled:opacity-50 whitespace-nowrap"
                   style={{ 
                     backgroundColor: (selectedProjectId && !adding && projects.length > 0) ? '#0072de' : '#CCC',
                     fontFamily: "'Breeze Sans'",
                   }}>
-                  {adding ? 'Adding...' : 'Add to Project'}
+                  {adding ? 'Adding...' : 'Add'}
                 </button>
               </div>
+            )}
 
-              {/* Status Messages */}
-              {addMessage && (
-                <div
-                  className="text-2xs text-center"
-                  style={{
-                    color: addMessage.type === 'success' ? '#0f9d58' : '#b00020',
-                    fontFamily: "'Breeze Sans'",
-                    fontSize: '10px'
-                  }}>
-                  {addMessage.text}
-                </div>
-              )}
-            </div>
+            {/* Status Messages */}
+            {addMessage && (
+              <div
+                className="text-2xs text-center"
+                style={{
+                  color: addMessage.type === 'success' ? '#0f9d58' : '#b00020',
+                  fontFamily: "'Breeze Sans'",
+                  fontSize: '10px'
+                }}>
+                {addMessage.text}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Header with Action Buttons - Sticky */}
-      <div className="sticky top-0 z-10 flex items-center justify-center gap-3 p-4 pt-0 bg-white border-b" style={{ borderColor: '#E5E5E5' }}>
-        <button
-          onClick={() => {
-            setShowCreateCard(!showCreateCard)
-            setNewProjectName("")
-            setNewProjectDescription("")
-          }}
-          className="font-normal h-10 mt-4 border-0 focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6 flex items-center gap-1.5 text-xs text-white transition-colors"
-          style={{ backgroundColor: 'var(--primary)', color: 'white', fontFamily: "'Breeze Sans'", border: 'none', outline: 'none', boxShadow: 'none' }}>
-          <span className="flex items-center justify-center rounded-md" style={{ width: '16px', height: '16px', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {showCreateCard ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              )}
-            </svg>
-          </span>
-          New Project
-        </button>
-        <button
-          onClick={() => {
-            setShowCurrentPage(!showCurrentPage)
-            if (!showCurrentPage && !currentPage) {
-              fetchCurrentPageInPanel()
-            }
-          }}
-          disabled={!currentPage && !showCurrentPage}
-          className="font-normal h-10 mt-4 border-0 focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6 flex items-center gap-1.5 text-xs text-white transition-colors disabled:opacity-50"
-          style={{ backgroundColor: 'var(--primary)', fontFamily: "'Breeze Sans'", border: 'none', outline: 'none', boxShadow: 'none' }}>
-          <span className="flex items-center justify-center rounded-md" style={{ width: '16px', height: '16px', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </span>
-          Add Current Site
-        </button>
-      </div>
-
       {/* Create Project Modal - Fixed Overlay */}
       {showCreateCard && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+          onClick={() => {
+            setShowCreateCard(false)
+            setNewProjectName("")
+            setNewProjectDescription("")
+            setNewProjectColor("#0072de")
+          }}>
           <div
-            className="rounded-lg p-5 w-72 shadow-lg bg-white"
-            style={{ borderColor: '#DDD', borderWidth: '1px' }}>
+            className="rounded-lg p-5 w-72 shadow-lg bg-white relative"
+            style={{ borderColor: '#DDD', borderWidth: '1px' }}
+            onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
             <h3 className="text-base font-normal mb-4" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
               Create New Project
             </h3>
@@ -410,6 +365,28 @@ function ProjectsPanel({
                   }}
                 />
               </div>
+
+              {/* Color Picker */}
+              <div>
+                <label className="text-xs font-normal block mb-2" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
+                  Project Color
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {['#0072de', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setNewProjectColor(color)}
+                      className="w-8 h-8 rounded-full border-2 transition-all hover:scale-110 flex-shrink-0"
+                      style={{
+                        backgroundColor: color,
+                        borderColor: newProjectColor === color ? '#000' : '#DDD',
+                        boxShadow: newProjectColor === color ? '0 0 0 2px #fff, 0 0 0 4px ' + color : 'none'
+                      }}
+                      title="Select color"
+                    />
+                  ))}
+                </div>
+              </div>
               
               <div className="flex gap-2 justify-end mt-2">
                 <button
@@ -417,6 +394,7 @@ function ProjectsPanel({
                     setShowCreateCard(false)
                     setNewProjectName("")
                     setNewProjectDescription("")
+                    setNewProjectColor("#0072de")
                   }}
                   disabled={creating}
                   className="px-4 py-1.5 text-xs rounded-lg transition-colors"
@@ -432,7 +410,7 @@ function ProjectsPanel({
                   disabled={!newProjectName.trim() || creating}
                   className="px-4 py-1.5 text-xs rounded-lg text-white transition-colors disabled:opacity-50"
                   style={{ 
-                    backgroundColor: newProjectName.trim() ? '#0072de' : '#CCC',
+                    backgroundColor: (newProjectName.trim() && !creating) ? '#0072de' : '#CCC',
                     fontFamily: "'Breeze Sans'",
                   }}>
                   {creating ? 'Creating...' : 'Create'}
@@ -455,6 +433,11 @@ function ProjectsPanel({
         </div>
       ) : (
         <div className="flex flex-col gap-3 p-3 pt-0">
+          {/* Projects Header */}
+          <h2 className="text-base font-medium px-1 pt-1" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+            Your Projects
+          </h2>
+          
           {projects
             .sort((a, b) => b.startDate - a.startDate)
             .map((project) => (
@@ -479,6 +462,33 @@ function ProjectsPanel({
             ))}
         </div>
       )}
+
+      {/* Floating Plus Button - Bottom Right */}
+      <div className="group fixed bottom-6 right-6 z-40">
+        <button
+          onClick={() => {
+            setShowCreateCard(!showCreateCard)
+            setNewProjectName("")
+            setNewProjectDescription("")
+            setNewProjectColor("#0072de")
+          }}
+          className="w-12 h-12 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 flex items-center justify-center text-white focus:outline-none focus:ring-2 focus:ring-offset-2"
+          style={{
+            backgroundColor: 'var(--primary)',
+            boxShadow: '0 4px 12px rgba(0, 114, 222, 0.3)'
+          }}
+          title="Add New Project">
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+        
+        {/* Tooltip */}
+        <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-gray-800 text-white text-xs font-medium rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+          style={{ fontFamily: "'Breeze Sans'" }}>
+          Add New Project
+        </div>
+      </div>
     </div>
   )
 }
@@ -516,6 +526,8 @@ function ProjectCard({
   const [editingDescription, setEditingDescription] = useState(false)
   const [editDescriptionValue, setEditDescriptionValue] = useState(project.description || "")
   const [showReminderDialog, setShowReminderDialog] = useState(false)
+  const [showColorPicker, setShowColorPicker] = useState(false)
+  const [selectedColor, setSelectedColor] = useState(project.color || '#0072de')
   const [reminderForm, setReminderForm] = useState({
     enabled: project.reminder?.enabled || false,
     type: project.reminder?.type || 'daily' as 'daily' | 'once' | 'weekly',
@@ -527,6 +539,18 @@ function ProjectCard({
   const duration = Math.ceil((project.endDate - project.startDate) / (1000 * 60 * 60 * 24))
   const startDateStr = new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const endDateStr = new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+  // Close color picker when clicking outside
+  useEffect(() => {
+    if (!showColorPicker) return
+
+    const handleClickOutside = () => {
+      setShowColorPicker(false)
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showColorPicker])
 
   const handleSaveDescription = async () => {
     console.log("Save description:", editDescriptionValue)
@@ -606,6 +630,61 @@ function ProjectCard({
       
       {/* Project Header - Compact Layout */}
       <div className="flex items-start gap-3 mb-2">
+        {/* Project Color Icon */}
+        <div className="relative">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowColorPicker(!showColorPicker)
+            }}
+            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 hover:opacity-90 transition-opacity shadow-sm"
+            style={{
+              backgroundColor: selectedColor
+            }}
+            title="Click to change color">
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h1a1 1 0 001-1v-6a1 1 0 00-1-1h-1z" />
+            </svg>
+          </button>
+          
+          {/* Color Picker Dropdown */}
+          {showColorPicker && (
+            <div 
+              className="absolute top-12 left-0 z-30 bg-white rounded-lg p-3 shadow-xl border border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+              style={{ minWidth: '180px' }}>
+              <div className="text-xs font-medium mb-2" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
+                Choose Color
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {['#0072de', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'].map((color) => (
+                  <button
+                    key={color}
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      setSelectedColor(color)
+                      // Update project color in storage
+                      const projects = await chrome.storage.local.get('aegis-projects')
+                      const allProjects = projects['aegis-projects'] || []
+                      const updatedProjects = allProjects.map((p: any) =>
+                        p.id === project.id ? { ...p, color } : p
+                      )
+                      await chrome.storage.local.set({ 'aegis-projects': updatedProjects })
+                      setShowColorPicker(false)
+                    }}
+                    className="w-8 h-8 rounded-full border-2 hover:scale-110 transition-all"
+                    style={{
+                      backgroundColor: color,
+                      borderColor: selectedColor === color ? '#000' : '#DDD',
+                      boxShadow: selectedColor === color ? '0 0 0 2px #fff, 0 0 0 4px ' + color : 'none'
+                    }}
+                    title={color}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex-1 min-w-0">
           {/* Title Row */}
           <div className="flex items-center gap-2 mb-1">
@@ -615,17 +694,17 @@ function ProjectCard({
                 value={editName}
                 onChange={(e) => onEditNameChange(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                className="flex-1 min-w-0 px-2 py-1 text-base font-semibold rounded border"
+                className="flex-1 min-w-0 text-sm font-normal bg-transparent border-none outline-none"
                 style={{ 
                   color: 'var(--dark)', 
                   fontFamily: "'Breeze Sans'",
-                  borderColor: '#0074FB'
+                  padding: 0
                 }}
                 autoFocus
               />
             ) : (
               <>
-                <h3 className="text-base font-normal flex-1 min-w-0" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+                <h3 className="text-sm font-normal flex-1 min-w-0" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
                   {project.name}
                 </h3>
                 
@@ -655,6 +734,13 @@ function ProjectCard({
               </>
             )}
           </div>
+          
+          {/* Description - Always visible */}
+          {project.description && (
+            <p className="text-2xs mt-1" style={{ color: '#64748b', fontFamily: "'Breeze Sans'", fontSize: '11px' }}>
+              {project.description}
+            </p>
+          )}
         </div>
 
         {/* Actions Row - Horizontal */}
@@ -744,67 +830,35 @@ function ProjectCard({
         </div>
       </div>
 
-      {/* Description */}
-      {editingDescription ? (
-        <div className="flex flex-col gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
-          <textarea
-            value={editDescriptionValue}
-            onChange={(e) => setEditDescriptionValue(e.target.value)}
-            className="flex-1 px-2 py-1 text-xs rounded border"
-            style={{ 
-              color: 'var(--dark)', 
-              fontFamily: "'Breeze Sans'",
-              borderColor: '#0074FB',
-              resize: 'vertical',
-              minHeight: '60px'
-            }}
-            autoFocus
-          />
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleSaveDescription}
-              className="px-2 py-1 rounded text-xs font-medium"
-              style={{ backgroundColor: '#0074FB', color: 'white' }}>
-              Save
-            </button>
-            <button
-              onClick={handleCancelDescription}
-              className="px-2 py-1 rounded text-xs font-medium"
-              style={{ backgroundColor: '#E5E5E5', color: '#080A0B' }}>
-              Cancel
-            </button>
+      {/* Site Logos + Count (always shown if sites exist) */}
+      {project.sites && project.sites.length > 0 && (
+        <div className="flex items-center gap-2 mb-2">
+          {/* Up to 4 site logos */}
+          <div className="flex gap-1.5">
+            {project.sites.slice(0, 4).map((site, index) => {
+                const domain = new URL(site.url.startsWith('http') ? site.url : `https://${site.url}`).hostname
+                return (
+                  <img
+                    key={`${site.url}-${index}`}
+                    src={`https://www.google.com/s2/favicons?sz=24&domain=${domain}`}
+                    alt={site.title}
+                    className="w-6 h-6 rounded flex-shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                    title={site.title || domain}
+                  />
+                )
+              })}
+          </div>
+          {/* Site count */}
+          <div className="flex items-center gap-1 text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            <span>{project.sites.length} site{project.sites.length === 1 ? '' : 's'}</span>
           </div>
         </div>
-      ) : project.description ? (
-        <div 
-          className="flex items-start justify-between gap-2 mb-2 p-2 rounded group hover:bg-gray-100 transition-colors"
-          style={{ backgroundColor: '#FAFAFA' }}
-          onClick={(e) => e.stopPropagation()}>
-          <p className="text-xs flex-1" style={{ color: '#64748b', fontFamily: "'Breeze Sans'" }}>
-            {project.description}
-          </p>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setEditingDescription(true)
-              setEditDescriptionValue(project.description || "")
-            }}
-            className="hover:bg-gray-200 rounded p-1 transition-all flex-shrink-0"
-            title="Edit description">
-            <Edit2 className="h-3 w-3" style={{ color: '#9A9FA6' }} />
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            setEditingDescription(true)
-            setEditDescriptionValue("")
-          }}
-          className="text-xs mb-2 px-2 py-1 rounded text-left transition-colors hover:bg-gray-100"
-          style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-          + Add description
-        </button>
       )}
 
 
@@ -812,7 +866,7 @@ function ProjectCard({
       {/* Sites List (shown when expanded) */}
       {isExpanded && project.sites && project.sites.length > 0 && (
         <div className="flex flex-col gap-1.5 mb-3 pb-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-          <h4 className="text-xs font-semibold mb-1 flex items-center gap-1.5" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+          <h4 className="text-xs font-normal mb-1 flex items-center gap-1.5" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
             <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>

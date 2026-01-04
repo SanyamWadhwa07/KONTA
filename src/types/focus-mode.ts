@@ -74,7 +74,7 @@ export const CATEGORY_INFO: Record<BlocklistCategory, BlocklistCategoryInfo> = {
     id: "shopping",
     name: "Shopping",
     emoji: "🛒",
-    description: "Amazon, eBay, online shopping sites"
+    description: "Myntra, Ajio, Nykaa, Flipkart, Amazon.in"
   },
   gaming: {
     id: "gaming",

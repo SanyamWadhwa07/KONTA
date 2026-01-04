@@ -33,6 +33,7 @@ export type Project = {
   id: string
   name: string // Auto-generated or user-edited
   description?: string // Optional user notes
+  color?: string // Optional hex color for project labeling
   startDate: number // Timestamp of first session
   endDate: number // Timestamp of last session
   sessionIds: string[] // Sessions belonging to this project

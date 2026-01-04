@@ -1137,8 +1137,16 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         </button>
       </div>
       {showAddLabelModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-5 w-72 shadow-lg">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+          onClick={() => {
+            setShowAddLabelModal(false)
+            setNewLabelName("")
+            setNewLabelColor("#3B82F6")
+          }}>
+          <div 
+            className="bg-white rounded-lg p-5 w-72 shadow-lg"
+            onClick={(e) => e.stopPropagation()}>
             <h2 className="text-base font-normal mb-4" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
               Create New Label
             </h2>

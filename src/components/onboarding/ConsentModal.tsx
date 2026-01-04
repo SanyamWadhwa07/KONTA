@@ -39,7 +39,7 @@ export function ConsentModal({ open, onOpenChange, onAccept }: ConsentModalProps
           </DialogTitle>
         
           <p className="text-center text-sm leading-relaxed mb-4" style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
-            We take your privacy seriously. Here's how Aegis protects you:
+            We take your privacy seriously. Here's how Konta protects you:
           </p>
 
           {/* Privacy Features List */}
@@ -72,7 +72,7 @@ export function ConsentModal({ open, onOpenChange, onAccept }: ConsentModalProps
               htmlFor="consent"
               className="text-sm cursor-pointer"
               style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-              I understand and agree to Aegis privacy practices
+              I understand and agree to Konta privacy practices
             </label>
           </div>
 

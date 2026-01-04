@@ -366,12 +366,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "ADD_PROJECT") {
-    const { name, description, sessionIds = [], sites = [], autoDetected = false } = message.payload
+    const { name, description, color, sessionIds = [], sites = [], autoDetected = false } = message.payload
     const now = Date.now()
+    
+    console.log("[ADD_PROJECT] Received payload:", { name, description, color, sessionIds, sites, autoDetected })
     
     addProject({
       name,
       description,
+      color,
       startDate: now,
       endDate: now,
       sessionIds,
@@ -383,7 +386,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       score: autoDetected ? 0 : 100
     })
       .then((newProject) => {
-        console.log("[ADD_PROJECT] Created new project:", newProject.name)
+        console.log("[ADD_PROJECT] Created new project:", newProject.name, "with color:", newProject.color)
         sendResponse({ success: true, project: newProject })
       })
       .catch((error) => {
