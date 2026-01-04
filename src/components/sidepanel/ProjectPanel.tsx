@@ -736,10 +736,65 @@ function ProjectCard({
           </div>
           
           {/* Description - Always visible */}
-          {project.description && (
-            <p className="text-2xs mt-1" style={{ color: '#64748b', fontFamily: "'Breeze Sans'", fontSize: '11px' }}>
-              {project.description}
-            </p>
+          {editingDescription ? (
+            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <textarea
+                value={editDescriptionValue}
+                onChange={(e) => setEditDescriptionValue(e.target.value)}
+                placeholder="Add a description..."
+                className="w-full px-2 py-1.5 text-xs border rounded-lg outline-none focus:border-blue-500 resize-none"
+                style={{ 
+                  borderColor: '#E5E5E5', 
+                  fontFamily: "'Breeze Sans'",
+                  color: '#64748b',
+                  minHeight: '60px'
+                }}
+                autoFocus
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={handleSaveDescription}
+                  className="px-3 py-1 rounded text-xs font-medium text-white"
+                  style={{ backgroundColor: '#0074FB' }}>
+                  Save
+                </button>
+                <button
+                  onClick={handleCancelDescription}
+                  className="px-3 py-1 rounded text-xs font-medium"
+                  style={{ backgroundColor: '#E5E5E5', color: '#080A0B' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 mt-1 group">
+              {project.description ? (
+                <>
+                  <p className="text-2xs flex-1" style={{ color: '#64748b', fontFamily: "'Breeze Sans'", fontSize: '11px' }}>
+                    {project.description}
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingDescription(true)
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
+                    title="Edit description">
+                    <Edit2 className="h-3 w-3" style={{ color: '#9A9FA6' }} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditingDescription(true)
+                  }}
+                  className="text-2xs opacity-60 hover:opacity-100 transition-opacity"
+                  style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '11px' }}>
+                  + Add description
+                </button>
+              )}
+            </div>
           )}
         </div>
 
