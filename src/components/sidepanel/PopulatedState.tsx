@@ -326,8 +326,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       loadClusters()
     }
 
-    // Poll for session, project, and label updates every 2 seconds to catch real-time changes
-    const pollInterval = setInterval(() => {
+    // Poll for session, project, and label updates
+    // Sessions/Clusters: 5 min interval, Projects/Labels: 2 sec interval
+    const sessionsPollInterval = setInterval(() => {
         if (activeTab === "sessions") {
             if (timelineView === "sessions") {
               loadSessions()
@@ -335,16 +336,20 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               loadClusters()
             }
         }
+    }, 5 * 60 * 1000) // 5 minutes
+
+    const otherPollInterval = setInterval(() => {
         if (activeTab === "projects") {
             loadProjects()
         }
-        // Load labels on every poll (not just for specific tabs)
+        // Load labels on every poll
         loadLabels()
     }, 2000)
 
     // Cleanup: stop polling on unmount
     return () => {
-      clearInterval(pollInterval)
+      clearInterval(sessionsPollInterval)
+      clearInterval(otherPollInterval)
     }
   }, [activeTab, timelineView])
 
@@ -440,9 +445,22 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
     // For each cluster, find the most recent timestamp and group by date
     clusterMap.forEach((nodes, clusterId) => {
-      // Get the most recent timestamp from nodes in this cluster
-      const latestTimestamp = Math.max(...nodes.map(n => n.timestamp || Date.now()))
+      // Get the most recent timestamp from nodes in this cluster (with validation)
+      const validTimestamps = nodes
+        .map(n => {
+          const ts = n.timestamp || Date.now()
+          // Validate timestamp is a valid number
+          return !isNaN(ts) && ts > 0 ? ts : Date.now()
+        })
+      const latestTimestamp = Math.max(...validTimestamps)
       const clusterDate = new Date(latestTimestamp)
+      
+      // Validate the date is valid before using it
+      if (isNaN(clusterDate.getTime())) {
+        console.warn("Invalid cluster date, using current time", latestTimestamp)
+        clusterDate.setTime(Date.now())
+      }
+      
       const clusterDay = new Date(clusterDate.getFullYear(), clusterDate.getMonth(), clusterDate.getDate())
       const dateKey = clusterDay.toISOString().split('T')[0]
 
@@ -853,7 +871,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
         {/* Filters Section */}
         {!searchQuery.trim() && (
-        <div className="sticky top-16 z-20 bg-white px-2 pb-2">
+        <div className="sticky top-16 z-20 bg-white px-2 pb-1">
           <div className="flex items-center gap-1.5">
             {/* Left Scroll Arrow */}
             <button
@@ -927,39 +945,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             </div>
           )}
 
-        {/* View Toggle - Sessions vs Clusters */}
-        {!searchQuery.trim() && (
-          <div className="px-4 py-2 flex items-center gap-2">
-            <span className="text-2xs font-medium" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-              View:
-            </span>
-            <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E5E5E5' }}>
-              <button
-                onClick={() => setTimelineView("sessions")}
-                className="px-3 py-1.5 text-2xs font-medium transition-all"
-                style={{
-                  backgroundColor: timelineView === "sessions" ? '#0072de' : '#FFFFFF',
-                  color: timelineView === "sessions" ? '#FFFFFF' : '#666666',
-                  fontFamily: "'Breeze Sans'",
-                  fontSize: '10px',
-                  borderRight: '1px solid #E5E5E5'
-                }}>
-                Sessions
-              </button>
-              <button
-                onClick={() => setTimelineView("clusters")}
-                className="px-3 py-1.5 text-2xs font-medium transition-all"
-                style={{
-                  backgroundColor: timelineView === "clusters" ? '#0072de' : '#FFFFFF',
-                  color: timelineView === "clusters" ? '#FFFFFF' : '#666666',
-                  fontFamily: "'Breeze Sans'",
-                  fontSize: '10px'
-                }}>
-                Clusters
-              </button>
-            </div>
-          </div>
-        )}
+
 
         {/* Search Results or Timeline */}
         {searchQuery.trim() ? (
@@ -1076,6 +1062,10 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                       }}
                       onDeleteLabel={handleDeleteLabel}
                       onOpenCreateLabelModal={() => setShowAddLabelModal(true)}
+                      timelineView={timelineView}
+                      onTimelineViewChange={setTimelineView}
+                      isFirstDay={dayIndex === 0}
+                      searchQuery={searchQuery}
                     />
                   ))
                 )}
@@ -1104,7 +1094,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                     </p>
                   </div>
                 ) : (
-                  clustersByDay.map((dayGroup) => (
+                  clustersByDay.map((dayGroup, dayIndex) => (
                     <ClusterDaySection
                       key={dayGroup.label}
                       dayKey={dayGroup.label}
@@ -1122,6 +1112,10 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                           prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
                         )
                       }}
+                      timelineView={timelineView}
+                      onTimelineViewChange={setTimelineView}
+                      isFirstDay={dayIndex === 0}
+                      searchQuery={searchQuery}
                     />
                   ))
                 )}
@@ -1447,6 +1441,10 @@ interface DaySectionProps {
   onUpdateSessionLabel: (sessionId: string, labelId: string | undefined) => Promise<void>
   onDeleteLabel: (labelId: string) => Promise<void>
   onOpenCreateLabelModal?: () => void
+  timelineView?: "sessions" | "clusters"
+  onTimelineViewChange?: (view: "sessions" | "clusters") => void
+  isFirstDay?: boolean
+  searchQuery?: string
 }
 
 function DaySection({
@@ -1461,14 +1459,47 @@ function DaySection({
   onUpdateSessionLabel,
   onDeleteLabel,
   onOpenCreateLabelModal,
+  timelineView,
+  onTimelineViewChange,
+  isFirstDay,
+  searchQuery,
 }: DaySectionProps) {
   const visibleCount = isExpanded ? sessions.length : 3
 
   return (
     <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
-      {/* Day Header */}
-      <div className="text-sm font-normal px-2 mb-1 mt-4" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
-        <span>{dayLabel}</span>
+      {/* Day Header with View Toggle */}
+      <div className="flex items-center justify-between px-2 pr-0 mb-1 mt-4">
+        <div className="text-sm font-normal" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+          <span>{dayLabel}</span>
+        </div>
+        {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E5E5E5' }}>
+            <button
+              onClick={() => onTimelineViewChange("sessions")}
+              className="px-2 py-1 text-2xs font-medium transition-all"
+              style={{
+                backgroundColor: timelineView === "sessions" ? '#0072de' : '#FFFFFF',
+                color: timelineView === "sessions" ? '#FFFFFF' : '#666666',
+                fontFamily: "'Breeze Sans'",
+                fontSize: '10px',
+                borderRight: '1px solid #E5E5E5'
+              }}>
+              Sessions
+            </button>
+            <button
+              onClick={() => onTimelineViewChange("clusters")}
+              className="px-2 py-1 text-2xs font-medium transition-all"
+              style={{
+                backgroundColor: timelineView === "clusters" ? '#0072de' : '#FFFFFF',
+                color: timelineView === "clusters" ? '#FFFFFF' : '#666666',
+                fontFamily: "'Breeze Sans'",
+                fontSize: '10px'
+              }}>
+              Clusters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sessions List */}
@@ -1827,6 +1858,10 @@ interface ClusterDaySectionProps {
   onToggleDay: (key: string) => void
   expandedClusters: number[]
   onToggleCluster: (id: number) => void
+  timelineView?: "sessions" | "clusters"
+  onTimelineViewChange?: (view: "sessions" | "clusters") => void
+  isFirstDay?: boolean
+  searchQuery?: string
 }
 
 function ClusterDaySection({
@@ -1837,14 +1872,47 @@ function ClusterDaySection({
   onToggleDay,
   expandedClusters,
   onToggleCluster,
+  timelineView,
+  onTimelineViewChange,
+  isFirstDay,
+  searchQuery,
 }: ClusterDaySectionProps) {
   const visibleCount = isExpanded ? clusters.length : 3
 
   return (
     <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
-      {/* Day Header */}
-      <div className="text-sm font-normal px-2 mb-1 mt-4" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
-        <span>{dayLabel}</span>
+      {/* Day Header with View Toggle */}
+      <div className="flex items-center justify-between px-2 pr-0 mb-1 mt-4">
+        <div className="text-sm font-normal" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+          <span>{dayLabel}</span>
+        </div>
+        {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E5E5E5' }}>
+            <button
+              onClick={() => onTimelineViewChange("sessions")}
+              className="px-2 py-1 text-2xs font-medium transition-all"
+              style={{
+                backgroundColor: timelineView === "sessions" ? '#0072de' : '#FFFFFF',
+                color: timelineView === "sessions" ? '#FFFFFF' : '#666666',
+                fontFamily: "'Breeze Sans'",
+                fontSize: '10px',
+                borderRight: '1px solid #E5E5E5'
+              }}>
+              Sessions
+            </button>
+            <button
+              onClick={() => onTimelineViewChange("clusters")}
+              className="px-2 py-1 text-2xs font-medium transition-all"
+              style={{
+                backgroundColor: timelineView === "clusters" ? '#0072de' : '#FFFFFF',
+                color: timelineView === "clusters" ? '#FFFFFF' : '#666666',
+                fontFamily: "'Breeze Sans'",
+                fontSize: '10px'
+              }}>
+              Clusters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Clusters List */}
@@ -1888,35 +1956,52 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
   const clusterColor = getClusterColor(clusterId)
   const clusterLabel = generateClusterLabel(nodes, clusterId)
   
-  const startTime = Math.min(...nodes.map(n => n.timestamp))
-  const endTime = Math.max(...nodes.map(n => n.timestamp))
-  const timeRange = new Date(startTime).toLocaleTimeString('en-US', { 
+  // Get valid timestamps only
+  const validTimestamps = nodes
+    .map(n => n.timestamp)
+    .filter(ts => ts && !isNaN(ts) && ts > 0)
+  
+  if (validTimestamps.length === 0) {
+    // No valid timestamps, use current time
+    validTimestamps.push(Date.now())
+  }
+  
+  const startTime = Math.min(...validTimestamps)
+  const endTime = Math.max(...validTimestamps)
+  
+  const startDate = new Date(startTime)
+  const endDate = new Date(endTime)
+  
+  // Validate dates
+  if (isNaN(startDate.getTime())) {
+    console.warn("Invalid start date in cluster", startTime)
+    startDate.setTime(Date.now())
+  }
+  if (isNaN(endDate.getTime())) {
+    console.warn("Invalid end date in cluster", endTime)
+    endDate.setTime(Date.now())
+  }
+  
+  const timeRange = startDate.toLocaleTimeString('en-US', { 
     hour: '2-digit', 
     minute: '2-digit', 
     hour12: true 
-  }) + (startTime !== endTime ? ' - ' + new Date(endTime).toLocaleTimeString('en-US', { 
+  }) + (startTime !== endTime ? ' - ' + endDate.toLocaleTimeString('en-US', { 
     hour: '2-digit', 
     minute: '2-digit', 
     hour12: true 
   }) : '')
 
   const handleNodeClick = (node: GraphNode) => {
-    // Open the page
+    // Just open the page - clicking opens it in a new tab
     chrome.tabs.create({ url: node.url })
-    
-    // Send message to focus node in graph
-    sendMessage({ 
-      type: "FOCUS_NODE_IN_GRAPH", 
-      payload: { nodeId: node.id } 
-    })
   }
 
   const handleFocusCluster = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // Send message to focus entire cluster in graph
-    sendMessage({ 
-      type: "FOCUS_CLUSTER_IN_GRAPH", 
-      payload: { clusterId } 
+    // Open the graph tab with the cluster focused
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('tabs/graph.html') + `?cluster=${clusterId}`
     })
   }
 
@@ -1979,11 +2064,18 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
             .slice()
             .sort((a, b) => b.timestamp - a.timestamp)
             .map((node, index) => {
-              const timeStr = new Date(node.timestamp).toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                hour12: true 
-              })
+              const nodeTimestamp = node.timestamp && !isNaN(node.timestamp) && node.timestamp > 0 
+                ? node.timestamp 
+                : Date.now()
+              const nodeDate = new Date(nodeTimestamp)
+              
+              const timeStr = isNaN(nodeDate.getTime()) 
+                ? 'Unknown time'
+                : nodeDate.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    hour12: true 
+                  })
 
               return (
                 <div 

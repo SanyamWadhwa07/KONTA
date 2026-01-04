@@ -39,6 +39,21 @@ export default function GraphFullPage() {
   const lastGraphTimestampRef = useRef<number>(0)
   const [dimensions, setDimensions] = useState({ width: 1200, height: 800 })
   const faviconCache = useRef<Map<string, HTMLImageElement>>(new Map())
+  const [focusedClusterId, setFocusedClusterId] = useState<number | null>(null)
+
+  // Check URL parameters for focused cluster
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const clusterParam = urlParams.get('cluster')
+    if (clusterParam) {
+      const clusterId = parseInt(clusterParam, 10)
+      if (!isNaN(clusterId)) {
+        setFocusedClusterId(clusterId)
+        setSelectedClusters(new Set([clusterId]))
+        setShowFilters(true) // Show filters so user can see the cluster is selected
+      }
+    }
+  }, [])
 
   // Load manual links from storage
   useEffect(() => {
@@ -163,7 +178,32 @@ export default function GraphFullPage() {
         graphRef.current.d3ReheatSimulation()
       }
 
-      if (graphRef.current && !hasUserInteractedRef.current) {
+      // Auto-zoom to focused cluster if specified
+      if (graphRef.current && !hasUserInteractedRef.current && focusedClusterId !== null) {
+        setTimeout(() => {
+          // Get nodes in the focused cluster
+          const clusterNodes = graphData.nodes.filter(n => n.cluster === focusedClusterId)
+          if (clusterNodes.length > 0) {
+            // Calculate bounding box of cluster nodes
+            const nodePositions = clusterNodes.map(n => {
+              const graphNode = graphRef.current.graphData().nodes.find((gn: any) => gn.id === n.id)
+              return graphNode ? { x: graphNode.x, y: graphNode.y } : null
+            }).filter(pos => pos !== null)
+
+            if (nodePositions.length > 0) {
+              const xs = nodePositions.map(p => p!.x)
+              const ys = nodePositions.map(p => p!.y)
+              const centerX = (Math.min(...xs) + Math.max(...xs)) / 2
+              const centerY = (Math.min(...ys) + Math.max(...ys)) / 2
+              
+              // Center on the cluster
+              graphRef.current.centerAt(centerX, centerY, 1000)
+              // Zoom to a reasonable level
+              graphRef.current.zoom(2, 1000)
+            }
+          }
+        }, 1000) // Wait for simulation to settle
+      } else if (graphRef.current && !hasUserInteractedRef.current) {
         setTimeout(() => {
           graphRef.current?.zoomToFit(400, 50)
         }, 500)

@@ -303,7 +303,8 @@ export function buildKnowledgeGraph(
     domain: page.domain,
     cluster: -1,
     visitCount: page.visitCount || 1,
-    searchQuery: page.searchQuery // Preserve search query if available
+    searchQuery: page.searchQuery, // Preserve search query if available
+    timestamp: page.timestamp // Add timestamp for timeline ordering
   }))
 
   // Count domain occurrences for penalty calculation
