@@ -75,7 +75,7 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
         }
         return prev - 1
       })
-    }, 1000)
+    }, 2000)
 
     return () => clearInterval(interval)
   }, [isOnboarding, handleClose])
@@ -133,9 +133,19 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
             </p>
 
             <p
-              className="text-xs leading-relaxed mb-4"
+              className="text-sm leading-relaxed mb-4"
               style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
               Konta will quietly learn from your browsing context. You can always come back here to view your sessions and projects.
+            </p>
+            <p
+              className="text-xs leading-relaxed"
+              style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
+              To get started, we've loaded 7 days of your recent browsing history. Feel free to explore!
+            </p>
+            <p
+              className="text-xs leading-relaxed mt-6"
+              style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
+              The sidebar will close automatically in {timeRemaining} second{timeRemaining !== 1 ? 's' : ''}.
             </p>
           </>
         ) : null}
