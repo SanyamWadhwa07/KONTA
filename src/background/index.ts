@@ -1244,7 +1244,7 @@ async function showNativeChromeNotification(score: number, threshold: number) {
       priority: 2,
       requireInteraction: false
     })
-    console.log("[COI Alert] ✅ Native notification shown as fallback")
+    log("[COI Alert] ✅ Native notification shown as fallback")
   } catch (err) {
     console.error("[COI Alert] Failed to show native notification:", err)
   }
@@ -1323,7 +1323,7 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
 
     // Get active tab to send notification (remove currentWindow to handle cases where DevTools or other windows are focused)
     const tabs = await chrome.tabs.query({ active: true })
-    console.log("[COI Alert] Active tabs found:", tabs.length)
+    log("[COI Alert] Active tabs found:", tabs.length)
     if (tabs.length === 0) return
 
     const activeTab = tabs[0]
@@ -1332,7 +1332,7 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
       return
     }
 
-    console.log(`[COI Alert] Attempting to send notification to tab ${activeTab.id} (${activeTab.url})`)
+    log(`[COI Alert] Attempting to send notification to tab ${activeTab.id} (${activeTab.url})`)
     
     // Try sending directly to content script
     try {
@@ -1344,21 +1344,21 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
           message: `Working for a while. Taking a short break might help you.`
         }
       })
-      console.log("[COI Alert] ✅ In-page notification delivered")
+      log("[COI Alert] ✅ In-page notification delivered")
     } catch (err) {
       const error = err as Error
-      console.log("[COI Alert] ⚠️ Content script unavailable:", error.message)
+      log("[COI Alert] ⚠️ Content script unavailable:", error.message)
       
       // If the error is "Receiving end does not exist", try injecting the content script
       if (error.message.includes("Receiving end does not exist")) {
-        console.log("[COI Alert] Attempting to inject content script...")
+        log("[COI Alert] Attempting to inject content script...")
         try {
           // Inject the indicator content script
           await chrome.scripting.executeScript({
             target: { tabId: activeTab.id },
             files: ['contents/indicator.tsx']
           })
-          console.log("[COI Alert] Content script injected, retrying notification...")
+          log("[COI Alert] Content script injected, retrying notification...")
           
           // Wait a bit for the script to initialize
           await new Promise(resolve => setTimeout(resolve, 500))
@@ -1372,15 +1372,15 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
               message: `Working for a while. Taking a short break might help you.`
             }
           })
-          console.log("[COI Alert] ✅ In-page notification delivered after injection")
+          log("[COI Alert] ✅ In-page notification delivered after injection")
           return
         } catch (injectErr) {
-          console.log("[COI Alert] Failed to inject/retry:", (injectErr as Error).message)
+          log("[COI Alert] Failed to inject/retry:", (injectErr as Error).message)
         }
       }
       
       // Fallback to native notification
-      console.log("[COI Alert] Using native notification fallback")
+      log("[COI Alert] Using native notification fallback")
       await showNativeChromeNotification(sessionCoiScore, threshold)
     }
   } catch (err) {
@@ -1461,7 +1461,7 @@ async function testCoiAlert() {
     return
   }
   
-  console.log(`[Test] Sending test COI alert to tab ${activeTab.id} (${activeTab.url})`)
+  log(`[Test] Sending test COI alert to tab ${activeTab.id} (${activeTab.url})`)
   
   const success = await safelySendToContentScript(activeTab.id, {
     type: "COI_ALERT",
@@ -1473,11 +1473,11 @@ async function testCoiAlert() {
   })
   
   if (success) {
-    console.log("[Test] ✅ Test COI alert sent successfully (in-page notification)!")
+    log("[Test] ✅ Test COI alert sent successfully (in-page notification)!")
   } else {
-    console.log("[Test] ⚠️ Content script not ready, showing native notification instead")
+    log("[Test] ⚠️ Content script not ready, showing native notification instead")
     await showNativeChromeNotification(0.85, 0.7)
-    console.log("[Test] ✅ Native notification shown as fallback")
+    log("[Test] ✅ Native notification shown as fallback")
   }
 }
 
