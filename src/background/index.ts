@@ -1105,6 +1105,9 @@ setInterval(() => {
   broadcastCoiUpdate()
 }, 5000)
 
+// Track last COI alert timestamp to implement cooldown
+let lastCoiAlertTimestamp = 0
+
 async function broadcastCoiUpdate() {
   try {
     const sessions = getSessions()
@@ -1134,8 +1137,77 @@ async function broadcastCoiUpdate() {
         sessionListeners.delete(tabId)
       })
     }
+
+    // Check if COI notifications are enabled and threshold exceeded
+    await checkCoiThresholdAndNotify(sessionCoi.score)
   } catch (err) {
     console.warn("[Background] Failed to broadcast COI update", err)
+  }
+}
+
+async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
+  try {
+    // Load settings to check if notifications are enabled
+    const result = await chrome.storage.local.get("aegis-settings")
+    const settings = result["aegis-settings"]
+    
+    console.log("[COI Alert] Checking threshold, score:", sessionCoiScore.toFixed(2), "| Notifications enabled:", settings?.developer?.showCoiNotifications)
+    
+    if (!settings?.developer?.showCoiNotifications) {
+      return
+    }
+
+    const threshold = settings.developer.coiThreshold ?? 0.7
+    const cooldownMinutes = settings.developer.coiNotificationCooldownMinutes ?? 5
+    const cooldownMs = cooldownMinutes * 60 * 1000
+
+    // Check if COI exceeds threshold
+    if (sessionCoiScore < threshold) {
+      return
+    }
+
+    // Check cooldown to prevent notification spam
+    const now = Date.now()
+    const timeSinceLastAlert = now - lastCoiAlertTimestamp
+    if (timeSinceLastAlert < cooldownMs) {
+      console.log(`[COI Alert] In cooldown, ${Math.round((cooldownMs - timeSinceLastAlert) / 1000)}s remaining`)
+      return
+    }
+
+    console.log(`[COI Alert] 🚨 Threshold exceeded! Score: ${sessionCoiScore.toFixed(2)}, Threshold: ${threshold}`)
+    
+    // Update last alert timestamp
+    lastCoiAlertTimestamp = now
+
+    // Get active tab to send notification
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+    console.log("[COI Alert] Active tabs found:", tabs.length)
+    if (tabs.length === 0) return
+
+    const activeTab = tabs[0]
+    if (!activeTab.id) {
+      console.log("[COI Alert] No active tab ID")
+      return
+    }
+
+    console.log(`[COI Alert] Sending notification to tab ${activeTab.id} (${activeTab.url})`)
+    
+    // Send COI_ALERT notification to content script
+    chrome.tabs.sendMessage(activeTab.id, {
+      type: "COI_ALERT",
+      payload: {
+        score: sessionCoiScore,
+        threshold,
+        message: `You've been switching between tasks frequently. Taking a short break might help you refocus.`
+      }
+    }).then(() => {
+      console.log("[COI Alert] ✅ Notification sent successfully!")
+    }).catch((err) => {
+      // Content script may not be injected yet, that's okay
+      console.warn(`[COI Alert] ❌ Could not send alert to tab ${activeTab.id}:`, err.message)
+    })
+  } catch (err) {
+    console.warn("[Background] Failed to check COI threshold", err)
   }
 }
 
@@ -1186,6 +1258,48 @@ export function markGraphForRebuild() {
   graphNeedsRebuild = true
 }
 
+// Test function to manually trigger COI alert
+async function testCoiAlert() {
+  console.log("[Test] Manually triggering COI alert...")
+  
+  // Check if COI notifications are enabled
+  const result = await chrome.storage.local.get("aegis-settings")
+  const settings = result["aegis-settings"]
+  
+  if (!settings?.developer?.showCoiNotifications) {
+    console.log("[Test] ⚠️ COI Notifications are disabled in settings. Enable them first.")
+    console.log("[Test] To enable: Open sidepanel → Settings → Enable 'COI Notifications'")
+    return
+  }
+  
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+  if (tabs.length === 0) {
+    console.log("[Test] No active tab found")
+    return
+  }
+  
+  const activeTab = tabs[0]
+  if (!activeTab.id) {
+    console.log("[Test] No active tab ID")
+    return
+  }
+  
+  console.log(`[Test] Sending test COI alert to tab ${activeTab.id}`)
+  
+  chrome.tabs.sendMessage(activeTab.id, {
+    type: "COI_ALERT",
+    payload: {
+      score: 0.85,
+      threshold: 0.7,
+      message: "Test Alert: Your distraction level is high (85%). This is a test notification."
+    }
+  }).then(() => {
+    console.log("[Test] ✅ Test COI alert sent successfully!")
+  }).catch((err) => {
+    console.error("[Test] ❌ Failed to send test alert:", err)
+  })
+}
+
 // DEV ONLY: Export test helpers to window for console access
 if (typeof globalThis !== 'undefined') {
   import("./testHelpers").then((module) => {
@@ -1198,6 +1312,8 @@ if (typeof globalThis !== 'undefined') {
       testFullWorkflow: module.testFullWorkflow,
       runAllTests: module.runAllTests,
       interactiveTest: module.interactiveTest,
+      // COI test helper
+      testCoiAlert,
       // Also expose direct utilities
       createTestCandidate,
       clearAllCandidates,
@@ -1206,6 +1322,7 @@ if (typeof globalThis !== 'undefined') {
     }
     log("%c🧪 Test helpers loaded!", "background: #4CAF50; color: white; padding: 4px 8px; font-weight: bold")
     log("%cQuick start: testHelpers.runAllTests()", "color: #2196F3; font-weight: bold")
+    log("%cTest COI alert: testHelpers.testCoiAlert()", "color: #f59e0b; font-weight: bold")
     log("%cInteractive: testHelpers.interactiveTest()", "color: #FF9800; font-weight: bold")
   })
 }

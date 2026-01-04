@@ -99,6 +99,24 @@ export function CoiPanel({ sessions }: CoiPanelProps) {
   const formatScore = (val: number | undefined | null) =>
     val === undefined || val === null ? "—" : val.toFixed(2)
 
+  // Tooltip descriptions for each parameter
+  const parameterInfo: Record<string, string> = {
+    // Page parameters
+    tabSwitch: "How often you switch tabs - higher indicates scattered attention",
+    idleTransitions: "Frequency of idle/active state changes - may indicate distraction",
+    scrollBurst: "Rapid scrolling events - often indicates skimming rather than reading",
+    shallowDepth: "Staying at top of pages without scrolling - suggests lack of engagement",
+    dwell: "Time spent on page - very short or very long can indicate issues",
+    position: "Position of page in browsing session - earlier pages may be more scattered",
+    revisit: "Returning to previously visited pages - can indicate indecision",
+    
+    // Session parameters
+    domainChurn: "Rate of switching between different domains - high indicates scattered focus",
+    dwellVariance: "Variation in time spent across pages - inconsistent engagement",
+    duration: "Total session length - very long sessions can cause mental fatigue",
+    foregroundDrop: "Time spent with browser in background - indicates multi-tasking"
+  }
+
   const renderWeights = (scope: "page" | "session") => {
     const entries = Object.entries(weights[scope])
     return (
@@ -106,7 +124,28 @@ export function CoiPanel({ sessions }: CoiPanelProps) {
         {entries.map(([key, value]) => (
           <label key={`${scope}-${key}`} className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-sm font-medium text-slate-700">
-              <span>{key}</span>
+              <div className="flex items-center gap-1.5">
+                <span>{key}</span>
+                {parameterInfo[key] && (
+                  <div className="group relative">
+                    <svg 
+                      className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help" 
+                      fill="currentColor" 
+                      viewBox="0 0 20 20"
+                    >
+                      <path 
+                        fillRule="evenodd" 
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" 
+                        clipRule="evenodd" 
+                      />
+                    </svg>
+                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-2 bg-slate-800 text-white text-xs rounded shadow-lg z-50">
+                      {parameterInfo[key]}
+                      <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+                    </div>
+                  </div>
+                )}
+              </div>
               <span>{value.toFixed(2)}</span>
             </div>
             <input

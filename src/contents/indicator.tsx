@@ -52,7 +52,7 @@ type EdgePosition = 'left' | 'right'
 
 type Notification = {
   id: string
-  type: 'learning' | 'candidate' | 'suggestion' | 'similar-pages' | 'project-reminder' | 'project-main-site'
+  type: 'learning' | 'candidate' | 'suggestion' | 'similar-pages' | 'project-reminder' | 'project-main-site' | 'coi-alert'
   title: string
   message?: string
   timestamp: number
@@ -81,12 +81,21 @@ const Indicator = () => {
   useEffect(() => {
     chrome.storage.local.get(['konta-position', 'onboarding-complete'], (result) => {
       // Check if onboarding is complete
-      if (result['onboarding-complete'] === true) {
+      const onboardingDone = result['onboarding-complete'] === true
+      
+      console.log("[Indicator] Initialization:", {
+        onboardingComplete: onboardingDone,
+        position: result['konta-position']
+      })
+      
+      if (onboardingDone) {
         log("✅ Onboarding complete, enabling indicator")
         setOnboardingComplete(true)
         setIsVisible(true)
       } else {
         log("⏳ Onboarding not complete, hiding indicator")
+        console.warn("[Indicator] ⚠️ Indicator hidden - onboarding not complete. Run this in console to enable:")
+        console.warn("chrome.storage.local.set({'onboarding-complete': true}, () => location.reload())")
         setOnboardingComplete(false)
         setIsVisible(false)
       }
@@ -251,6 +260,33 @@ const Indicator = () => {
         setIsExpanded(false)
         // Auto-expand after 800ms
         setTimeout(() => setNotificationExpanded(true), 800)
+        sendResponse({ received: true })
+      }
+      
+      // Handle COI alert notifications
+      if (message.type === "COI_ALERT") {
+        log("⚠️ COI alert triggered:", message.payload)
+        console.log("[Indicator] COI_ALERT received:", message.payload)
+        const { score, threshold, message: alertMessage } = message.payload
+        
+        const notification: Notification = {
+          id: `coi-alert-${Date.now()}`,
+          type: 'coi-alert',
+          title: '💡 Time for a Focus Break?',
+          message: alertMessage || `You've been switching between tasks frequently. Taking a short break might help you refocus.`,
+          timestamp: Date.now(),
+          score: Math.round(score * 100),
+          payload: { score, threshold }
+        }
+        console.log("[Indicator] Setting COI notification:", notification)
+        setNotifications((prev) => [notification, ...prev])
+        setMode('notification')
+        setIsExpanded(false)
+        // Auto-expand after 800ms
+        setTimeout(() => {
+          console.log("[Indicator] Auto-expanding COI notification")
+          setNotificationExpanded(true)
+        }, 800)
         sendResponse({ received: true })
       }
       
@@ -1264,6 +1300,85 @@ const Indicator = () => {
                       e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)'
                     }}>
                     Not Now
+                  </button>
+                </div>
+              )}
+              
+              {/* Action buttons for COI alert notifications */}
+              {notifications[0].type === 'coi-alert' && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      log("🧘 Take a Break clicked - opening 5-minute timer")
+                      
+                      // Open a 5-minute timer in a new tab
+                      window.open('https://www.google.com/search?q=5+minute+timer', '_blank')
+                      
+                      // Optional: Enable focus mode to block distractions
+                      chrome.runtime.sendMessage({ 
+                        type: "TOGGLE_FOCUS_MODE",
+                        payload: { enabled: true }
+                      }).catch(() => {
+                        // Focus mode toggle might not be implemented yet
+                        console.log("[COI] Focus mode toggle not available")
+                      })
+                      
+                      // Dismiss notification
+                      setNotifications([])
+                      setMode('normal')
+                    }}
+                    style={{
+                      backgroundColor: '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      flex: 1,
+                      fontFamily: "'Breeze Sans', sans-serif",
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#d97706'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f59e0b'
+                    }}>
+                    Take a Break
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      log("✓ Dismiss COI alert")
+                      
+                      // Dismiss notification
+                      setNotifications([])
+                      setMode('normal')
+                    }}
+                    style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                      color: '#666',
+                      border: '1px solid #E5E5E5',
+                      borderRadius: '6px',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      flex: 1,
+                      fontFamily: "'Breeze Sans', sans-serif",
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.08)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)'
+                    }}>
+                    Got It
                   </button>
                 </div>
               )}
