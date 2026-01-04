@@ -9,7 +9,7 @@ import { setupConsentListener } from "./consent-listener"
 import { getSessions, initializeSessions, updateSessionLabel, deletePageFromSession, deleteSession } from "./sessionManager"
 import { executeSearch } from "./search-coordinator"
 import { loadLabels, addLabel, deleteLabel, getLabelById } from "./labelsStore"
-import { loadLearnedAssociations, learnFromSession } from "./contextLearning"
+import { loadLearnedAssociations, learnFromSession, predictLabelForSession } from "./contextLearning"
 import { 
   detectProjects, 
   loadProjects, 
@@ -234,6 +234,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.error("GET_LABELS failed:", error)
         sendResponse({ labels: [] })
       })
+    return true
+  }
+
+  if (message.type === "GET_LABEL_SUGGESTION") {
+    const { sessionId } = message.payload
+    const session = getSessions().find(s => s.id === sessionId)
+    
+    if (!session || session.labelId) {
+      sendResponse({ suggestion: null })
+      return true
+    }
+
+    // Get all domains from session pages
+    const domains = new Set(
+      session.pages
+        .map(page => {
+          try {
+            return new URL(page.url).hostname.replace(/^www\./, '')
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean)
+    )
+
+    // Get predictions for each domain and pick the most confident one
+    let bestPrediction: { labelName: string; confidence: number } | null = null
+    
+    for (const domain of domains) {
+      const prediction = predictLabelForSession({ pages: session.pages } as any)
+      if (prediction && (!bestPrediction || prediction.confidence > bestPrediction.confidence)) {
+        bestPrediction = prediction
+      }
+    }
+
+    sendResponse({ suggestion: bestPrediction })
     return true
   }
 

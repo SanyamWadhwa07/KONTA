@@ -121,6 +121,52 @@ export function getLearnedContext(url: string): string | null {
 }
 
 /**
+ * Predict label for a session based on its domains' learned associations
+ * Returns the most confident prediction across all domains in the session
+ */
+export function predictLabelForSession(session: Session): { labelName: string; confidence: number } | null {
+  if (!session.pages.length) return null
+
+  // Extract all domains and their predictions
+  const domains = new Set(
+    session.pages
+      .map(page => extractDomain(page.url))
+      .filter(domain => domain !== '')
+  )
+
+  // Collect all predictions with their scores
+  const predictions = new Map<string, number>()
+
+  domains.forEach(domain => {
+    const labelCounts = domainToLabelMap.get(domain)
+    if (labelCounts && labelCounts.size > 0) {
+      labelCounts.forEach((count, label) => {
+        predictions.set(label, (predictions.get(label) || 0) + count)
+      })
+    }
+  })
+
+  if (predictions.size === 0) return null
+
+  // Find best prediction
+  let bestLabel: string | null = null
+  let bestScore = 0
+
+  predictions.forEach((score, label) => {
+    if (score > bestScore) {
+      bestScore = score
+      bestLabel = label
+    }
+  })
+
+  // Calculate confidence as a percentage (0-100)
+  const totalScore = Array.from(predictions.values()).reduce((a, b) => a + b, 0)
+  const confidence = Math.round((bestScore / totalScore) * 100)
+
+  return bestLabel ? { labelName: bestLabel, confidence } : null
+}
+
+/**
  * Get statistics about learned associations (for debugging/insights)
  */
 export function getLearnedStats(): {

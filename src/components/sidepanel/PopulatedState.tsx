@@ -338,7 +338,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     }
 
     // Poll for session, project, and label updates
-    // Sessions/Clusters: 5 min interval, Projects/Labels: 2 sec interval
+    // Sessions/Clusters: 2 sec interval (fast), Projects/Labels: 2 sec interval
     const sessionsPollInterval = setInterval(() => {
         if (activeTab === "sessions") {
             if (timelineView === "sessions") {
@@ -347,7 +347,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               loadClusters()
             }
         }
-    }, 5 * 60 * 1000) // 5 minutes
+    }, 2000) // 2 seconds - fast updates when sidebar open
 
     const otherPollInterval = setInterval(() => {
         if (activeTab === "projects") {
@@ -1529,9 +1529,29 @@ interface SessionItemProps {
 function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLabel, onDeleteLabel, onOpenCreateLabelModal }: SessionItemProps) {
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null)
   const [showLabelPicker, setShowLabelPicker] = useState(false)
+  const [suggestedLabel, setSuggestedLabel] = useState<{ labelName: string; confidence: number } | null>(null)
+  const [isDismissed, setIsDismissed] = useState(false)
   const timeStart = new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const timeEnd = new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const domains = [...new Set(session.pages.map((p) => new URL(p.url).hostname.replace('www.', '')))].slice(0, 3)
+  
+  // Fetch label suggestion if session has no label
+  useEffect(() => {
+    if (!session.labelId && !isDismissed) {
+      sendMessage<{ suggestion: { labelName: string; confidence: number } | null }>({
+        type: "GET_LABEL_SUGGESTION",
+        payload: { sessionId: session.id }
+      })
+        .then((res) => {
+          if (res?.suggestion) {
+            setSuggestedLabel(res.suggestion)
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to get label suggestion:", err)
+        })
+    }
+  }, [session.id, session.labelId, isDismissed])
   
   // Close menu when clicking outside
   useEffect(() => {
@@ -1593,6 +1613,44 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
               whiteSpace: 'nowrap'
             }}>
             {labels.find(l => l.id === session.labelId)?.name}
+          </div>
+        )}
+        {/* Suggested Label Badge */}
+        {!session.labelId && suggestedLabel && !isDismissed && (
+          <div
+            className="px-2 py-1 text-xs rounded flex items-center gap-1.5"
+            style={{
+              border: '1.5px dashed #9CA3AF',
+              backgroundColor: '#F9FAFB',
+              color: '#6B7280',
+              fontFamily: "'Breeze Sans'"
+            }}>
+            <span>{labels.find(l => l.name === suggestedLabel.labelName)?.name || suggestedLabel.labelName}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                const label = labels.find(l => l.name === suggestedLabel.labelName)
+                if (label) {
+                  onUpdateSessionLabel(session.id, label.id)
+                  setSuggestedLabel(null)
+                }
+              }}
+              className="hover:bg-green-100 rounded p-0.5 transition-colors"
+              title="Apply suggestion"
+              style={{ color: '#10B981' }}>
+              <Check className="h-3 w-3" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsDismissed(true)
+                setSuggestedLabel(null)
+              }}
+              className="hover:bg-red-100 rounded p-0.5 transition-colors"
+              title="Dismiss"
+              style={{ color: '#EF4444' }}>
+              <X className="h-3 w-3" />
+            </button>
           </div>
         )}
         {/* Label Icon Button with Dropdown */}
