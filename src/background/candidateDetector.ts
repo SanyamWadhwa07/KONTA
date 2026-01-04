@@ -12,7 +12,7 @@ import { log } from "~/lib/logger"
 
 
 // Dev mode flag - set to true to use lower thresholds for faster testing
-const DEV_MODE = true // Set to true to test with lower thresholds
+const DEV_MODE = false // Set to true to test with lower thresholds
 
 // There are tunable thresholds for candidate qualification
 const THRESHOLDS = DEV_MODE ? {

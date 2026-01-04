@@ -460,15 +460,15 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         let label = ''
         if (sessionDay.getTime() === today.getTime()) {
           const dayName = sessionDay.toLocaleString('en-US', { weekday: 'long' })
-          const dateStr = sessionDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          const dateStr = sessionDay.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           label = `Today - ${dayName}, ${dateStr}`
         } else if (sessionDay.getTime() === yesterday.getTime()) {
           const dayName = sessionDay.toLocaleString('en-US', { weekday: 'long' })
-          const dateStr = sessionDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          const dateStr = sessionDay.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           label = `Yesterday - ${dayName}, ${dateStr}`
         } else {
           const dayName = sessionDay.toLocaleString('en-US', { weekday: 'long' })
-          const dateStr = sessionDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          const dateStr = sessionDay.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           label = `${dayName}, ${dateStr}`
         }
 
@@ -533,15 +533,15 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         let label = ''
         if (clusterDay.getTime() === today.getTime()) {
           const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
-          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           label = `Today - ${dayName}, ${dateStr}`
         } else if (clusterDay.getTime() === yesterday.getTime()) {
           const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
-          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           label = `Yesterday - ${dayName}, ${dateStr}`
         } else {
           const dayName = clusterDay.toLocaleString('en-US', { weekday: 'long' })
-          const dateStr = clusterDay.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          const dateStr = clusterDay.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           label = `${dayName}, ${dateStr}`
         }
 
@@ -617,7 +617,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         payload: { name: newLabelName, color: newLabelColor }
       })
       if (res?.label) {
-        setLabels([...labels, res.label])
+        setLabels((prev) => [res.label, ...prev])
         setNewLabelName("")
         setNewLabelColor("#3B82F6")
         setShowAddLabelModal(false)
@@ -1774,6 +1774,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
         <div className="flex flex-col gap-1 pt-2" onClick={(e) => e.stopPropagation()}>
           {/* Individual Links */}
           {session.pages
+            .filter((page) => page.title && page.title.trim() !== "") // Skip pages without valid titles
             .slice()
             .sort((a, b) => (b.timestamp || b.openedAt) - (a.timestamp || a.openedAt))
             .map((page, index) => {

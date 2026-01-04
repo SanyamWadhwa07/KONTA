@@ -368,23 +368,52 @@ export function GraphPanel() {
   }
 
   if (!graph || graph.nodes.length === 0) {
+    // Check if we have pages but no embeddings yet (still generating)
+    // If there are nodes but no edges, embeddings are likely still being generated
+    const hasPagesButNoEmbeddings = graph && graph.nodes.length > 0 && graph.edges.length === 0
+    
+    if (hasPagesButNoEmbeddings) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin">
+              <RotateCw className="h-8 w-8" style={{ color: '#0072de' }} />
+            </div>
+          </div>
+          <div className="text-center max-w-sm">
+            <p className="text-sm mb-2" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'", fontWeight: 600 }}>
+              Your knowledge graph is forming
+            </p>
+            <p className="text-xs leading-relaxed" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+              We're analyzing your browsing history and generating embeddings. This may take a few minutes. Come back shortly to explore your knowledge graph!
+            </p>
+          </div>
+        </div>
+      )
+    }
+    
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4">
         <Search className="h-10 w-10 opacity-20" style={{ color: '#9A9FA6' }} />
-        <div className="text-center">
-          <p className="text-sm mb-2" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
-            No pages available yet
+        <div className="text-center max-w-xs mx-auto space-y-2">
+          <p className="text-sm font-semibold" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+            No pages yet
           </p>
-          <p className="text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            Visit some pages to build the graph
+          <p className="text-xs leading-relaxed" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+            Browse a few pages to build your knowledge graph. Embeddings are generated locally and may take a moment to appear.
           </p>
         </div>
-        <button
+        <div className="text-center max-w-xs mx-auto space-y-2">
+          <p className="text-xs leading-relaxed" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+            Imported history data is not part of the knowledge graph until you revisit those pages.
+          </p>
+        </div>
+        {/* <button
           onClick={handleRefresh}
           className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
           style={{ backgroundColor: '#0072de', color: 'white', fontFamily: "'Breeze Sans'" }}>
           Refresh Graph
-        </button>
+        </button> */}
       </div>
     )
   }

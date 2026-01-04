@@ -65,9 +65,33 @@ import {
   handleReminderAlarm
 } from "./reminderManager"
 import { log, warn } from "~/lib/logger"
+import { DEFAULT_SETTINGS } from "~/types/settings"
+import { saveSessions } from "./sessionStore"
+import { importBrowserHistory } from "./historyImporter"
+
+// =============================================================================
+// MV3-Safe Content Script Readiness Tracker
+// =============================================================================
+
+// Track which tabs have ready content scripts
+const readyContentScripts = new Map<number, boolean>()
 
 // Track registered session listeners (sidepanel tabs)
 const sessionListeners = new Set<number>()
+
+// Clean up closed tabs
+chrome.tabs.onRemoved.addListener((tabId) => {
+  readyContentScripts.delete(tabId)
+  log("[Background] Tab closed, removed from ready list:", tabId)
+})
+
+// Clean up on navigation
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === 'loading') {
+    // Content script will be destroyed and reloaded
+    readyContentScripts.delete(tabId)
+  }
+})
 
 // Utility function to clean URLs (remove chrome-extension prefix)
 function cleanUrl(url: string): string {
@@ -96,7 +120,7 @@ let graphNeedsRebuild = true
 
 // Initialize sessions from IndexedDB on startup
 initializeSessions().then(() => {
-  console.log("Welcome to Konta! we hope you like it :)")
+  log("Welcome to Konta! we hope you like it :)")
   log("[Background] Sessions initialized from IndexedDB")
   rebuildGraphIfNeeded()
 })
@@ -148,6 +172,17 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 
 // Listen for GET_SESSIONS requests
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle content script ready signal
+  if (message.type === "CONTENT_SCRIPT_READY") {
+    const tabId = sender.tab?.id
+    if (tabId) {
+      readyContentScripts.set(tabId, true)
+      log("[Background] ✅ Content script ready in tab", tabId, sender.tab?.url)
+    }
+    sendResponse({ acknowledged: true })
+    return true
+  }
+
   if (message.type === "GET_SESSIONS") {
     const sessions = getSessions()
     sendResponse({ sessions })
@@ -197,6 +232,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     graphNeedsRebuild = true
     rebuildGraphIfNeeded()
     sendResponse({ graph: knowledgeGraph })
+    return true
+  }
+
+  if (message.type === "IMPORT_HISTORY") {
+    ;(async () => {
+      try {
+        log("[Background] IMPORT_HISTORY requested")
+        
+        // Check if already imported
+        const result = await chrome.storage.local.get(['history-imported'])
+        if (result['history-imported']) {
+          log("[Background] History already imported, skipping")
+          sendResponse({ success: true, alreadyImported: true })
+          return
+        }
+        
+        // Import history (no session check - onboarding creates minimal sessions)
+        await importBrowserHistory()
+        
+        // Force graph rebuild after import
+        graphNeedsRebuild = true
+        rebuildGraphIfNeeded()
+        log("[Background] Graph rebuilt after history import")
+        
+        sendResponse({ success: true })
+      } catch (error) {
+        console.error("[Background] IMPORT_HISTORY failed:", error)
+        sendResponse({ success: false, error: error.message })
+      }
+    })()
     return true
   }
 
@@ -404,12 +469,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "ADD_PROJECT") {
-    const { name, description, sessionIds = [], sites = [], autoDetected = false } = message.payload
+    const { name, description, color, sessionIds = [], sites = [], autoDetected = false } = message.payload
     const now = Date.now()
+    
+    log("[ADD_PROJECT] Received payload:", { name, description, color, sessionIds, sites, autoDetected })
     
     addProject({
       name,
       description,
+      color,
       startDate: now,
       endDate: now,
       sessionIds,
@@ -1105,6 +1173,83 @@ setInterval(() => {
   broadcastCoiUpdate()
 }, 5000)
 
+// Track last COI alert timestamp to implement cooldown
+let lastCoiAlertTimestamp = 0
+
+// =============================================================================
+// Safe Message Sending Helper
+// =============================================================================
+
+/**
+ * Safely send a message to a tab's content script with proper guards
+ * Returns true if message was sent, false if tab is not ready
+ */
+async function safelySendToContentScript(
+  tabId: number,
+  message: any
+): Promise<boolean> {
+  try {
+    // 1️⃣ Validate tab exists
+    const tab = await chrome.tabs.get(tabId).catch(() => null)
+    if (!tab || !tab.url) {
+      log("[SafeSend] Tab does not exist or has no URL:", tabId)
+      return false
+    }
+
+    // 2️⃣ Check if URL is injectable
+    const url = tab.url
+    const nonInjectablePatterns = [
+      'chrome://',
+      'chrome-extension://',
+      'about:',
+      'edge://',
+      'devtools://',
+      'view-source:'
+    ]
+
+    if (nonInjectablePatterns.some(pattern => url.startsWith(pattern))) {
+      log(`[SafeSend] Cannot inject into system page: ${url}`)
+      return false
+    }
+
+    // 3️⃣ Check if content script is ready
+    if (!readyContentScripts.has(tabId)) {
+      log(`[SafeSend] Content script not ready in tab ${tabId}, queuing failed`)
+      return false
+    }
+
+    // 4️⃣ Send message with error handling
+    await chrome.tabs.sendMessage(tabId, message)
+    log(`[SafeSend] ✅ Message sent successfully to tab ${tabId}`)
+    return true
+  } catch (err) {
+    // This is the "receiving end does not exist" error
+    log(`[SafeSend] ❌ Failed to send message to tab ${tabId}:`, (err as Error).message)
+    // Mark as not ready since receiver doesn't exist
+    readyContentScripts.delete(tabId)
+    return false
+  }
+}
+
+/**
+ * Show native Chrome notification as fallback when content script is unavailable
+ */
+async function showNativeChromeNotification(score: number, threshold: number) {
+  try {
+    await chrome.notifications.create({
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('assets/icon.png'),
+      title: '🧠 Focus Alert',
+      message: `Your distraction level is ${Math.round(score * 100)}%. Consider taking a short break to refocus.`,
+      priority: 2,
+      requireInteraction: false
+    })
+    log("[COI Alert] ✅ Native notification shown as fallback")
+  } catch (err) {
+    console.error("[COI Alert] Failed to show native notification:", err)
+  }
+}
+
 async function broadcastCoiUpdate() {
   try {
     const sessions = getSessions()
@@ -1134,8 +1279,112 @@ async function broadcastCoiUpdate() {
         sessionListeners.delete(tabId)
       })
     }
+
+    // Check if COI notifications are enabled and threshold exceeded
+    await checkCoiThresholdAndNotify(sessionCoi.score)
   } catch (err) {
     console.warn("[Background] Failed to broadcast COI update", err)
+  }
+}
+
+async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
+  try {
+    // Load settings to check if notifications are enabled
+    const result = await chrome.storage.local.get("aegis-settings")
+    const settings = result["aegis-settings"]
+    
+    log("[COI Alert] Checking threshold, score:", sessionCoiScore.toFixed(2), "| Notifications enabled:", settings?.developer?.showCoiNotifications)
+    
+    if (!settings?.developer?.showCoiNotifications) {
+      return
+    }
+
+    const threshold = settings.developer.coiThreshold ?? 0.7
+    const cooldownMinutes = settings.developer.coiNotificationCooldownMinutes ?? 5
+    const cooldownMs = cooldownMinutes * 60 * 1000
+
+    // Check if COI exceeds threshold
+    if (sessionCoiScore < threshold) {
+      return
+    }
+
+    // Check cooldown to prevent notification spam
+    const now = Date.now()
+    const timeSinceLastAlert = now - lastCoiAlertTimestamp
+    if (timeSinceLastAlert < cooldownMs) {
+      log(`[COI Alert] In cooldown, ${Math.round((cooldownMs - timeSinceLastAlert) / 1000)}s remaining`)
+      return
+    }
+
+    log(`[COI Alert] 🚨 Threshold exceeded! Score: ${sessionCoiScore.toFixed(2)}, Threshold: ${threshold}`)
+    
+    // Update last alert timestamp
+    lastCoiAlertTimestamp = now
+
+    // Get active tab to send notification (remove currentWindow to handle cases where DevTools or other windows are focused)
+    const tabs = await chrome.tabs.query({ active: true })
+    log("[COI Alert] Active tabs found:", tabs.length)
+    if (tabs.length === 0) return
+
+    const activeTab = tabs[0]
+    if (!activeTab.id) {
+      log("[COI Alert] No active tab ID")
+      return
+    }
+
+    log(`[COI Alert] Attempting to send notification to tab ${activeTab.id} (${activeTab.url})`)
+    
+    // Try sending directly to content script
+    try {
+      await chrome.tabs.sendMessage(activeTab.id, {
+        type: "COI_ALERT",
+        payload: {
+          score: sessionCoiScore,
+          threshold,
+          message: `Working for a while. Taking a short break might help you.`
+        }
+      })
+      log("[COI Alert] ✅ In-page notification delivered")
+    } catch (err) {
+      const error = err as Error
+      log("[COI Alert] ⚠️ Content script unavailable:", error.message)
+      
+      // If the error is "Receiving end does not exist", try injecting the content script
+      if (error.message.includes("Receiving end does not exist")) {
+        log("[COI Alert] Attempting to inject content script...")
+        try {
+          // Inject the indicator content script
+          await chrome.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            files: ['contents/indicator.tsx']
+          })
+          log("[COI Alert] Content script injected, retrying notification...")
+          
+          // Wait a bit for the script to initialize
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Retry sending the message
+          await chrome.tabs.sendMessage(activeTab.id, {
+            type: "COI_ALERT",
+            payload: {
+              score: sessionCoiScore,
+              threshold,
+              message: `Working for a while. Taking a short break might help you.`
+            }
+          })
+          log("[COI Alert] ✅ In-page notification delivered after injection")
+          return
+        } catch (injectErr) {
+          log("[COI Alert] Failed to inject/retry:", (injectErr as Error).message)
+        }
+      }
+      
+      // Fallback to native notification
+      log("[COI Alert] Using native notification fallback")
+      await showNativeChromeNotification(sessionCoiScore, threshold)
+    }
+  } catch (err) {
+    console.warn("[Background] Failed to check COI threshold", err)
   }
 }
 
@@ -1186,6 +1435,52 @@ export function markGraphForRebuild() {
   graphNeedsRebuild = true
 }
 
+// Test function to manually trigger COI alert
+async function testCoiAlert() {
+  log("[Test] Manually triggering COI alert...")
+  
+  // Check if COI notifications are enabled
+  const result = await chrome.storage.local.get("aegis-settings")
+  const settings = result["aegis-settings"]
+  
+  if (!settings?.developer?.showCoiNotifications) {
+    log("[Test] ⚠️ COI Notifications are disabled in settings. Enable them first.")
+    log("[Test] To enable: Open sidepanel → Settings → Enable 'COI Notifications'")
+    return
+  }
+  
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+  if (tabs.length === 0) {
+    log("[Test] No active tab found")
+    return
+  }
+  
+  const activeTab = tabs[0]
+  if (!activeTab.id) {
+    log("[Test] No active tab ID")
+    return
+  }
+  
+  log(`[Test] Sending test COI alert to tab ${activeTab.id} (${activeTab.url})`)
+  
+  const success = await safelySendToContentScript(activeTab.id, {
+    type: "COI_ALERT",
+    payload: {
+      score: 0.85,
+      threshold: 0.7,
+      message: "Test Alert: Your distraction level is high (85%). This is a test notification."
+    }
+  })
+  
+  if (success) {
+    log("[Test] ✅ Test COI alert sent successfully (in-page notification)!")
+  } else {
+    log("[Test] ⚠️ Content script not ready, showing native notification instead")
+    await showNativeChromeNotification(0.85, 0.7)
+    log("[Test] ✅ Native notification shown as fallback")
+  }
+}
+
 // DEV ONLY: Export test helpers to window for console access
 if (typeof globalThis !== 'undefined') {
   import("./testHelpers").then((module) => {
@@ -1198,6 +1493,8 @@ if (typeof globalThis !== 'undefined') {
       testFullWorkflow: module.testFullWorkflow,
       runAllTests: module.runAllTests,
       interactiveTest: module.interactiveTest,
+      // COI test helper
+      testCoiAlert,
       // Also expose direct utilities
       createTestCandidate,
       clearAllCandidates,
@@ -1206,6 +1503,7 @@ if (typeof globalThis !== 'undefined') {
     }
     log("%c🧪 Test helpers loaded!", "background: #4CAF50; color: white; padding: 4px 8px; font-weight: bold")
     log("%cQuick start: testHelpers.runAllTests()", "color: #2196F3; font-weight: bold")
+    log("%cTest COI alert: testHelpers.testCoiAlert()", "color: #f59e0b; font-weight: bold")
     log("%cInteractive: testHelpers.interactiveTest()", "color: #FF9800; font-weight: bold")
   })
 }

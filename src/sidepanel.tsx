@@ -79,7 +79,10 @@ function IndexSidePanel() {
     <div className="h-screen w-full bg-white dark:bg-[#1C1C1E]">
       {showPopulated ? (
         <PopulatedState 
-          onShowEmpty={() => setShowPopulated(false)} 
+          onShowEmpty={() => {
+            setShowPopulated(false)
+            setIsOnboarding(false) // Reset onboarding state when going back
+          }} 
           initialTab={activeTab}
         />
       ) : (
