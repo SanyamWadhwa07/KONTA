@@ -89,7 +89,7 @@ export function SettingsModal({
             </h2>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded transition-colors text-[#0072df] dark:text-[#4A9FFF]">
+              className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded transition-colors text-[#0072df] dark:text-[#3e91ff]">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -97,7 +97,7 @@ export function SettingsModal({
           <div className="flex flex-col gap-3">
             {/* Appearance Section */}
             <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
-              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Appearance
               </h3>
               <div className="flex flex-col gap-2">
@@ -127,7 +127,7 @@ export function SettingsModal({
 
             {/* Notifications Section */}
             <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
-              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Notifications
               </h3>
               <div className="flex flex-col gap-2">
@@ -165,7 +165,7 @@ export function SettingsModal({
 
             {/* Privacy & Data Section */}
             <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
-              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Privacy & Data
               </h3>
               <div className="flex flex-col gap-2">
@@ -224,7 +224,7 @@ export function SettingsModal({
 
             {/* Developer Section */}
             <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
-              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Developer
               </h3>
               <div className="flex flex-col gap-2">
@@ -268,7 +268,7 @@ export function SettingsModal({
 
             {/* About Section */}
             <div className="mb-4">
-              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
                 About
               </h3>
               <div className="px-3 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] bg-[#F5F5F5] dark:bg-[#2C2C2E]">

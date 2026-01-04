@@ -791,7 +791,7 @@ export function GraphPanel() {
             onClick={() => setShowLabels(!showLabels)}
             className={`p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
               showLabels 
-                ? 'text-blue-600 dark:text-[#4A9FFF] border-blue-600 dark:border-[#4A9FFF] bg-blue-50 dark:bg-blue-900/20' 
+                ? 'text-blue-600 dark:text-[#3e91ff] border-blue-600 dark:border-[#3e91ff] bg-blue-50 dark:bg-blue-900/20' 
                 : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Toggle node labels">
@@ -801,7 +801,7 @@ export function GraphPanel() {
             onClick={() => setShowFilters(!showFilters)}
             className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
               showFilters
-                ? 'text-blue-600 dark:text-[#4A9FFF] border-blue-600 dark:border-[#4A9FFF] bg-blue-50 dark:bg-blue-900/20'
+                ? 'text-blue-600 dark:text-[#3e91ff] border-blue-600 dark:border-[#3e91ff] bg-blue-50 dark:bg-blue-900/20'
                 : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Filters">
@@ -820,7 +820,7 @@ export function GraphPanel() {
             }}
             className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
               manualLinkMode
-                ? 'text-white bg-blue-600 dark:bg-[#4A9FFF] border-blue-600 dark:border-[#4A9FFF]'
+                ? 'text-white bg-blue-600 dark:bg-[#3e91ff] border-blue-600 dark:border-[#3e91ff]'
                 : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Link nodes">
@@ -830,7 +830,7 @@ export function GraphPanel() {
             onClick={() => setShowExplanations(!showExplanations)}
             className={`p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
               showExplanations
-                ? 'text-white bg-blue-600 dark:bg-[#4A9FFF] border-blue-600 dark:border-[#4A9FFF]'
+                ? 'text-white bg-blue-600 dark:bg-[#3e91ff] border-blue-600 dark:border-[#3e91ff]'
                 : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Explain connections">
@@ -850,7 +850,7 @@ export function GraphPanel() {
         <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-[#3A3A3C]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Link className="h-4 w-4 text-blue-600 dark:text-[#4A9FFF]" />
+              <Link className="h-4 w-4 text-blue-600 dark:text-[#3e91ff]" />
               <span className="text-xs font-medium text-gray-900 dark:text-white font-sans">
                 {selectedNodesForLink.length === 0 
                   ? 'Click two nodes to link them (or unlink if already connected)' 
@@ -860,7 +860,7 @@ export function GraphPanel() {
             {selectedNodesForLink.length > 0 && (
               <button
                 onClick={() => setSelectedNodesForLink([])}
-                className="text-xs px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-800/30 text-blue-600 dark:text-[#4A9FFF] font-sans">
+                className="text-xs px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-800/30 text-blue-600 dark:text-[#3e91ff] font-sans">
                 Cancel
               </button>
             )}
@@ -877,7 +877,7 @@ export function GraphPanel() {
             placeholder="Search pages..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-[#4A9FFF] border border-gray-200 dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E] text-gray-900 dark:text-white font-sans placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            className="w-full pl-9 pr-9 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-[#3e91ff] border border-gray-200 dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E] text-gray-900 dark:text-white font-sans placeholder:text-gray-400 dark:placeholder:text-gray-500"
           />
           {searchQuery && (
             <button
@@ -904,7 +904,7 @@ export function GraphPanel() {
                   onClick={() => setTimeFilter(filter)}
                   className={`px-3 py-1 text-xs font-medium rounded-full transition-all font-sans border ${
                     timeFilter === filter
-                      ? 'bg-black dark:bg-[#4A9FFF] text-white border-black dark:border-[#4A9FFF]'
+                      ? 'bg-black dark:bg-[#3e91ff] text-white border-black dark:border-[#3e91ff]'
                       : 'bg-white dark:bg-[#2C2C2E] text-black dark:text-white border-black dark:border-[#3A3A3C]'
                   }`}>
                   {filter === "all" ? "All Time" : filter === "today" ? "Today" : "This Week"}
@@ -965,7 +965,7 @@ export function GraphPanel() {
                 {!allClustersSelected && (
                   <button
                     onClick={clearClusterFilter}
-                    className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-blue-600 dark:text-[#4A9FFF] font-sans">
+                    className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-blue-600 dark:text-[#3e91ff] font-sans">
                     Clear
                   </button>
                 )}

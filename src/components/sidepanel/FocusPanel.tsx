@@ -252,7 +252,7 @@ export function FocusPanel() {
           onClick={toggleFocusMode}
           className={`w-full p-5 rounded-xl transition-all flex items-center justify-between shadow-sm hover:shadow-md dark:hover:shadow-lg ${
             focusState.isActive 
-              ? 'bg-[#0072de] dark:bg-[#4A9FFF] text-white' 
+              ? 'bg-[#0072de] dark:bg-[#3e91ff] text-white' 
               : 'bg-white dark:bg-[#2C2C2E] text-[#080A0B] dark:text-[#FFFFFF] border-2 border-[#E5E5E5] dark:border-[#3A3A3C]'
           }`}
         >
@@ -343,7 +343,7 @@ export function FocusPanel() {
                     }}
                     className={`ml-3 px-4 py-2 rounded-lg text-xs font-normal transition-all ${
                       isEnabled 
-                        ? 'bg-[#0072de] dark:bg-[#4A9FFF] text-white shadow-sm' 
+                        ? 'bg-[#0072de] dark:bg-[#3e91ff] text-white shadow-sm' 
                         : 'bg-[#F3F4F6] dark:bg-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]'
                     }`}
                   >
@@ -426,7 +426,7 @@ export function FocusPanel() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => addEntry(categoryInfo.id)}
-                            className="flex-1 px-4 py-3 rounded-lg text-sm font-normal transition-all shadow-sm hover:shadow bg-[#0072de] dark:bg-[#4A9FFF] text-white"
+                            className="flex-1 px-4 py-3 rounded-lg text-sm font-normal transition-all shadow-sm hover:shadow bg-[#0072de] dark:bg-[#3e91ff] text-white"
                           >
                             <Check className="h-4 w-4 inline mr-2" />
                             Add Site
@@ -445,7 +445,7 @@ export function FocusPanel() {
                     ) : (
                       <button
                         onClick={() => setAddingEntry(categoryInfo.id)}
-                        className="w-full p-3 border-2 border-dashed border-[#E5E5E5] dark:border-[#3A3A3C] rounded-lg text-sm font-medium transition-all hover:border-blue-300 hover:bg-blue-50 dark:hover:border-blue-500 dark:hover:bg-blue-900/20 text-[#0072de] dark:text-[#4A9FFF]"
+                        className="w-full p-3 border-2 border-dashed border-[#E5E5E5] dark:border-[#3A3A3C] rounded-lg text-sm font-medium transition-all hover:border-blue-300 hover:bg-blue-50 dark:hover:border-blue-500 dark:hover:bg-blue-900/20 text-[#0072de] dark:text-[#3e91ff]"
                       >
                         <Plus className="h-4 w-4 inline mr-1" />
                         Add Site to {categoryInfo.name}

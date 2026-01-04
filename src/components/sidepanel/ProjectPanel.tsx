@@ -582,6 +582,44 @@ function ProjectCard({
   }
 
   const handleSaveReminder = async () => {
+    // Validate reminder settings
+    if (reminderForm.enabled) {
+      const now = new Date()
+      const [hours, minutes] = reminderForm.time.split(':').map(Number)
+      
+      // Validate for 'once' type
+      if (reminderForm.type === 'once') {
+        if (!reminderForm.date) {
+          alert('Please select a date for one-time reminder')
+          return
+        }
+        const targetDate = new Date(reminderForm.date)
+        targetDate.setHours(hours, minutes, 0, 0)
+        
+        if (targetDate.getTime() <= now.getTime()) {
+          alert('Reminder time must be in the future. Please select a later date or time.')
+          return
+        }
+      }
+      
+      // Validate for 'daily' type
+      if (reminderForm.type === 'daily') {
+        const nextTrigger = new Date(now)
+        nextTrigger.setHours(hours, minutes, 0, 0)
+        
+        // If time has passed today, it will trigger tomorrow (which is valid)
+        // No validation error needed
+      }
+      
+      // Validate for 'weekly' type
+      if (reminderForm.type === 'weekly') {
+        if (!reminderForm.daysOfWeek || reminderForm.daysOfWeek.length === 0) {
+          alert('Please select at least one day for weekly reminder')
+          return
+        }
+      }
+    }
+    
     const reminder = {
       enabled: reminderForm.enabled,
       type: reminderForm.type,
@@ -610,13 +648,24 @@ function ProjectCard({
     await chrome.storage.local.set({ "aegis-projects": updatedProjects })
     
     // Schedule/cancel reminder in background
-    await chrome.runtime.sendMessage({
-      type: reminder.enabled ? "SET_PROJECT_REMINDER" : "CANCEL_PROJECT_REMINDER",
-      payload: {
-        projectId: project.id,
-        reminder
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: reminder.enabled ? "SET_PROJECT_REMINDER" : "CANCEL_PROJECT_REMINDER",
+        payload: {
+          projectId: project.id,
+          reminder
+        }
+      })
+      
+      if (response?.error) {
+        alert(`Failed to set reminder: ${response.error}`)
+        return
       }
-    })
+    } catch (error) {
+      console.error('Failed to set reminder:', error)
+      alert('Failed to set reminder. Please try again.')
+      return
+    }
     
     setShowReminderDialog(false)
   }
@@ -704,30 +753,6 @@ function ProjectCard({
                 <h3 className="text-sm font-normal flex-1 min-w-0 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                   {project.name}
                 </h3>
-                
-                {/* Snooze State Indicator - Inline */}
-                {project.reminder?.snoozedUntil && Date.now() < project.reminder.snoozedUntil && (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#F5F5F5] dark:bg-[#3A3A3C]">
-                    <Clock className="h-3 w-3 text-[#9A9FA6] dark:text-[#8E8E93]" />
-                    <span className="text-2xs whitespace-nowrap text-[#9A9FA6] dark:text-[#8E8E93]" style={{ fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
-                      {Math.ceil((project.reminder.snoozedUntil - Date.now()) / 1000 / 60)} min
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        chrome.runtime.sendMessage({
-                          type: "DISMISS_SNOOZE",
-                          payload: { projectId: project.id }
-                        }).catch(err => console.error("Failed to dismiss snooze:", err))
-                      }}
-                      className="hover:bg-gray-200 rounded p-0.5 transition-colors"
-                      title="Dismiss snooze">
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#9A9FA6' }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -857,7 +882,8 @@ function ProjectCard({
                   e.stopPropagation()
                   setShowReminderDialog(true)
                 }}
-                className="hover:bg-white dark:hover:bg-[#3A3A3C] rounded p-1.5 transition-colors relative"
+                disabled={!!project.reminder?.snoozedUntil && Date.now() < project.reminder.snoozedUntil}
+                className="hover:bg-white dark:hover:bg-[#3A3A3C] rounded p-1.5 transition-colors relative disabled:opacity-50 disabled:cursor-not-allowed"
                 title={project.reminder?.enabled ? "Reminder active" : "Set reminder"}>
                 {project.reminder?.enabled ? (
                   <Bell className="h-4 w-4" style={{ color: '#0074FB' }} />
@@ -1002,6 +1028,32 @@ function ProjectCard({
           style={{ color: '#9A9FA6' }}
         />
       </button>
+
+      {/* Snooze State Indicator - Right Side Below Delete */}
+      {project.reminder?.snoozedUntil && Date.now() < project.reminder.snoozedUntil && (
+        <div className="mt-2 flex items-center justify-between px-3 py-2 rounded-lg bg-[#F5F5F5] dark:bg-[#3A3A3C]">
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-[#9A9FA6] dark:text-[#8E8E93]" />
+            <span className="text-2xs text-[#9A9FA6] dark:text-[#8E8E93]" style={{ fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
+              Snoozed: {Math.ceil((project.reminder.snoozedUntil - Date.now()) / 1000 / 60)} min remaining
+            </span>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              chrome.runtime.sendMessage({
+                type: "DISMISS_SNOOZE",
+                payload: { projectId: project.id }
+              }).catch(err => console.error("Failed to dismiss snooze:", err))
+            }}
+            className="hover:bg-gray-300 dark:hover:bg-[#4A4A4C] rounded p-0.5 transition-colors flex-shrink-0"
+            title="Dismiss snooze">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#9A9FA6' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Reminder Dialog */}
       {showReminderDialog && (

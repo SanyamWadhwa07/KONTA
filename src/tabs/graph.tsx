@@ -291,7 +291,7 @@ export default function GraphFullPage() {
     return (
       <div className="flex items-center justify-center w-screen h-screen bg-white dark:bg-[#1C1C1E]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#0072de] dark:border-[#4A9FFF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-[#0072de] dark:border-[#3e91ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Loading knowledge graph...</p>
         </div>
       </div>
@@ -765,9 +765,9 @@ export default function GraphFullPage() {
             style={{ 
               fontFamily: "'Breeze Sans'", 
               border: '1px solid',
-              borderColor: showLabels ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              borderColor: showLabels ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
               backgroundColor: showLabels ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : 'rgba(0, 114, 222, 0.1)') : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
-              color: showLabels ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#080A0B')
+              color: showLabels ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#080A0B')
             }}
             title="Toggle node labels">
             <span>Labels</span>
@@ -780,7 +780,7 @@ export default function GraphFullPage() {
             <span>Filters</span>
             {activeFilterCount > 0 && (
               <span 
-                className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-[#0072de] dark:bg-[#4A9FFF]"
+                className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-[#0072de] dark:bg-[#3e91ff]"
                 style={{ color: 'white' }}>
                 {activeFilterCount}
               </span>
@@ -796,8 +796,8 @@ export default function GraphFullPage() {
               color: graphMode === 'projects' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
               fontFamily: "'Breeze Sans'", 
               border: '1px solid',
-              borderColor: graphMode === 'projects' ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
-              backgroundColor: graphMode === 'projects' ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
+              borderColor: graphMode === 'projects' ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: graphMode === 'projects' ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
             }}
             title="Switch between semantic and project-based clustering">
             <span>{graphMode === 'semantic' ? 'Semantic' : 'Projects'}</span>
@@ -812,8 +812,8 @@ export default function GraphFullPage() {
               color: manualLinkMode ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
               fontFamily: "'Breeze Sans'", 
               border: '1px solid',
-              borderColor: manualLinkMode ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
-              backgroundColor: manualLinkMode ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
+              borderColor: manualLinkMode ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: manualLinkMode ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
             }}
             title="Click two nodes to create a manual link">
             <Link className="h-3.5 w-3.5" />
@@ -826,8 +826,8 @@ export default function GraphFullPage() {
               color: showExplanations ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
               fontFamily: "'Breeze Sans'", 
               border: '1px solid',
-              borderColor: showExplanations ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
-              backgroundColor: showExplanations ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
+              borderColor: showExplanations ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: showExplanations ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
             }}
             title="Explain how connections are made">
             <span>📊</span>
@@ -846,7 +846,7 @@ export default function GraphFullPage() {
         <div className="px-6 py-2 bg-blue-50 dark:bg-[#2C2C2E] border-b border-[#E5E5E5] dark:border-[#3A3A3C]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Link className="h-4 w-4 text-[#0072de] dark:text-[#4A9FFF]" />
+              <Link className="h-4 w-4 text-[#0072de] dark:text-[#3e91ff]" />
               <span className="text-xs font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                 {selectedNodesForLink.length === 0 
                   ? 'Click two nodes to link them (or unlink if already connected)' 
@@ -856,7 +856,7 @@ export default function GraphFullPage() {
             {selectedNodesForLink.length > 0 && (
               <button
                 onClick={() => setSelectedNodesForLink([])}
-                className="text-xs px-2 py-1 rounded text-[#0072de] dark:text-[#4A9FFF] hover:bg-blue-100 dark:hover:bg-[#3A3A3C]"
+                className="text-xs px-2 py-1 rounded text-[#0072de] dark:text-[#3e91ff] hover:bg-blue-100 dark:hover:bg-[#3A3A3C]"
                 style={{ fontFamily: "'Breeze Sans'" }}>
                 Cancel
               </button>
@@ -956,7 +956,7 @@ export default function GraphFullPage() {
                   {!allClustersSelected && (
                     <button
                       onClick={clearClusterFilter}
-                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-[#0072de] dark:text-[#4A9FFF]"
+                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-[#0072de] dark:text-[#3e91ff]"
                       style={{ fontFamily: "'Breeze Sans'" }}>
                       Clear
                     </button>

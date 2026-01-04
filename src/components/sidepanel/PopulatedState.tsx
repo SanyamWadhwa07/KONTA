@@ -827,7 +827,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
         <div className="flex items-center gap-3">
-          <img src={chrome.runtime.getURL('assets/konta_logo.svg')} alt="Konta" className="w-8 h-8" />
+          <img src={chrome.runtime.getURL(isDarkMode ? 'assets/konta_logo_dark.svg' : 'assets/konta_logo.svg')} alt="Konta" className="w-8 h-8" />
           <h1 
             className="text-xl font text-[#080A0B] dark:text-[#FFFFFF]"
             style={{ fontFamily: "'Breeze Sans'" }}>
@@ -878,8 +878,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               }`}
               style={{
                 backgroundColor: activeTab === "sessions" ? (isDarkMode ? '#1C1C1E' : 'white') : "transparent",
-                color: activeTab === "sessions" ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
-                borderBottom: activeTab === "sessions" ? `2px solid ${isDarkMode ? '#4A9FFF' : '#0072de'}` : "none",
+                color: activeTab === "sessions" ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
+                borderBottom: activeTab === "sessions" ? `2px solid ${isDarkMode ? '#3e91ff' : '#0072de'}` : "none",
                 fontFamily: "'Breeze Sans'"
               }}>
               Timeline
@@ -891,8 +891,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               }`}
               style={{
                 backgroundColor: activeTab === "graph" ? (isDarkMode ? '#1C1C1E' : 'white') : "transparent",
-                color: activeTab === "graph" ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
-                borderBottom: activeTab === "graph" ? `2px solid ${isDarkMode ? '#4A9FFF' : '#0072de'}` : "none",
+                color: activeTab === "graph" ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
+                borderBottom: activeTab === "graph" ? `2px solid ${isDarkMode ? '#3e91ff' : '#0072de'}` : "none",
                 fontFamily: "'Breeze Sans'"
               }}>
               Knowledge Graph
@@ -904,8 +904,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               }`}
               style={{
                 backgroundColor: activeTab === "projects" ? (isDarkMode ? '#1C1C1E' : 'white') : "transparent",
-                color: activeTab === "projects" ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
-                borderBottom: activeTab === "projects" ? `2px solid ${isDarkMode ? '#4A9FFF' : '#0072de'}` : "none",
+                color: activeTab === "projects" ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
+                borderBottom: activeTab === "projects" ? `2px solid ${isDarkMode ? '#3e91ff' : '#0072de'}` : "none",
                 fontFamily: "'Breeze Sans'"
               }}>
               Projects
@@ -917,8 +917,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               }`}
               style={{
                 backgroundColor: activeTab === "focus" ? (isDarkMode ? '#1C1C1E' : 'white') : "transparent",
-                color: activeTab === "focus" ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
-                borderBottom: activeTab === "focus" ? `2px solid ${isDarkMode ? '#4A9FFF' : '#0072de'}` : "none",
+                color: activeTab === "focus" ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
+                borderBottom: activeTab === "focus" ? `2px solid ${isDarkMode ? '#3e91ff' : '#0072de'}` : "none",
                 fontFamily: "'Breeze Sans'"
               }}>
               Focus Mode
@@ -1082,7 +1082,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             {/* Add Label Button - Icon Only */}
             <button
               onClick={() => setShowAddLabelModal(true)}
-              className="flex-shrink-0 p-2 transition-all rounded-lg hover:bg-blue-50 dark:hover:bg-[#2C2C2E] active:bg-blue-100 dark:active:bg-[#3A3A3C] text-[#0074FB] dark:text-[#4A9FFF]"
+              className="flex-shrink-0 p-2 transition-all rounded-lg hover:bg-blue-50 dark:hover:bg-[#2C2C2E] active:bg-blue-100 dark:active:bg-[#3A3A3C] text-[#0074FB] dark:text-[#3e91ff]"
               title="Add label">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1110,15 +1110,15 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <div className="flex gap-1">
                   <div
-                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#4A9FFF]"
+                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#3e91ff]"
                     style={{ animationDelay: '0ms' }}
                   />
                   <div
-                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#4A9FFF]"
+                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#3e91ff]"
                     style={{ animationDelay: '150ms' }}
                   />
                   <div
-                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#4A9FFF]"
+                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#3e91ff]"
                     style={{ animationDelay: '300ms' }}
                   />
                 </div>
@@ -1373,7 +1373,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                 disabled={!newLabelName.trim()}
                 className="px-3 py-1.5 text-xs rounded text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: newLabelName.trim() ? (isDarkMode ? '#4A9FFF' : '#0072df') : '#9CA3AF',
+                  backgroundColor: newLabelName.trim() ? (isDarkMode ? '#3e91ff' : '#0072df') : '#9CA3AF',
                   fontFamily: "'Breeze Sans'",
                   fontWeight: 500
                 }}>
@@ -1457,7 +1457,7 @@ function DaySection({
     <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
       {/* Day Header with View Toggle */}
       <div className="flex items-center justify-between px-2 pr-0 mb-1 mt-4">
-        <div className="text-sm font-normal text-[#0072DF] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+        <div className="text-sm font-normal text-[#0072DF] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
           <span>{dayLabel}</span>
         </div>
         {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
@@ -1470,9 +1470,9 @@ function DaySection({
                   ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
                   : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
                 color: timelineView === "sessions" 
-                  ? (isDarkMode ? '#4A9FFF' : '#FFFFFF') 
+                  ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
                   : (isDarkMode ? '#FFFFFF' : '#666666'),
-                border: timelineView === "sessions" && isDarkMode ? '1px solid #4A9FFF' : 'none',
+                border: timelineView === "sessions" && isDarkMode ? '1px solid #3e91ff' : 'none',
                 borderRight: timelineView !== "sessions" ? (isDarkMode ? '1px solid #3A3A3C' : '1px solid #E5E5E5') : 'none',
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
@@ -1487,9 +1487,9 @@ function DaySection({
                   ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
                   : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
                 color: timelineView === "clusters" 
-                  ? (isDarkMode ? '#4A9FFF' : '#FFFFFF') 
+                  ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
                   : (isDarkMode ? '#FFFFFF' : '#666666'),
-                border: timelineView === "clusters" && isDarkMode ? '1px solid #4A9FFF' : 'none',
+                border: timelineView === "clusters" && isDarkMode ? '1px solid #3e91ff' : 'none',
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>
@@ -1748,7 +1748,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                   onOpenCreateLabelModal?.()
                   setShowLabelPicker(false)
                 }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-[#3A3A3C] transition-colors text-[#0072DF] dark:text-[#4A9FFF]"
+                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-[#3A3A3C] transition-colors text-[#0072DF] dark:text-[#3e91ff]"
                 style={{ fontFamily: "'Breeze Sans'", fontWeight: '500' }}>
                 + Create new label
               </button>
@@ -1929,7 +1929,7 @@ function ClusterDaySection({
     <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
       {/* Day Header with View Toggle */}
       <div className="flex items-center justify-between px-2 pr-0 mb-1 mt-4">
-        <div className="text-sm font-normal text-[#0072DF] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+        <div className="text-sm font-normal text-[#0072DF] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
           <span>{dayLabel}</span>
         </div>
         {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
@@ -1942,9 +1942,9 @@ function ClusterDaySection({
                   ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
                   : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
                 color: timelineView === "sessions" 
-                  ? (isDarkMode ? '#4A9FFF' : '#FFFFFF') 
+                  ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
                   : (isDarkMode ? '#FFFFFF' : '#666666'),
-                border: timelineView === "sessions" && isDarkMode ? '1px solid #4A9FFF' : 'none',
+                border: timelineView === "sessions" && isDarkMode ? '1px solid #3e91ff' : 'none',
                 borderRight: timelineView !== "sessions" ? (isDarkMode ? '1px solid #3A3A3C' : '1px solid #E5E5E5') : 'none',
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
@@ -1959,9 +1959,9 @@ function ClusterDaySection({
                   ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
                   : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
                 color: timelineView === "clusters" 
-                  ? (isDarkMode ? '#4A9FFF' : '#FFFFFF') 
+                  ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
                   : (isDarkMode ? '#FFFFFF' : '#666666'),
-                border: timelineView === "clusters" && isDarkMode ? '1px solid #4A9FFF' : 'none',
+                border: timelineView === "clusters" && isDarkMode ? '1px solid #3e91ff' : 'none',
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>

@@ -146,7 +146,7 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
             // Onboarding completion button
             <Button
               onClick={handleClose}
-              className="h-[46px] px-8 font text-base rounded-full bg-[#0072de] dark:bg-[#4A9FFF]"
+              className="h-[46px] px-8 font text-base rounded-full bg-[#0072de] dark:bg-[#3e91ff]"
               style={{
                 color: 'white'
               }}>
@@ -160,7 +160,7 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
       {isOnboarding && (
         <div className="fixed bottom-0 left-0 right-0 h-1 z-50 bg-[#F0F0F0] dark:bg-[#3A3A3C]">
           <div 
-            className="h-full transition-all duration-1000 ease-linear bg-[#0072de] dark:bg-[#4A9FFF]"
+            className="h-full transition-all duration-1000 ease-linear bg-[#0072de] dark:bg-[#3e91ff]"
             style={{ 
               width: `${(timeRemaining / 10) * 100}%`
             }}

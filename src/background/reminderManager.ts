@@ -67,18 +67,49 @@ export async function cancelReminder(projectId: string): Promise<void> {
  * Calculate the next trigger time based on reminder settings
  */
 function calculateNextTrigger(reminder: ProjectReminder, fromDate: Date): Date | null {
-  const [hours, minutes] = reminder.time.split(':').map(Number)
+  // Validate time format
+  if (!reminder.time || !reminder.time.includes(':')) {
+    warn(`[ReminderManager] Invalid time format: ${reminder.time}`)
+    return null
+  }
+  
+  const timeParts = reminder.time.split(':')
+  if (timeParts.length !== 2) {
+    warn(`[ReminderManager] Invalid time format: ${reminder.time}`)
+    return null
+  }
+  
+  const hours = parseInt(timeParts[0], 10)
+  const minutes = parseInt(timeParts[1], 10)
+  
+  // Validate hours and minutes
+  if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    warn(`[ReminderManager] Invalid time values: ${hours}:${minutes}`)
+    return null
+  }
   
   if (reminder.type === 'once') {
-    if (!reminder.date) return null
+    if (!reminder.date) {
+      warn('[ReminderManager] One-time reminder missing date')
+      return null
+    }
     
-    const targetDate = new Date(reminder.date)
-    targetDate.setHours(hours, minutes, 0, 0)
+    // Parse date in local timezone (not UTC) by splitting the YYYY-MM-DD format
+    const [year, month, day] = reminder.date.split('-').map(Number)
+    const targetDate = new Date(year, month - 1, day, hours, minutes, 0, 0)
     
-    // Only schedule if in the future
+    // Validate date
+    if (isNaN(targetDate.getTime())) {
+      warn(`[ReminderManager] Invalid date: ${reminder.date}`)
+      return null
+    }
+    
+    // Only schedule if in the future (allow current minute to account for user interaction time)
     if (targetDate.getTime() > fromDate.getTime()) {
       return targetDate
     }
+    
+    warn(`[ReminderManager] One-time reminder date ${targetDate.toLocaleString()} (${targetDate.toISOString()}) is in the past or too close to current time`)
     return null
   }
   
@@ -95,24 +126,39 @@ function calculateNextTrigger(reminder: ProjectReminder, fromDate: Date): Date |
   }
   
   if (reminder.type === 'weekly') {
-    if (!reminder.daysOfWeek || reminder.daysOfWeek.length === 0) return null
+    if (!reminder.daysOfWeek || reminder.daysOfWeek.length === 0) {
+      warn('[ReminderManager] Weekly reminder missing days of week')
+      return null
+    }
+    
+    // Validate days of week (0-6 for Sunday-Saturday)
+    const validDays = reminder.daysOfWeek.filter(day => day >= 0 && day <= 6)
+    if (validDays.length === 0) {
+      warn(`[ReminderManager] No valid days of week: ${reminder.daysOfWeek}`)
+      return null
+    }
     
     const nextTrigger = new Date(fromDate)
     nextTrigger.setHours(hours, minutes, 0, 0)
     
     // Find next matching day of week
-    for (let i = 0; i < 8; i++) { // Check up to 7 days ahead
+    for (let i = 0; i < 8; i++) { // Check up to 7 days ahead (including today)
       const checkDate = new Date(nextTrigger)
       checkDate.setDate(checkDate.getDate() + i)
       
-      if (reminder.daysOfWeek.includes(checkDate.getDay()) && checkDate.getTime() > fromDate.getTime()) {
+      const dayOfWeek = checkDate.getDay()
+      
+      // Check if this day is in the selected days AND is in the future
+      if (validDays.includes(dayOfWeek) && checkDate.getTime() > fromDate.getTime()) {
         return checkDate
       }
     }
     
+    warn(`[ReminderManager] Could not find next trigger for weekly reminder with days ${validDays}`)
     return null
   }
   
+  warn(`[ReminderManager] Unknown reminder type: ${reminder.type}`)
   return null
 }
 
@@ -175,13 +221,6 @@ async function sendReminderNotification(projectId: string, project: Project): Pr
     // Find all tabs to inject indicator if not present
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     
-    // Check if reminder notifications are enabled
-    const notificationSettings = await loadNotificationSettings()
-    
-    if (!notificationSettings.reminders) {
-      log("[ReminderManager] Reminder notifications disabled in settings, skipping")
-      return
-    }
 
     for (const tab of tabs) {
       if (!tab.id) continue
