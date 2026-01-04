@@ -277,63 +277,49 @@ const DEFAULT_BLOCKLIST: Blocklist = {
 
     // Shopping (🛒)
     {
-      pattern: "*.amazon.com/deals/*",
-      type: "url",
-      addedAt: Date.now(),
-      reason: "Deal browsing distraction",
-      category: "shopping"
-    },
-    {
-      pattern: "*.amazon.com/gp/goldbox/*",
-      type: "url",
-      addedAt: Date.now(),
-      reason: "Today's deals distraction",
-      category: "shopping"
-    },
-    {
-      pattern: "*.ebay.com",
+      pattern: "*.myntra.com",
       type: "domain",
       addedAt: Date.now(),
       reason: "Shopping distraction",
       category: "shopping"
     },
     {
-      pattern: "*.etsy.com",
+      pattern: "*.ajio.com",
       type: "domain",
       addedAt: Date.now(),
       reason: "Shopping distraction",
       category: "shopping"
     },
     {
-      pattern: "*.aliexpress.com",
+      pattern: "*.nykaa.com",
       type: "domain",
       addedAt: Date.now(),
       reason: "Shopping distraction",
       category: "shopping"
     },
     {
-      pattern: "*.wish.com",
+      pattern: "*.sephora.in",
       type: "domain",
       addedAt: Date.now(),
       reason: "Shopping distraction",
       category: "shopping"
     },
     {
-      pattern: "*.walmart.com",
+      pattern: "*.amazon.in",
       type: "domain",
       addedAt: Date.now(),
       reason: "Shopping distraction",
       category: "shopping"
     },
     {
-      pattern: "*.target.com",
+      pattern: "*.tirabeauty.com",
       type: "domain",
       addedAt: Date.now(),
       reason: "Shopping distraction",
       category: "shopping"
     },
     {
-      pattern: "*.bestbuy.com",
+      pattern: "*.flipkart.com",
       type: "domain",
       addedAt: Date.now(),
       reason: "Shopping distraction",

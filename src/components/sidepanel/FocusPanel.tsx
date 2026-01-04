@@ -271,7 +271,7 @@ export function FocusPanel() {
               )}
             </div>
             <div className="text-left">
-              <div className="font-semibold text-base">
+              <div className="font-normal text-base">
                 {focusState.isActive ? "Focus Mode Active" : "Focus Mode Inactive"}
               </div>
               <div className="text-xs mt-0.5" style={{ 
@@ -308,23 +308,21 @@ export function FocusPanel() {
             return (
               <div
                 key={categoryInfo.id}
-                className="bg-white rounded-xl shadow-sm overflow-hidden border hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl shadow-sm overflow-hidden border hover:shadow-md transition-shadow cursor-pointer"
                 style={{ borderColor: '#E5E5E5' }}
+                onClick={() => toggleCategoryExpanded(categoryInfo.id)}
               >
                 {/* Category Header */}
                 <div className="flex items-center justify-between p-4">
                   <button
-                    onClick={() => toggleCategoryExpanded(categoryInfo.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleCategoryExpanded(categoryInfo.id)
+                    }}
                     className="flex items-center gap-3 flex-1 text-left hover:opacity-80 transition-opacity"
                   >
-                    <div
-                      className="w-10 h-10 flex items-center justify-center rounded-lg text-xl"
-                      style={{ backgroundColor: '#F3F4F6' }}
-                    >
-                      {categoryInfo.emoji}
-                    </div>
                     <div className="flex-1">
-                      <div className="font-semibold text-sm" style={{ color: '#080A0B' }}>
+                      <div className="font-normal text-sm" style={{ color: '#080A0B' }}>
                         {categoryInfo.name}
                       </div>
                       <div className="text-xs mt-0.5" style={{ color: '#9A9FA6' }}>
@@ -339,8 +337,11 @@ export function FocusPanel() {
                   
                   {/* Category Enable/Disable Toggle */}
                   <button
-                    onClick={() => toggleCategory(categoryInfo.id)}
-                    className={`ml-3 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleCategory(categoryInfo.id)
+                    }}
+                    className={`ml-3 px-4 py-2 rounded-lg text-xs font-normal transition-all ${
                       isEnabled 
                         ? 'shadow-sm' 
                         : ''
@@ -363,31 +364,48 @@ export function FocusPanel() {
                           No sites blocked yet
                         </p>
                       ) : (
-                        entries.map(({ entry, index }) => (
-                          <div
-                            key={index}
-                            className="flex items-start justify-between p-3 rounded-lg border hover:border-blue-200 transition-all"
-                            style={{ borderColor: '#E5E5E5', backgroundColor: '#FAFAFA' }}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-mono truncate font-medium" style={{ color: '#080A0B' }}>
-                                {entry.pattern}
-                              </div>
-                              {entry.reason && (
-                                <div className="text-xs truncate mt-1" style={{ color: '#9A9FA6' }}>
-                                  {entry.reason}
-                                </div>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => deleteEntry(index)}
-                              className="ml-3 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                              title="Delete entry"
+                        entries.map(({ entry, index }) => {
+                          // Extract domain for favicon
+                          const pattern = entry.pattern
+                          let domain = pattern.replace(/^\*\./, '').replace(/\/.*$/, '').replace(/\*$/, '')
+                          const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+                          
+                          return (
+                            <div
+                              key={index}
+                              className="flex items-start justify-between p-3 rounded-lg border hover:border-blue-200 transition-all"
+                              style={{ borderColor: '#E5E5E5', backgroundColor: '#FAFAFA' }}
                             >
-                              <Trash2 className="h-4 w-4" style={{ color: '#EF4444' }} />
-                            </button>
-                          </div>
-                        ))
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <img 
+                                  src={faviconUrl} 
+                                  alt=""
+                                  className="w-4 h-4 mt-0.5 flex-shrink-0"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                  }}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-mono truncate font-medium" style={{ color: '#080A0B' }}>
+                                    {entry.pattern}
+                                  </div>
+                                  {entry.reason && (
+                                    <div className="text-xs truncate mt-1" style={{ color: '#9A9FA6' }}>
+                                      {entry.reason}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => deleteEntry(index)}
+                                className="ml-3 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                title="Delete entry"
+                              >
+                                <Trash2 className="h-4 w-4" style={{ color: '#EF4444' }} />
+                              </button>
+                            </div>
+                          )
+                        })
                       )}
                     </div>
 
@@ -413,7 +431,7 @@ export function FocusPanel() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => addEntry(categoryInfo.id)}
-                            className="flex-1 px-4 py-3 rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow"
+                            className="flex-1 px-4 py-3 rounded-lg text-sm font-normal transition-all shadow-sm hover:shadow"
                             style={{ backgroundColor: '#0072de', color: '#FFFFFF' }}
                           >
                             <Check className="h-4 w-4 inline mr-2" />
@@ -424,7 +442,7 @@ export function FocusPanel() {
                               setAddingEntry(null)
                               setNewEntryForm({ pattern: "", reason: "" })
                             }}
-                            className="px-4 py-3 rounded-lg text-sm font-semibold transition-all"
+                            className="px-4 py-3 rounded-lg text-sm font-normal transition-all"
                             style={{ backgroundColor: '#F3F4F6', color: '#080A0B' }}
                           >
                             <X className="h-4 w-4 inline" />

@@ -437,12 +437,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "ADD_PROJECT") {
-    const { name, description, sessionIds = [], sites = [], autoDetected = false } = message.payload
+    const { name, description, color, sessionIds = [], sites = [], autoDetected = false } = message.payload
     const now = Date.now()
+    
+    console.log("[ADD_PROJECT] Received payload:", { name, description, color, sessionIds, sites, autoDetected })
     
     addProject({
       name,
       description,
+      color,
       startDate: now,
       endDate: now,
       sessionIds,
