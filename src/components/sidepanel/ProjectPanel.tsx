@@ -267,11 +267,11 @@ function ProjectsPanel({
                 Create a project first to add this site
               </div>
             ) : (
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-1.5 items-center w-full">
                 <select
                   value={selectedProjectId && projects.some(p => p.id === selectedProjectId) ? selectedProjectId : (projects[0]?.id || "")}
                   onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="flex-1 px-2 py-1.5 text-xs rounded-lg border outline-none focus:border-blue-500"
+                  className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded-lg border outline-none focus:border-blue-500 truncate"
                   style={{ borderColor: '#DDD', color: '#080A0B', fontFamily: "'Breeze Sans'", backgroundColor: '#FFFFFF' }}>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
@@ -282,7 +282,7 @@ function ProjectsPanel({
                 <button
                   onClick={handleAddCurrentPage}
                   disabled={!selectedProjectId || adding || projects.length === 0}
-                  className="px-3 py-1.5 text-xs rounded-lg text-white transition-colors disabled:opacity-50 whitespace-nowrap"
+                  className="px-2.5 py-1.5 text-xs rounded-lg text-white transition-colors disabled:opacity-50 flex-shrink-0"
                   style={{ 
                     backgroundColor: (selectedProjectId && !adding && projects.length > 0) ? '#0072de' : '#CCC',
                     fontFamily: "'Breeze Sans'",
@@ -853,10 +853,7 @@ function ProjectCard({
               })}
           </div>
           {/* Site count */}
-          <div className="flex items-center gap-1 text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
+          <div className="flex items-center gap-1 text-xs ml-auto" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
             <span>{project.sites.length} site{project.sites.length === 1 ? '' : 's'}</span>
           </div>
         </div>
@@ -867,12 +864,14 @@ function ProjectCard({
       {/* Sites List (shown when expanded) */}
       {isExpanded && project.sites && project.sites.length > 0 && (
         <div className="flex flex-col gap-1.5 mb-3 pb-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-          <h4 className="text-xs font-normal mb-1 flex items-center gap-1.5" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center gap-1.5 mb-1">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
-            Sites ({project.sites.length})
-          </h4>
+            <h4 className="text-xs font-normal m-0" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+              Sites
+            </h4>
+          </div>
           {project.sites
             .sort((a, b) => b.addedAt - a.addedAt)
             .slice(0, isExpanded ? project.sites.length : 3)

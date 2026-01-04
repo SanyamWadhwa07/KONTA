@@ -83,7 +83,7 @@ const Indicator = () => {
       // Check if onboarding is complete
       const onboardingDone = result['onboarding-complete'] === true
       
-      console.log("[Indicator] Initialization:", {
+      log("[Indicator] Initialization:", {
         onboardingComplete: onboardingDone,
         position: result['konta-position']
       })
@@ -280,7 +280,7 @@ const Indicator = () => {
       // Handle COI alert notifications
       if (message.type === "COI_ALERT") {
         log("⚠️ COI alert triggered:", message.payload)
-        console.log("[Indicator] COI_ALERT received:", message.payload)
+        log("[Indicator] COI_ALERT received:", message.payload)
         const { score, threshold, message: alertMessage } = message.payload
         
         const notification: Notification = {
@@ -292,13 +292,13 @@ const Indicator = () => {
           score: Math.round(score * 100),
           payload: { score, threshold }
         }
-        console.log("[Indicator] Setting COI notification:", notification)
+        log("[Indicator] Setting COI notification:", notification)
         setNotifications((prev) => [notification, ...prev])
         setMode('notification')
         setIsExpanded(false)
         // Auto-expand after 800ms
         setTimeout(() => {
-          console.log("[Indicator] Auto-expanding COI notification")
+          log("[Indicator] Auto-expanding COI notification")
           setNotificationExpanded(true)
         }, 800)
         sendResponse({ received: true })
@@ -1335,7 +1335,7 @@ const Indicator = () => {
                         payload: { enabled: true }
                       }).catch(() => {
                         // Focus mode toggle might not be implemented yet
-                        console.log("[COI] Focus mode toggle not available")
+                        log("[COI] Focus mode toggle not available")
                       })
                       
                       // Dismiss notification

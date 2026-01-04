@@ -603,7 +603,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         payload: { name: newLabelName, color: newLabelColor }
       })
       if (res?.label) {
-        setLabels([...labels, res.label])
+        setLabels((prev) => [res.label, ...prev])
         setNewLabelName("")
         setNewLabelColor("#3B82F6")
         setShowAddLabelModal(false)
