@@ -982,6 +982,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (message.type === "CLEAR_ALL_SESSIONS") {
+    chrome.storage.local.set({ "aegis-sessions": [] }, () => {
+      broadcastSessionUpdate()
+      sendResponse({ success: true })
+    })
+    return true
+  }
+
   if (message.type === "EXPORT_ALL_DATA") {
     ;(async () => {
       try {

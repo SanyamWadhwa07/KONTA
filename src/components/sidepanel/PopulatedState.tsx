@@ -644,21 +644,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     }
   }
 
-  const handleClearAllLabels = async () => {
-    if (!window.confirm("Are you sure you want to reset all labels to defaults? This action cannot be undone.")) {
-      return
-    }
-    try {
-      await sendMessage<{ success: boolean }>({
-        type: "RESET_LABELS_TO_DEFAULT"
-      })
-      const res = await sendMessage<{ labels: Label[] }>({ type: "GET_LABELS" })
-      setLabels(res?.labels ?? [])
-      setSelectedLabelId(null)
-    } catch (err) {
-      console.error("Failed to reset labels:", err)
-    }
-  }
+
 
   const handleExportData = async () => {
     try {
@@ -1380,7 +1366,6 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         projectsCount={projects.length}
         candidatesCount={candidatesCount}
         onClearAllSessions={handleClearAllSessions}
-        onResetLabels={handleClearAllLabels}
         onClearAllProjects={handleClearAllProjects}
         onExportData={handleExportData}
         onImportData={handleImportData}
