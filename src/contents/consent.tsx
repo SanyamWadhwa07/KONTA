@@ -88,11 +88,11 @@ const ConsentOverlay = () => {
         )}
 
         <h1 className="text-[26px] font-semibold text-center mb-1.5" style={{ color: '#080A0B' }}>
-          Welcome to Aegis!
+          Welcome to Konta!
         </h1>
 
         <p className="text-[15px] text-center mb-5 leading-normal" style={{ color: '#9A9FA6' }}>
-          Aegis stores browsing context locally so you can resume work later.
+          Konta stores browsing context locally so you can resume work later.
         </p>
 
         {/* Privacy Features List */}
@@ -160,7 +160,7 @@ const ConsentOverlay = () => {
           What happens next?
         </p>
         <p className="text-center text-xs leading-snug" style={{ color: '#9A9FA6' }}>
-          Aegis will quietly learn this session in the background.
+          Konta will quietly learn this session in the background.
         </p>
 
         {/* Learn More Slide-out Panel */}
@@ -189,7 +189,7 @@ const ConsentOverlay = () => {
               What is stored?
             </h3>
             <p className="text-sm mb-2" style={{ color: '#080A0B' }}>
-              Aegis saves browsing context, not content.
+              Konta saves browsing context, not content.
             </p>
             <ul className="space-y-1 ml-4 list-disc">
               <li className="text-sm" style={{ color: '#9A9FA6' }}>Page titles and domains</li>
