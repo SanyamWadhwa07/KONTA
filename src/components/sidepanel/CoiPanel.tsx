@@ -179,30 +179,6 @@ export function CoiPanel({ sessions }: CoiPanelProps) {
             </div>
           </div>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-[#0072de] text-white hover:bg-[#0066c6]">COI Settings</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Edit COI weights</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col gap-6">
-              <div>
-                <p className="text-sm font-semibold mb-2">Page weights</p>
-                {renderWeights("page")}
-              </div>
-              <div>
-                <p className="text-sm font-semibold mb-2">Session weights</p>
-                {renderWeights("session")}
-              </div>
-              <div className="flex items-center justify-between">
-                <Button variant="outline" onClick={handleReset}>Reset to default</Button>
-                <div className="text-xs text-slate-500">Values persist in settings</div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
       {/* Live updates listener */}
       <LiveCoiListener setBehavior={setBehavior} setWeights={setWeights} setScores={setLiveScores} />

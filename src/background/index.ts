@@ -66,8 +66,29 @@ import {
 } from "./reminderManager"
 import { log, warn } from "~/lib/logger"
 
+// =============================================================================
+// MV3-Safe Content Script Readiness Tracker
+// =============================================================================
+
+// Track which tabs have ready content scripts
+const readyContentScripts = new Map<number, boolean>()
+
 // Track registered session listeners (sidepanel tabs)
 const sessionListeners = new Set<number>()
+
+// Clean up closed tabs
+chrome.tabs.onRemoved.addListener((tabId) => {
+  readyContentScripts.delete(tabId)
+  log("[Background] Tab closed, removed from ready list:", tabId)
+})
+
+// Clean up on navigation
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === 'loading') {
+    // Content script will be destroyed and reloaded
+    readyContentScripts.delete(tabId)
+  }
+})
 
 // Utility function to clean URLs (remove chrome-extension prefix)
 function cleanUrl(url: string): string {
@@ -148,6 +169,17 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 
 // Listen for GET_SESSIONS requests
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle content script ready signal
+  if (message.type === "CONTENT_SCRIPT_READY") {
+    const tabId = sender.tab?.id
+    if (tabId) {
+      readyContentScripts.set(tabId, true)
+      log("[Background] ✅ Content script ready in tab", tabId, sender.tab?.url)
+    }
+    sendResponse({ acknowledged: true })
+    return true
+  }
+
   if (message.type === "GET_SESSIONS") {
     const sessions = getSessions()
     sendResponse({ sessions })
@@ -1108,6 +1140,80 @@ setInterval(() => {
 // Track last COI alert timestamp to implement cooldown
 let lastCoiAlertTimestamp = 0
 
+// =============================================================================
+// Safe Message Sending Helper
+// =============================================================================
+
+/**
+ * Safely send a message to a tab's content script with proper guards
+ * Returns true if message was sent, false if tab is not ready
+ */
+async function safelySendToContentScript(
+  tabId: number,
+  message: any
+): Promise<boolean> {
+  try {
+    // 1️⃣ Validate tab exists
+    const tab = await chrome.tabs.get(tabId).catch(() => null)
+    if (!tab || !tab.url) {
+      log("[SafeSend] Tab does not exist or has no URL:", tabId)
+      return false
+    }
+
+    // 2️⃣ Check if URL is injectable
+    const url = tab.url
+    const nonInjectablePatterns = [
+      'chrome://',
+      'chrome-extension://',
+      'about:',
+      'edge://',
+      'devtools://',
+      'view-source:'
+    ]
+
+    if (nonInjectablePatterns.some(pattern => url.startsWith(pattern))) {
+      log(`[SafeSend] Cannot inject into system page: ${url}`)
+      return false
+    }
+
+    // 3️⃣ Check if content script is ready
+    if (!readyContentScripts.has(tabId)) {
+      log(`[SafeSend] Content script not ready in tab ${tabId}, queuing failed`)
+      return false
+    }
+
+    // 4️⃣ Send message with error handling
+    await chrome.tabs.sendMessage(tabId, message)
+    log(`[SafeSend] ✅ Message sent successfully to tab ${tabId}`)
+    return true
+  } catch (err) {
+    // This is the "receiving end does not exist" error
+    log(`[SafeSend] ❌ Failed to send message to tab ${tabId}:`, (err as Error).message)
+    // Mark as not ready since receiver doesn't exist
+    readyContentScripts.delete(tabId)
+    return false
+  }
+}
+
+/**
+ * Show native Chrome notification as fallback when content script is unavailable
+ */
+async function showNativeChromeNotification(score: number, threshold: number) {
+  try {
+    await chrome.notifications.create({
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('assets/icon64.png'),
+      title: '🧠 Focus Alert',
+      message: `Your distraction level is ${Math.round(score * 100)}%. Consider taking a short break to refocus.`,
+      priority: 2,
+      requireInteraction: false
+    })
+    console.log("[COI Alert] ✅ Native notification shown as fallback")
+  } catch (err) {
+    console.error("[COI Alert] Failed to show native notification:", err)
+  }
+}
+
 async function broadcastCoiUpdate() {
   try {
     const sessions = getSessions()
@@ -1190,22 +1296,24 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
       return
     }
 
-    console.log(`[COI Alert] Sending notification to tab ${activeTab.id} (${activeTab.url})`)
+    console.log(`[COI Alert] Attempting to send notification to tab ${activeTab.id} (${activeTab.url})`)
     
-    // Send COI_ALERT notification to content script
-    chrome.tabs.sendMessage(activeTab.id, {
+    // Send COI_ALERT notification using safe sender
+    const success = await safelySendToContentScript(activeTab.id, {
       type: "COI_ALERT",
       payload: {
         score: sessionCoiScore,
         threshold,
         message: `You've been switching between tasks frequently. Taking a short break might help you refocus.`
       }
-    }).then(() => {
-      console.log("[COI Alert] ✅ Notification sent successfully!")
-    }).catch((err) => {
-      // Content script may not be injected yet, that's okay
-      console.warn(`[COI Alert] ❌ Could not send alert to tab ${activeTab.id}:`, err.message)
     })
+
+    if (success) {
+      console.log("[COI Alert] ✅ In-page notification delivered")
+    } else {
+      console.log("[COI Alert] ⚠️ Content script unavailable, using native notification fallback")
+      await showNativeChromeNotification(sessionCoiScore, threshold)
+    }
   } catch (err) {
     console.warn("[Background] Failed to check COI threshold", err)
   }
@@ -1284,20 +1392,24 @@ async function testCoiAlert() {
     return
   }
   
-  console.log(`[Test] Sending test COI alert to tab ${activeTab.id}`)
+  console.log(`[Test] Sending test COI alert to tab ${activeTab.id} (${activeTab.url})`)
   
-  chrome.tabs.sendMessage(activeTab.id, {
+  const success = await safelySendToContentScript(activeTab.id, {
     type: "COI_ALERT",
     payload: {
       score: 0.85,
       threshold: 0.7,
       message: "Test Alert: Your distraction level is high (85%). This is a test notification."
     }
-  }).then(() => {
-    console.log("[Test] ✅ Test COI alert sent successfully!")
-  }).catch((err) => {
-    console.error("[Test] ❌ Failed to send test alert:", err)
   })
+  
+  if (success) {
+    console.log("[Test] ✅ Test COI alert sent successfully (in-page notification)!")
+  } else {
+    console.log("[Test] ⚠️ Content script not ready, showing native notification instead")
+    await showNativeChromeNotification(0.85, 0.7)
+    console.log("[Test] ✅ Native notification shown as fallback")
+  }
 }
 
 // DEV ONLY: Export test helpers to window for console access
