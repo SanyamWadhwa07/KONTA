@@ -1461,35 +1461,33 @@ function DaySection({
           <span>{dayLabel}</span>
         </div>
         {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
-          <div className="flex rounded-lg overflow-hidden border border-[#E5E5E5] dark:border-[#3A3A3C]">
+          <div className="inline-flex rounded-lg overflow-hidden border-2 border-[#0072de] dark:border-[#3e91ff]">
             <button
               onClick={() => onTimelineViewChange("sessions")}
-              className="px-2 py-1 text-2xs font-medium transition-all"
+              className="px-3 py-1 text-2xs font-medium transition-all"
               style={{
                 backgroundColor: timelineView === "sessions" 
-                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
-                  : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.2)' : '#0072de') 
+                  : (isDarkMode ? '#1C1C1E' : '#F5F5F5'),
                 color: timelineView === "sessions" 
                   ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
-                  : (isDarkMode ? '#FFFFFF' : '#666666'),
-                border: timelineView === "sessions" && isDarkMode ? '1px solid #3e91ff' : 'none',
-                borderRight: timelineView !== "sessions" ? (isDarkMode ? '1px solid #3A3A3C' : '1px solid #E5E5E5') : 'none',
+                  : (isDarkMode ? '#9A9FA6' : '#666666'),
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>
               Sessions
             </button>
+            <div className="w-px bg-[#0072de] dark:bg-[#3e91ff]" />
             <button
               onClick={() => onTimelineViewChange("clusters")}
-              className="px-2 py-1 text-2xs font-medium transition-all"
+              className="px-3 py-1 text-2xs font-medium transition-all"
               style={{
                 backgroundColor: timelineView === "clusters" 
-                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
-                  : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.2)' : '#0072de') 
+                  : (isDarkMode ? '#1C1C1E' : '#F5F5F5'),
                 color: timelineView === "clusters" 
                   ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
-                  : (isDarkMode ? '#FFFFFF' : '#666666'),
-                border: timelineView === "clusters" && isDarkMode ? '1px solid #3e91ff' : 'none',
+                  : (isDarkMode ? '#9A9FA6' : '#666666'),
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>
@@ -1933,35 +1931,33 @@ function ClusterDaySection({
           <span>{dayLabel}</span>
         </div>
         {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
-          <div className="flex rounded-lg overflow-hidden border border-[#E5E5E5] dark:border-[#3A3A3C]">
+          <div className="inline-flex rounded-lg overflow-hidden border-2 border-[#0072de] dark:border-[#3e91ff]">
             <button
               onClick={() => onTimelineViewChange("sessions")}
-              className="px-2 py-1 text-2xs font-medium transition-all"
+              className="px-3 py-1 text-2xs font-medium transition-all"
               style={{
                 backgroundColor: timelineView === "sessions" 
-                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
-                  : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.2)' : '#0072de') 
+                  : (isDarkMode ? '#1C1C1E' : '#F5F5F5'),
                 color: timelineView === "sessions" 
                   ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
-                  : (isDarkMode ? '#FFFFFF' : '#666666'),
-                border: timelineView === "sessions" && isDarkMode ? '1px solid #3e91ff' : 'none',
-                borderRight: timelineView !== "sessions" ? (isDarkMode ? '1px solid #3A3A3C' : '1px solid #E5E5E5') : 'none',
+                  : (isDarkMode ? '#9A9FA6' : '#666666'),
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>
               Sessions
             </button>
+            <div className="w-px bg-[#0072de] dark:bg-[#3e91ff]" />
             <button
               onClick={() => onTimelineViewChange("clusters")}
-              className="px-2 py-1 text-2xs font-medium transition-all"
+              className="px-3 py-1 text-2xs font-medium transition-all"
               style={{
                 backgroundColor: timelineView === "clusters" 
-                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
-                  : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.2)' : '#0072de') 
+                  : (isDarkMode ? '#1C1C1E' : '#F5F5F5'),
                 color: timelineView === "clusters" 
                   ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
-                  : (isDarkMode ? '#FFFFFF' : '#666666'),
-                border: timelineView === "clusters" && isDarkMode ? '1px solid #3e91ff' : 'none',
+                  : (isDarkMode ? '#9A9FA6' : '#666666'),
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>
