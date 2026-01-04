@@ -583,7 +583,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
   const handleClose = () => {
     // Send message to content scripts before closing
-    console.log("Sidepanel sending SIDEPANEL_CLOSED message")
+    log("Sidepanel sending SIDEPANEL_CLOSED message")
     chrome.runtime.sendMessage({ type: "SIDEPANEL_CLOSED" })
     // Also set localStorage as fallback
     localStorage.setItem("aegis-sidebar-closed", "true")

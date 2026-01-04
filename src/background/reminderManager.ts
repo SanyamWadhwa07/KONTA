@@ -34,7 +34,7 @@ export async function scheduleReminder(projectId: string, reminder: ProjectRemin
   await chrome.alarms.clear(alarmName)
   
   if (!reminder.enabled) {
-    console.log(`[ReminderManager] Reminder disabled for project ${projectId}`)
+    log(`[ReminderManager] Reminder disabled for project ${projectId}`)
     return
   }
   
@@ -42,7 +42,7 @@ export async function scheduleReminder(projectId: string, reminder: ProjectRemin
   const nextTrigger = calculateNextTrigger(reminder, now)
   
   if (!nextTrigger) {
-    console.log(`[ReminderManager] No valid next trigger for project ${projectId}`)
+    log(`[ReminderManager] No valid next trigger for project ${projectId}`)
     return
   }
   
@@ -51,7 +51,7 @@ export async function scheduleReminder(projectId: string, reminder: ProjectRemin
     when: nextTrigger.getTime()
   })
   
-  console.log(`[ReminderManager] Scheduled reminder for project ${projectId} at ${nextTrigger.toLocaleString()}`)
+  log(`[ReminderManager] Scheduled reminder for project ${projectId} at ${nextTrigger.toLocaleString()}`)
 }
 
 /**
@@ -60,7 +60,7 @@ export async function scheduleReminder(projectId: string, reminder: ProjectRemin
 export async function cancelReminder(projectId: string): Promise<void> {
   const alarmName = `${REMINDER_ALARM_PREFIX}${projectId}`
   await chrome.alarms.clear(alarmName)
-  console.log(`[ReminderManager] Cancelled reminder for project ${projectId}`)
+  log(`[ReminderManager] Cancelled reminder for project ${projectId}`)
 }
 
 /**
@@ -123,7 +123,7 @@ export async function handleReminderAlarm(alarm: chrome.alarms.Alarm): Promise<v
   if (!alarm.name.startsWith(REMINDER_ALARM_PREFIX)) return
   
   const projectId = alarm.name.replace(REMINDER_ALARM_PREFIX, '')
-  console.log(`[ReminderManager] Alarm triggered for project ${projectId}`)
+  log(`[ReminderManager] Alarm triggered for project ${projectId}`)
   
   // Load project
   const result = await chrome.storage.local.get("aegis-projects")
@@ -131,13 +131,13 @@ export async function handleReminderAlarm(alarm: chrome.alarms.Alarm): Promise<v
   const project = projects.find(p => p.id === projectId)
   
   if (!project || !project.reminder?.enabled) {
-    console.log(`[ReminderManager] Project not found or reminder disabled: ${projectId}`)
+    log(`[ReminderManager] Project not found or reminder disabled: ${projectId}`)
     return
   }
   
   // Check if snoozed
   if (project.reminder.snoozedUntil && Date.now() < project.reminder.snoozedUntil) {
-    console.log(`[ReminderManager] Reminder snoozed until ${new Date(project.reminder.snoozedUntil).toLocaleString()}`)
+    log(`[ReminderManager] Reminder snoozed until ${new Date(project.reminder.snoozedUntil).toLocaleString()}`)
     
     // Reschedule for snooze end time
     await chrome.alarms.create(alarm.name, {
@@ -179,7 +179,7 @@ async function sendReminderNotification(projectId: string, project: Project): Pr
     const notificationSettings = await loadNotificationSettings()
     
     if (!notificationSettings.reminders) {
-      console.log("[ReminderManager] Reminder notifications disabled in settings, skipping")
+      log("[ReminderManager] Reminder notifications disabled in settings, skipping")
       return
     }
 
@@ -196,7 +196,7 @@ async function sendReminderNotification(projectId: string, project: Project): Pr
           snoozeCount: project.reminder?.snoozeCount || 0
         }
       }).catch(err => {
-        console.log(`[ReminderManager] Could not send to tab ${tab.id}:`, err.message)
+        log(`[ReminderManager] Could not send to tab ${tab.id}:`, err.message)
       })
     }
   } catch (err) {
@@ -218,7 +218,7 @@ export async function snoozeReminder(projectId: string): Promise<boolean> {
   
   // Check snooze limit
   if (project.reminder.snoozeCount >= MAX_SNOOZE_COUNT) {
-    console.log(`[ReminderManager] Max snooze count reached for project ${projectId}`)
+    log(`[ReminderManager] Max snooze count reached for project ${projectId}`)
     return false
   }
   
@@ -234,7 +234,7 @@ export async function snoozeReminder(projectId: string): Promise<boolean> {
     when: project.reminder.snoozedUntil
   })
   
-  console.log(`[ReminderManager] Snoozed project ${projectId} until ${new Date(project.reminder.snoozedUntil).toLocaleString()} (count: ${project.reminder.snoozeCount})`)
+  log(`[ReminderManager] Snoozed project ${projectId} until ${new Date(project.reminder.snoozedUntil).toLocaleString()} (count: ${project.reminder.snoozeCount})`)
   
   return true
 }
@@ -261,14 +261,14 @@ export async function dismissReminder(projectId: string): Promise<void> {
   // Cancel alarm
   await cancelReminder(projectId)
   
-  console.log(`[ReminderManager] Dismissed reminder for project ${projectId}`)
+  log(`[ReminderManager] Dismissed reminder for project ${projectId}`)
 }
 
 /**
  * Re-register all active reminders (call on extension startup)
  */
 export async function reregisterAllReminders(): Promise<void> {
-  console.log("[ReminderManager] Re-registering all active reminders...")
+  log("[ReminderManager] Re-registering all active reminders...")
   
   const result = await chrome.storage.local.get("aegis-projects")
   const projects: Project[] = result["aegis-projects"] || []
@@ -281,7 +281,7 @@ export async function reregisterAllReminders(): Promise<void> {
     }
   }
   
-  console.log(`[ReminderManager] Re-registered ${count} active reminders`)
+  log(`[ReminderManager] Re-registered ${count} active reminders`)
 }
 
 /**
@@ -316,7 +316,7 @@ export async function openProjectInTabGroup(projectId: string): Promise<void> {
       const groupTabs = allTabs.filter(t => t.groupId === targetGroup!.id)
       const openUrls = new Set(groupTabs.map(t => t.url).filter(Boolean))
       
-      console.log(`[ReminderManager] Found existing group "${project.name}" with ${groupTabs.length} tabs`)
+      log(`[ReminderManager] Found existing group "${project.name}" with ${groupTabs.length} tabs`)
       
       // Open missing sites
       const tabsToAdd: number[] = []
@@ -340,7 +340,7 @@ export async function openProjectInTabGroup(projectId: string): Promise<void> {
           groupId: targetGroup.id,
           tabIds: tabsToAdd
         })
-        console.log(`[ReminderManager] Added ${tabsToAdd.length} missing sites to group`)
+        log(`[ReminderManager] Added ${tabsToAdd.length} missing sites to group`)
       }
       
       // Expand and activate the group
@@ -353,7 +353,7 @@ export async function openProjectInTabGroup(projectId: string): Promise<void> {
       }
     } else {
       // Create new group with all project sites
-      console.log(`[ReminderManager] Creating new group "${project.name}" with ${project.sites.length} sites`)
+      log(`[ReminderManager] Creating new group "${project.name}" with ${project.sites.length} sites`)
       
       const tabIds: number[] = []
       for (const site of project.sites) {

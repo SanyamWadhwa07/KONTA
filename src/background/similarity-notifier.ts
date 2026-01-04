@@ -42,7 +42,7 @@ function isExcludedDomain(url: string): boolean {
 export async function checkAndNotifySimilarPages(currentPage: PageEvent, tabId?: number): Promise<void> {
   if (!currentPage.titleEmbedding) return
 
-  console.log("checkAndNotifySimilarPages invoked for", currentPage.url, "tabId:", tabId)
+  log("checkAndNotifySimilarPages invoked for", currentPage.url, "tabId:", tabId)
 
   const sessions = getSessions()
   const allPages = sessions.flatMap((s) => s.pages)
@@ -79,11 +79,11 @@ export async function checkAndNotifySimilarPages(currentPage: PageEvent, tabId?:
     .slice(0, 5)
 
   if (similar.length === 0) {
-    console.log(`No similar pages found for: ${currentPage.title}`)
+    log(`No similar pages found for: ${currentPage.title}`)
     return
   }
 
-  console.log(`Found ${similar.length} similar pages for: ${currentPage.title}`)
+  log(`Found ${similar.length} similar pages for: ${currentPage.title}`)
 
   try {
     // Prepare pages data
@@ -100,7 +100,7 @@ export async function checkAndNotifySimilarPages(currentPage: PageEvent, tabId?:
 
     // 1. Store in chrome.storage as persistent notification (fallback for cached sidepanel)
     await chrome.storage.local.set({ pendingNotification: notificationData })
-    console.log("✅ Notification stored in storage")
+    log("✅ Notification stored in storage")
 
     // 2. Try to send message to sidepanel directly (if open and active)
     chrome.runtime.sendMessage(
@@ -112,7 +112,7 @@ export async function checkAndNotifySimilarPages(currentPage: PageEvent, tabId?:
         if (chrome.runtime.lastError) {
           console.warn("Direct message to sidepanel failed, using storage fallback:", chrome.runtime.lastError.message)
         } else {
-          console.log("✅ Notification sent to sidepanel via message")
+          log("✅ Notification sent to sidepanel via message")
         }
       }
     )
@@ -129,7 +129,7 @@ export async function checkAndNotifySimilarPages(currentPage: PageEvent, tabId?:
           if (chrome.runtime.lastError) {
             console.warn("Could not send message to indicator hub:", chrome.runtime.lastError.message)
           } else {
-            console.log("✅ Notification sent to indicator hub on tab", tabId)
+            log("✅ Notification sent to indicator hub on tab", tabId)
           }
         }
       )

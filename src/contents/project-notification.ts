@@ -19,8 +19,8 @@ export const config: PlasmoCSConfig = {
   run_at: "document_start"
 }
 
-console.log("[ProjectNotification] LEGACY content script - DISABLED")
-console.log("[ProjectNotification] All notifications now handled by indicator hub")
+log("[ProjectNotification] LEGACY content script - DISABLED")
+log("[ProjectNotification] All notifications now handled by indicator hub")
 
 // DISABLED: All message handlers commented out
 // This file is kept for reference but no longer active
@@ -222,13 +222,13 @@ function showProjectNotification(
 
   // Handle accept - Track the project
   document.getElementById("aegis-accept-project")?.addEventListener("click", () => {
-    console.log("[ProjectNotification] Track Project clicked for candidate:", candidateId)
+    log("[ProjectNotification] Track Project clicked for candidate:", candidateId)
     
     // Open sidepanel immediately (must be in response to user gesture)
     chrome.runtime.sendMessage({
       type: "OPEN_SIDEPANEL_TO_PROJECTS"
     }, (resp) => {
-      console.log("[ProjectNotification] Sidepanel open response:", resp)
+      log("[ProjectNotification] Sidepanel open response:", resp)
     })
     
     // Then promote the candidate
@@ -236,9 +236,9 @@ function showProjectNotification(
       type: "PROMOTE_CANDIDATE",
       payload: { candidateId }
     }, (response) => {
-      console.log("[ProjectNotification] PROMOTE_CANDIDATE response:", response)
+      log("[ProjectNotification] PROMOTE_CANDIDATE response:", response)
       if (response?.success) {
-        console.log("[ProjectNotification] Project promoted successfully!")
+        log("[ProjectNotification] Project promoted successfully!")
         showSuccessMessage("Project tracked successfully!")
       } else {
         console.error("[ProjectNotification] Failed to promote candidate:", response?.error)
@@ -403,7 +403,7 @@ function showProjectSuggestion(
 
   // Handle add to project
   document.getElementById("aegis-add-to-project")?.addEventListener("click", () => {
-    console.log("[ProjectSuggestion] Adding site to project:", projectId, currentUrl)
+    log("[ProjectSuggestion] Adding site to project:", projectId, currentUrl)
     chrome.runtime.sendMessage({
       type: "ADD_SITE_TO_PROJECT",
       payload: {
@@ -413,7 +413,7 @@ function showProjectSuggestion(
         addedBy: 'auto'
       }
     }, (response) => {
-      console.log("[ProjectSuggestion] ADD_SITE_TO_PROJECT response:", response)
+      log("[ProjectSuggestion] ADD_SITE_TO_PROJECT response:", response)
       if (response?.success) {
         showSuccessMessage(`Added to ${projectName}!`)
       } else {
@@ -428,7 +428,7 @@ function showProjectSuggestion(
 
   // Handle dismiss
   document.getElementById("aegis-dismiss-suggestion")?.addEventListener("click", () => {
-    console.log("[ProjectSuggestion] Dismissed suggestion")
+    log("[ProjectSuggestion] Dismissed suggestion")
     
     // Record dismissal so it doesn't show again for 24 hours
     chrome.runtime.sendMessage({

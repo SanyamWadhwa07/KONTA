@@ -14,7 +14,7 @@ function IndexSidePanel() {
     chrome.storage.local.get(["sidepanel-active-tab", "sidepanel-onboarding"], (result) => {
       if (result["sidepanel-active-tab"]) {
         const tab = result["sidepanel-active-tab"]
-        console.log("[Sidepanel] Setting active tab from storage:", tab)
+        log("[Sidepanel] Setting active tab from storage:", tab)
         setShowPopulated(true)
         setActiveTab(tab as "sessions" | "graph" | "projects")
         // Clear the preference after using it
@@ -23,7 +23,7 @@ function IndexSidePanel() {
       
       // Check if opened during onboarding
       if (result["sidepanel-onboarding"] === true) {
-        console.log("[Sidepanel] Opened in onboarding mode")
+        log("[Sidepanel] Opened in onboarding mode")
         setIsOnboarding(true)
         // Clear the flag after using it
         chrome.storage.local.remove("sidepanel-onboarding")

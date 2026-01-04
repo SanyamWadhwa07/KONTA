@@ -234,7 +234,7 @@ function reSessionizeAll(oldSessions: Session[]): Session[] {
     newSessions.push(currentSession)
   }
 
-  console.log(
+  log(
     `[Sessionization] Re-sessionized ${oldSessions.length} old sessions into ${newSessions.length} new sessions`
   )
 

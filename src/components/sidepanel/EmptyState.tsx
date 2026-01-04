@@ -40,12 +40,12 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
 
   const handleClose = () => {
     // Send message to content scripts before closing
-    console.log("Sidepanel sending SIDEPANEL_CLOSED message")
+    log("Sidepanel sending SIDEPANEL_CLOSED message")
     chrome.runtime.sendMessage({ type: "SIDEPANEL_CLOSED" })
     
     // If closing during onboarding, trigger the "Konta is live!" notification
     if (isOnboarding) {
-      console.log("Closing during onboarding, triggering Konta is live notification")
+      log("Closing during onboarding, triggering Konta is live notification")
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]?.id) {
           chrome.tabs.sendMessage(tabs[0].id, {

@@ -253,11 +253,11 @@ export function buildKnowledgeGraph(
     maxNodes = 500
   } = options
 
-  console.log("[KnowledgeGraph] Building graph from pages:", pages.length)
+  log("[KnowledgeGraph] Building graph from pages:", pages.length)
 
   // Filter out utility pages (login, auth, error pages, etc.)
   const contentPages = pages.filter(page => !isUtilityPage(page))
-  console.log("[KnowledgeGraph] Filtered out utility pages:", pages.length - contentPages.length)
+  log("[KnowledgeGraph] Filtered out utility pages:", pages.length - contentPages.length)
 
   // First deduplicate by URL, keeping latest visit
   const pageMap = new Map<string, PageEvent>()
@@ -290,7 +290,7 @@ export function buildKnowledgeGraph(
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, maxNodes)
 
-  console.log("[KnowledgeGraph] Valid pages with embeddings:", validPages.length)
+  log("[KnowledgeGraph] Valid pages with embeddings:", validPages.length)
 
   if (validPages.length === 0) {
     return { nodes: [], edges: [], lastUpdated: Date.now() }
@@ -379,7 +379,7 @@ export function buildKnowledgeGraph(
     }
   }
 
-  console.log("[KnowledgeGraph] Built weighted edges:", edges.length)
+  log("[KnowledgeGraph] Built weighted edges:", edges.length)
 
   // Assign clusters using Louvain community detection
   const clusters = louvainClustering(nodes, edges)
@@ -388,7 +388,7 @@ export function buildKnowledgeGraph(
   })
 
   const uniqueClusters = new Set(clusters).size
-  console.log("[KnowledgeGraph] Identified clusters:", uniqueClusters)
+  log("[KnowledgeGraph] Identified clusters:", uniqueClusters)
 
   return {
     nodes,
@@ -637,7 +637,7 @@ export async function buildProjectGraph(
   recentPages: PageEvent[],
   maxNodes: number = 500
 ): Promise<KnowledgeGraph> {
-  console.log("[ProjectGraph] Building project-based graph", {
+  log("[ProjectGraph] Building project-based graph", {
     projects: projects.length
   })
 
@@ -703,7 +703,7 @@ export async function buildProjectGraph(
     }
   })
 
-  console.log("[ProjectGraph] Built project graph:", {
+  log("[ProjectGraph] Built project graph:", {
     nodes: nodes.length,
     edges: edges.length,
     projects: projects.length

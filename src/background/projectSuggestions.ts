@@ -75,7 +75,7 @@ export async function checkForProjectSuggestion(
   
   // Skip generic pages (profile pages, org pages, homepages)
   if (isGenericPage(currentUrl)) {
-    console.log("[ProjectSuggestion] Skipping generic page:", currentUrl)
+    log("[ProjectSuggestion] Skipping generic page:", currentUrl)
     return null
   }
   
@@ -84,7 +84,7 @@ export async function checkForProjectSuggestion(
     p.sites.some(s => normalizeUrl(s.url) === normalizedCurrentUrl)
   )
   if (alreadyAdded) {
-    console.log("[ProjectSuggestion] URL already in a project, skipping")
+    log("[ProjectSuggestion] URL already in a project, skipping")
     return null
   }
   
@@ -97,7 +97,7 @@ export async function checkForProjectSuggestion(
     )
   )
   if (recentlyDismissed) {
-    console.log("[ProjectSuggestion] URL recently dismissed, skipping")
+    log("[ProjectSuggestion] URL recently dismissed, skipping")
     return null
   }
   
@@ -136,7 +136,7 @@ function calculateSimilarity(page: PageEvent, project: Project): number {
     const pagePathParts = pageUrl.pathname.split('/').filter(Boolean)
     if (pagePathParts.length < 2) {
       // Not a repo page (profile, org, etc.) - give 0 score
-      console.log("[ProjectSuggestion] GitHub page not a repo, skipping")
+      log("[ProjectSuggestion] GitHub page not a repo, skipping")
       return 0
     }
     
@@ -158,7 +158,7 @@ function calculateSimilarity(page: PageEvent, project: Project): number {
       score += 0.3
     } else {
       // Different repo on GitHub = 0 score, don't suggest
-      console.log("[ProjectSuggestion] Different GitHub repo, returning 0")
+      log("[ProjectSuggestion] Different GitHub repo, returning 0")
       return 0
     }
   } else {
@@ -186,7 +186,7 @@ function calculateSimilarity(page: PageEvent, project: Project): number {
   // Require at least 2 matching keywords for non-zero score
   const overlap = pageWords.filter(w => projectWords.has(w)).length
   if (overlap < 2) {
-    console.log("[ProjectSuggestion] Less than 2 keyword matches, returning 0")
+    log("[ProjectSuggestion] Less than 2 keyword matches, returning 0")
     return 0
   }
   
@@ -203,7 +203,7 @@ function calculateSimilarity(page: PageEvent, project: Project): number {
   ).length
   
   if (matchingKeywords === 0) {
-    console.log("[ProjectSuggestion] No keywords in URL, returning 0")
+    log("[ProjectSuggestion] No keywords in URL, returning 0")
     return 0
   }
   
@@ -212,7 +212,7 @@ function calculateSimilarity(page: PageEvent, project: Project): number {
     : 0
   score += pathScore * 0.3
   
-  console.log("[ProjectSuggestion] Final score:", score, "for", page.url)
+  log("[ProjectSuggestion] Final score:", score, "for", page.url)
   return score
 }
 

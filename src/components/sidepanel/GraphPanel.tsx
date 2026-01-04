@@ -74,7 +74,7 @@ export function GraphPanel() {
       if (response?.graph) {
         // Only update if graph has actually changed
         if (response.graph.lastUpdated !== lastGraphTimestampRef.current) {
-          console.log("[GraphPanel] Graph data changed, updating UI")
+          log("[GraphPanel] Graph data changed, updating UI")
           setGraph(response.graph)
           lastGraphTimestampRef.current = response.graph.lastUpdated
           hasUserInteractedRef.current = false // Reset on new graph load
@@ -128,7 +128,7 @@ export function GraphPanel() {
                 const centerY = sumY / count
                 graphRef.current.centerAt(centerX, centerY, 400)
                 graphRef.current.zoom(2, 400)
-                console.log(`[GraphPanel] Focused on cluster ${matchingNode.cluster} for domain ${currentDomain}`)
+                log(`[GraphPanel] Focused on cluster ${matchingNode.cluster} for domain ${currentDomain}`)
               }
             } else {
               // No matching node, zoom to fit all
@@ -159,7 +159,7 @@ export function GraphPanel() {
       const topDomain = getClusterTopDomain(graph.nodes, clusterId)
       if (topDomain && !faviconCache.current.has(topDomain)) {
         loadFavicon(topDomain).catch(err => 
-          console.log('[GraphPanel] Failed to load favicon for', topDomain)
+          log('[GraphPanel] Failed to load favicon for', topDomain)
         )
       }
     })
@@ -189,7 +189,7 @@ export function GraphPanel() {
 
   useEffect(() => {
     if (graph) {
-      console.log("[GraphPanel] Graph loaded:", {
+      log("[GraphPanel] Graph loaded:", {
         nodes: graph.nodes.length,
         edges: graph.edges.length,
         nodesSample: graph.nodes.slice(0, 2),
@@ -415,12 +415,12 @@ export function GraphPanel() {
           // Link exists - remove it
           const updatedLinks = manualLinks.filter((_, idx) => idx !== existingLinkIndex)
           saveManualLinks(updatedLinks)
-          console.log('[GraphPanel] Removed manual link between', firstNode, 'and', node.id)
+          log('[GraphPanel] Removed manual link between', firstNode, 'and', node.id)
         } else {
           // Link doesn't exist - create it
           const newLink = { source: firstNode, target: node.id }
           saveManualLinks([...manualLinks, newLink])
-          console.log('[GraphPanel] Created manual link between', firstNode, 'and', node.id)
+          log('[GraphPanel] Created manual link between', firstNode, 'and', node.id)
         }
         
         // Clear selection

@@ -77,7 +77,7 @@ export default function GraphFullPage() {
       const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
       if (response?.graph) {
         if (response.graph.lastUpdated !== lastGraphTimestampRef.current) {
-          console.log("[GraphFullPage] Graph data changed, updating UI")
+          log("[GraphFullPage] Graph data changed, updating UI")
           setGraph(response.graph)
           lastGraphTimestampRef.current = response.graph.lastUpdated
           hasUserInteractedRef.current = false
@@ -122,7 +122,7 @@ export default function GraphFullPage() {
       const topDomain = getClusterTopDomain(graph.nodes, clusterId)
       if (topDomain && !faviconCache.current.has(topDomain)) {
         loadFavicon(topDomain).catch(err => 
-          console.log('[Graph] Failed to load favicon for', topDomain)
+          log('[Graph] Failed to load favicon for', topDomain)
         )
       }
     })

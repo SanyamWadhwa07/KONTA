@@ -17,13 +17,13 @@ interface NotificationData {
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "show-page-notification") {
-    console.log("[content] show-page-notification received", message.data)
+    log("[content] show-page-notification received", message.data)
     showNotificationToast(message.data)
   }
   sendResponse()
 })
 
-console.log("[content] notification content script loaded on", window.location.href)
+log("[content] notification content script loaded on", window.location.href)
 
 function showNotificationToast(data: NotificationData) {
   // Create container

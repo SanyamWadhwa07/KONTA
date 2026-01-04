@@ -427,7 +427,7 @@ export function saveBlocklist(blocklist: Blocklist): Promise<void> {
         console.error("[Blocklist] Error saving:", chrome.runtime.lastError)
         reject(chrome.runtime.lastError)
       } else {
-        console.log("[Blocklist] Saved successfully")
+        log("[Blocklist] Saved successfully")
         resolve()
       }
     })

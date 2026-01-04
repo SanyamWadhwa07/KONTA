@@ -82,11 +82,11 @@ const Indicator = () => {
     chrome.storage.local.get(['konta-position', 'onboarding-complete'], (result) => {
       // Check if onboarding is complete
       if (result['onboarding-complete'] === true) {
-        console.log("✅ Onboarding complete, enabling indicator")
+        log("✅ Onboarding complete, enabling indicator")
         setOnboardingComplete(true)
         setIsVisible(true)
       } else {
-        console.log("⏳ Onboarding not complete, hiding indicator")
+        log("⏳ Onboarding not complete, hiding indicator")
         setOnboardingComplete(false)
         setIsVisible(false)
       }
@@ -106,17 +106,17 @@ const Indicator = () => {
   }
 
   useEffect(() => {
-    console.log("🟢 Konta notification hub loaded!")
+    log("🟢 Konta notification hub loaded!")
     
     const handleMessage = (message: any, sender: any, sendResponse: any) => {
-      console.log("Konta hub received message:", message)
+      log("Konta hub received message:", message)
       if (message.type === "SIDEPANEL_CLOSED") {
         setIsVisible(true)
       }
       
       // Handle PROJECT_CANDIDATE_READY
       if (message.type === "PROJECT_CANDIDATE_READY") {
-        console.log("📦 Project candidate detected:", message.payload)
+        log("📦 Project candidate detected:", message.payload)
         const { candidateId, primaryDomain, keywords, visitCount, score } = message.payload
         const keywordsText = keywords.length > 0 
           ? keywords.slice(0, 3).join(", ") 
@@ -141,7 +141,7 @@ const Indicator = () => {
       
       // Handle PROJECT_SUGGESTION_READY
       if (message.type === "PROJECT_SUGGESTION_READY") {
-        console.log("💡 Project suggestion detected:", message.payload)
+        log("💡 Project suggestion detected:", message.payload)
         const { projectId, projectName, currentUrl, currentTitle, score } = message.payload
         
         const notification: Notification = {
@@ -163,7 +163,7 @@ const Indicator = () => {
       
       // Handle similar pages notification
       if (message.type === "show-page-notification" || message.type === "SHOW_SIMILAR_PAGES") {
-        console.log("🔗 Similar pages detected:", message.data || message.payload)
+        log("🔗 Similar pages detected:", message.data || message.payload)
         const data = message.data || message.payload
         const pages = data?.pages || []
         
@@ -188,11 +188,11 @@ const Indicator = () => {
       
       // Handle onboarding completion notification
       if (message.type === "SHOW_ONBOARDING_COMPLETE") {
-        console.log("🎉 Onboarding complete, showing Konta is live notification")
+        log("🎉 Onboarding complete, showing Konta is live notification")
         
         // Mark onboarding as complete
         chrome.storage.local.set({ 'onboarding-complete': true }, () => {
-          console.log("✅ Onboarding completion flag stored")
+          log("✅ Onboarding completion flag stored")
         })
         setOnboardingComplete(true)
         
@@ -214,7 +214,7 @@ const Indicator = () => {
       
       // Handle project reminder notifications
       if (message.type === "show-project-reminder") {
-        console.log("⏰ Project reminder triggered:", message.payload)
+        log("⏰ Project reminder triggered:", message.payload)
         const { projectId, projectName, projectDescription, snoozeCount } = message.payload
         
         const notification: Notification = {
@@ -235,7 +235,7 @@ const Indicator = () => {
       
       // Handle project main site visit notifications
       if (message.type === "PROJECT_MAIN_SITE_VISIT") {
-        console.log("🏠 Project main site visit detected:", message.payload)
+        log("🏠 Project main site visit detected:", message.payload)
         const { projectId, projectName, currentUrl } = message.payload
         
         const notification: Notification = {
@@ -365,14 +365,14 @@ const Indicator = () => {
   }
 
   const handleOpenSidebar = () => {
-    console.log("📤 Opening sidebar")
+    log("📤 Opening sidebar")
     chrome.runtime.sendMessage({ type: "OPEN_SIDEPANEL" })
     setIsVisible(false)
     setIsExpanded(false)
   }
 
   const handleOpenSidebarWithTab = (tab: string) => {
-    console.log("📤 Opening sidebar with tab:", tab)
+    log("📤 Opening sidebar with tab:", tab)
     // Store preferred tab in storage
     chrome.storage.local.set({ "sidepanel-active-tab": tab })
     // Open the sidepanel
@@ -386,7 +386,7 @@ const Indicator = () => {
     url === "about:blank"
 
   const handleAddToProject = () => {
-    console.log("➕ Add to project clicked")
+    log("➕ Add to project clicked")
 
     const currentUrl = window.location.href
     const currentTitle = document.title
@@ -833,7 +833,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("✅ Track Project clicked for candidate:", notifications[0].id)
+                      log("✅ Track Project clicked for candidate:", notifications[0].id)
                       const candidateId = notifications[0].id
                       
                       // Open sidepanel first (must be in user gesture)
@@ -874,7 +874,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("⏭️ Not Now clicked, snoozing candidate:", notifications[0].id)
+                      log("⏭️ Not Now clicked, snoozing candidate:", notifications[0].id)
                       
                       // Snooze the candidate
                       chrome.runtime.sendMessage({
@@ -916,7 +916,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("➕ Add to Project clicked:", notifications[0].payload)
+                      log("➕ Add to Project clicked:", notifications[0].payload)
                       const { projectId, currentUrl, currentTitle } = notifications[0].payload
                       
                       // Add site to project
@@ -959,7 +959,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("⏭️ Dismissed suggestion:", notifications[0].payload)
+                      log("⏭️ Dismissed suggestion:", notifications[0].payload)
                       
                       // Record dismissal
                       chrome.runtime.sendMessage({
@@ -1004,7 +1004,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("🔗 Open All clicked:", notifications[0].payload.pages)
+                      log("🔗 Open All clicked:", notifications[0].payload.pages)
                       
                       // Open all similar pages in new tabs
                       notifications[0].payload.pages.forEach(({ url }) => {
@@ -1041,7 +1041,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("⏭️ Dismissed similar pages")
+                      log("⏭️ Dismissed similar pages")
                       
                       // Dismiss notification
                       setNotifications([])
@@ -1077,7 +1077,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("📂 Open Project clicked:", notifications[0].payload.projectId)
+                      log("📂 Open Project clicked:", notifications[0].payload.projectId)
                       
                       // Send message to background to open project in tab group
                       chrome.runtime.sendMessage({
@@ -1114,7 +1114,7 @@ const Indicator = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        console.log("⏰ Snooze clicked:", notifications[0].payload.projectId)
+                        log("⏰ Snooze clicked:", notifications[0].payload.projectId)
                         
                         // Send message to background to snooze reminder
                         chrome.runtime.sendMessage({
@@ -1158,7 +1158,7 @@ const Indicator = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        console.log("🚫 Dismiss Reminder clicked:", notifications[0].payload.projectId)
+                        log("🚫 Dismiss Reminder clicked:", notifications[0].payload.projectId)
                         
                         // Send message to background to dismiss reminder entirely
                         chrome.runtime.sendMessage({
@@ -1201,7 +1201,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("📂 Open Project clicked:", notifications[0].payload.projectId)
+                      log("📂 Open Project clicked:", notifications[0].payload.projectId)
                       
                       // Send message to background to open project in tab group
                       chrome.runtime.sendMessage({
@@ -1238,7 +1238,7 @@ const Indicator = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("⏭️ Not Now clicked")
+                      log("⏭️ Not Now clicked")
                       
                       // Dismiss notification
                       setNotifications([])

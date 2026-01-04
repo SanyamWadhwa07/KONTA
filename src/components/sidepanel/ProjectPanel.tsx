@@ -15,10 +15,10 @@ const cleanUrl = (url: string): string => {
   // Remove chrome-extension://[extension-id]/tabs/ prefix
   const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
   if (chromeExtPattern.test(url)) {
-    console.log("[ProjectPanel] Cleaning chrome-extension URL:", url)
+    log("[ProjectPanel] Cleaning chrome-extension URL:", url)
     const cleanedUrl = url.replace(chromeExtPattern, '')
     const finalUrl = cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
-    console.log("[ProjectPanel] Cleaned to:", finalUrl)
+    log("[ProjectPanel] Cleaned to:", finalUrl)
     return finalUrl
   }
   // Ensure URL has protocol (not relative)
@@ -530,7 +530,7 @@ function ProjectCard({
   const endDateStr = new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   const handleSaveDescription = async () => {
-    console.log("Save description:", editDescriptionValue)
+    log("Save description:", editDescriptionValue)
     
     // Update project with new description
     const updatedProject = {

@@ -42,15 +42,15 @@ export function FocusPanel() {
         sendMessage<{ blocklist: Blocklist }>({ type: "GET_BLOCKLIST" })
       ])
       
-      console.log("[FocusPanel] State response:", stateResponse)
-      console.log("[FocusPanel] Blocklist response:", blocklistResponse)
+      log("[FocusPanel] State response:", stateResponse)
+      log("[FocusPanel] Blocklist response:", blocklistResponse)
       
       if (stateResponse?.state) {
         setFocusState(stateResponse.state)
       }
       
       if (blocklistResponse?.blocklist) {
-        console.log("[FocusPanel] Blocklist entries:", blocklistResponse.blocklist.entries.length)
+        log("[FocusPanel] Blocklist entries:", blocklistResponse.blocklist.entries.length)
         setBlocklist(blocklistResponse.blocklist)
       }
     } catch (err) {
@@ -62,11 +62,11 @@ export function FocusPanel() {
 
   const toggleFocusMode = async () => {
     try {
-      console.log("[FocusPanel] Toggling focus mode, current state:", focusState.isActive)
+      log("[FocusPanel] Toggling focus mode, current state:", focusState.isActive)
       const response = await sendMessage<{ state: FocusModeState }>({ 
         type: "TOGGLE_FOCUS_MODE" 
       })
-      console.log("[FocusPanel] Toggle response:", response)
+      log("[FocusPanel] Toggle response:", response)
       if (response?.state) {
         setFocusState(response.state)
       }

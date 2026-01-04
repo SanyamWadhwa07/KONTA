@@ -75,12 +75,12 @@ function cleanUrl(url: string): string {
   // Extension IDs are 32 lowercase letters
   const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
   if (chromeExtPattern.test(url)) {
-    console.log("[cleanUrl] Detected chrome-extension URL:", url)
+    log("[cleanUrl] Detected chrome-extension URL:", url)
     // Extract the actual URL after /tabs/
     const cleanedUrl = url.replace(chromeExtPattern, '')
     // Add https:// if it doesn't have a protocol
     const finalUrl = cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
-    console.log("[cleanUrl] Cleaned URL:", finalUrl)
+    log("[cleanUrl] Cleaned URL:", finalUrl)
     return finalUrl
   }
   // Ensure URL has protocol (not relative)
@@ -96,23 +96,24 @@ let graphNeedsRebuild = true
 
 // Initialize sessions from IndexedDB on startup
 initializeSessions().then(() => {
-  console.log("[Background] Sessions initialized from IndexedDB")
+  console.log("Welcome to Konta! we hope you like it :)")
+  log("[Background] Sessions initialized from IndexedDB")
   rebuildGraphIfNeeded()
 })
 
 // Initialize learned context associations
 loadLearnedAssociations().then(() => {
-  console.log("[Background] Context learning initialized")
+  log("[Background] Context learning initialized")
 })
 
 // Initialize focus mode on startup
 initializeFocusMode().then(() => {
-  console.log("[Background] Focus mode initialized")
+  log("[Background] Focus mode initialized")
 })
 
 // Initialize reminder alarms on startup
 reregisterAllReminders().then(() => {
-  console.log("[Background] Reminder alarms reregistered")
+  log("[Background] Reminder alarms reregistered")
 }).catch((error) => {
   console.error("[Background] Failed to reregister reminders:", error)
 })
@@ -120,7 +121,7 @@ reregisterAllReminders().then(() => {
 // Listen for alarm triggers
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name.startsWith("project-reminder-")) {
-    console.log("[Background] Alarm triggered:", alarm.name)
+    log("[Background] Alarm triggered:", alarm.name)
     handleReminderAlarm(alarm)
   }
 })
@@ -158,7 +159,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabId = sender.tab?.id
     if (tabId && !sessionListeners.has(tabId)) {
       sessionListeners.add(tabId)
-      console.log("[Background] Session listener registered for tab", tabId)
+      log("[Background] Session listener registered for tab", tabId)
     }
     sendResponse({ success: true })
     return true
@@ -384,7 +385,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       score: autoDetected ? 0 : 100
     })
       .then((newProject) => {
-        console.log("[ADD_PROJECT] Created new project:", newProject.name)
+        log("[ADD_PROJECT] Created new project:", newProject.name)
         sendResponse({ success: true, project: newProject })
       })
       .catch((error) => {
@@ -426,7 +427,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Clean the URL to remove any chrome-extension prefix
     const siteUrl = cleanUrl(rawSiteUrl)
     
-    console.log("[ADD_SITE_TO_PROJECT]", { projectId, rawSiteUrl, cleanedSiteUrl: siteUrl, siteTitle })
+    log("[ADD_SITE_TO_PROJECT]", { projectId, rawSiteUrl, cleanedSiteUrl: siteUrl, siteTitle })
     
     loadProjects()
       .then(async (projects) => {
@@ -457,8 +458,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const otherProjects = projects.filter(p => p.id !== projectId)
         await chrome.storage.local.set({ "aegis-projects": [...otherProjects, project] })
         
-        console.log("[ADD_SITE_TO_PROJECT] Site added successfully to project:", project.name)
-        console.log(`  → Site can now belong to multiple projects`)
+        log("[ADD_SITE_TO_PROJECT] Site added successfully to project:", project.name)
+        log(`  → Site can now belong to multiple projects`)
         sendResponse({ success: true, project })
       })
       .catch((error) => {
@@ -470,7 +471,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "DISMISS_PROJECT_SUGGESTION") {
     const { projectId, url } = message.payload
-    console.log("[DISMISS_PROJECT_SUGGESTION]", { projectId, url })
+    log("[DISMISS_PROJECT_SUGGESTION]", { projectId, url })
     
     loadProjects()
       .then(async (projects) => {
@@ -495,7 +496,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const otherProjects = projects.filter(p => p.id !== projectId)
         await chrome.storage.local.set({ "aegis-projects": [...otherProjects, project] })
         
-        console.log("[DISMISS_PROJECT_SUGGESTION] Dismissal recorded, will not suggest again for 24 hours")
+        log("[DISMISS_PROJECT_SUGGESTION] Dismissal recorded, will not suggest again for 24 hours")
         sendResponse({ success: true })
       })
       .catch((error) => {
@@ -542,7 +543,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           candidate.snoozeCount = (candidate.snoozeCount || 0) + 1
           candidate.status = 'watching'
           candidate.notificationShown = false
-          console.log(`[Snooze] Candidate snoozed. Will need ${2 * candidate.snoozeCount} more visits`)
+          log(`[Snooze] Candidate snoozed. Will need ${2 * candidate.snoozeCount} more visits`)
           await saveCandidates(candidates)
           sendResponse({ success: true })
         } else {
@@ -558,14 +559,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "PROMOTE_CANDIDATE") {
     const { candidateId } = message.payload
-    console.log("[PROMOTE_CANDIDATE] Processing candidateId:", candidateId)
+    log("[PROMOTE_CANDIDATE] Processing candidateId:", candidateId)
     
     // Get all candidates (not just ready ones) to find the one to promote
     loadCandidates()
       .then(async (candidates) => {
-        console.log("[PROMOTE_CANDIDATE] Found", candidates.length, "total candidates")
+        log("[PROMOTE_CANDIDATE] Found", candidates.length, "total candidates")
         const candidate = candidates.find(c => c.id === candidateId)
-        console.log("[PROMOTE_CANDIDATE] Target candidate found:", !!candidate)
+        log("[PROMOTE_CANDIDATE] Target candidate found:", !!candidate)
         if (!candidate) {
           console.error("[PROMOTE_CANDIDATE] Candidate not found:", candidateId)
           sendResponse({ success: false, error: "Candidate not found" })
@@ -644,11 +645,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "OPEN_SIDEPANEL_TO_PROJECTS") {
     // Open sidepanel and notify it to switch to projects tab
-    console.log("[Background] Opening sidepanel to projects tab")
+    log("[Background] Opening sidepanel to projects tab")
     
     // Store the preferred tab in chrome storage so sidepanel can read it
     chrome.storage.local.set({ "sidepanel-active-tab": "projects" }, () => {
-      console.log("[Background] Set sidepanel tab preference to 'projects'")
+      log("[Background] Set sidepanel tab preference to 'projects'")
     })
     
     // Get the active tab and open sidepanel for it
@@ -659,7 +660,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             console.error("[Background] Failed to open sidepanel:", chrome.runtime.lastError)
             sendResponse({ success: false, error: chrome.runtime.lastError.message })
           } else {
-            console.log("[Background] Sidepanel opened successfully")
+            log("[Background] Sidepanel opened successfully")
             sendResponse({ success: true })
           }
         })
@@ -727,10 +728,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "GET_BLOCKLIST") {
-    console.log("[Background] GET_BLOCKLIST request received")
+    log("[Background] GET_BLOCKLIST request received")
     loadBlocklist()
       .then((blocklist) => {
-        console.log("[Background] Sending blocklist with", blocklist.entries.length, "entries")
+        log("[Background] Sending blocklist with", blocklist.entries.length, "entries")
         sendResponse({ blocklist })
       })
       .catch((error) => {
@@ -830,7 +831,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Project reminder operations
   if (message.type === "SET_PROJECT_REMINDER") {
     const { projectId, reminder } = message.payload
-    console.log("[SET_PROJECT_REMINDER]", { projectId, reminder })
+    log("[SET_PROJECT_REMINDER]", { projectId, reminder })
     
     scheduleReminder(projectId, reminder)
       .then(() => {
@@ -845,7 +846,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "CANCEL_PROJECT_REMINDER") {
     const { projectId } = message.payload
-    console.log("[CANCEL_PROJECT_REMINDER]", { projectId })
+    log("[CANCEL_PROJECT_REMINDER]", { projectId })
     
     cancelReminder(projectId)
       .then(() => {
@@ -860,7 +861,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "SNOOZE_REMINDER") {
     const { projectId } = message.payload
-    console.log("[SNOOZE_REMINDER]", { projectId })
+    log("[SNOOZE_REMINDER]", { projectId })
     
     snoozeReminder(projectId)
       .then(() => {
@@ -875,7 +876,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "DISMISS_REMINDER") {
     const { projectId } = message.payload
-    console.log("[DISMISS_REMINDER]", { projectId })
+    log("[DISMISS_REMINDER]", { projectId })
     
     dismissReminder(projectId)
       .then(() => {
@@ -890,7 +891,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "DISMISS_SNOOZE") {
     const { projectId } = message.payload
-    console.log("[DISMISS_SNOOZE]", { projectId })
+    log("[DISMISS_SNOOZE]", { projectId })
     
     loadProjects()
       .then(async (projects) => {
@@ -911,7 +912,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Reschedule alarm immediately
         await scheduleReminder(projectId, project.reminder)
         
-        console.log("[DISMISS_SNOOZE] Snooze dismissed, reminder rescheduled for project:", projectId)
+        log("[DISMISS_SNOOZE] Snooze dismissed, reminder rescheduled for project:", projectId)
         sendResponse({ success: true })
       })
       .catch((error) => {
@@ -923,7 +924,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "OPEN_PROJECT_IN_TAB_GROUP") {
     const { projectId } = message.payload
-    console.log("[OPEN_PROJECT_IN_TAB_GROUP]", { projectId })
+    log("[OPEN_PROJECT_IN_TAB_GROUP]", { projectId })
     
     openProjectInTabGroup(projectId)
       .then(() => {
@@ -1097,13 +1098,13 @@ async function broadcastCoiUpdate() {
 export function broadcastSessionUpdate() {
   // Sessions are already persisted to IndexedDB by sessionManager
   // PopulatedState will poll for updates
-  console.log("[Background] Session updated, count:", getSessions().length)
+  log("[Background] Session updated, count:", getSessions().length)
 }
 
 export function broadcastLabelUpdate() {
   // Labels are persisted by labelsStore
   // PopulatedState will poll for updates
-  console.log("[Background] Labels updated")
+  log("[Background] Labels updated")
 }
 
 function rebuildGraphIfNeeded() {
@@ -1119,7 +1120,7 @@ function rebuildGraphIfNeeded() {
       allPages.push(...session.pages)
     }
 
-    console.log("[Background] Rebuilding knowledge graph from pages:", allPages.length)
+    log("[Background] Rebuilding knowledge graph from pages:", allPages.length)
     
     knowledgeGraph = buildKnowledgeGraph(allPages, {
       similarityThreshold: 0.35,
@@ -1129,7 +1130,7 @@ function rebuildGraphIfNeeded() {
     
     graphNeedsRebuild = false
     
-    console.log("[Background] Graph rebuilt with nodes:", knowledgeGraph.nodes.length, "edges:", knowledgeGraph.edges.length)
+    log("[Background] Graph rebuilt with nodes:", knowledgeGraph.nodes.length, "edges:", knowledgeGraph.edges.length)
   } catch (err) {
     console.error("[Background] Failed to rebuild knowledge graph:", err)
     knowledgeGraph = { nodes: [], edges: [], lastUpdated: Date.now() }
@@ -1159,8 +1160,8 @@ if (typeof globalThis !== 'undefined') {
       loadCandidates,
       loadProjects
     }
-    console.log("%c🧪 Test helpers loaded!", "background: #4CAF50; color: white; padding: 4px 8px; font-weight: bold")
-    console.log("%cQuick start: testHelpers.runAllTests()", "color: #2196F3; font-weight: bold")
-    console.log("%cInteractive: testHelpers.interactiveTest()", "color: #FF9800; font-weight: bold")
+    log("%c🧪 Test helpers loaded!", "background: #4CAF50; color: white; padding: 4px 8px; font-weight: bold")
+    log("%cQuick start: testHelpers.runAllTests()", "color: #2196F3; font-weight: bold")
+    log("%cInteractive: testHelpers.interactiveTest()", "color: #FF9800; font-weight: bold")
   })
 }
