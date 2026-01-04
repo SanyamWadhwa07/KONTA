@@ -10,14 +10,28 @@
 @layer base {
   body {
     font-family: 'Breeze Sans', system-ui, sans-serif;
-    @apply bg-white;
+    @apply bg-white dark:bg-[#1C1C1E];
+    transition: background-color 0.3s ease;
   }
 }
 
 :root {
   --primary: #0072de;
+  --primary-dark: #4A9FFF;
   --dark: #080A0B;
   --gray: #9A9FA6;
+  --bg-light: #FFFFFF;
+  --bg-dark: #1C1C1E;
+  --surface-dark: #2C2C2E;
+  --border-light: #E5E5E5;
+  --border-dark: #3A3A3C;
+  --text-light: #080A0B;
+  --text-dark: #FFFFFF;
+  --text-secondary-dark: #8E8E93;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 @keyframes slideIn {

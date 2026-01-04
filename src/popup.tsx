@@ -75,7 +75,7 @@ function IndexPopup() {
   }
 
   return (
-    <div className="bg-white flex items-center justify-center p-4 min-w-[400px] min-h-[300px]">
+    <div className="bg-white dark:bg-[#1C1C1E] flex items-center justify-center p-4 min-w-[400px] min-h-[300px]">
       <WelcomeModal 
         open={phase === "welcome"} 
         onOpenChange={() => {}} 

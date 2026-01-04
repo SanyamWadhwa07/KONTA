@@ -79,43 +79,36 @@ export function SettingsModal({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-30 z-40 transition-opacity" onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 z-50 bg-white w-full shadow-xl transition-transform duration-300 ease-in-out overflow-y-auto">
-        <div className="bg-white rounded-lg p-4 w-full h-full flex flex-col">
+      <div className="fixed inset-0 bg-black bg-opacity-30 dark:bg-opacity-60 z-40 transition-opacity" onClick={onClose} />
+      <div className="fixed right-0 top-0 bottom-0 z-50 bg-white dark:bg-[#1C1C1E] w-full shadow-xl transition-transform duration-300 ease-in-out overflow-y-auto">
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-lg p-4 w-full h-full flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between mb-4 pt-2">
-            <h2 className="text-xl font" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+            <h2 className="text-xl font text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
               Settings
             </h2>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-blue-100 rounded transition-colors"
-              style={{ color: '#0072df' }}>
+              className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded transition-colors text-[#0072df] dark:text-[#4A9FFF]">
               <X className="h-5 w-5" />
             </button>
           </div>
 
           <div className="flex flex-col gap-3">
             {/* Appearance Section */}
-            <div className="pb-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-              <h3 className="text-sm font-normal mb-2" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
+            <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Appearance
               </h3>
               <div className="flex flex-col gap-2">
-                <button
+                <div
                   onClick={() => onUpdateSettings({
                     ...settings,
                     ui: { ...settings.ui, darkMode: !settings.ui.darkMode }
                   })}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border flex items-center justify-between"
-                  style={{ 
-                    color: '#080A0B', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E] cursor-pointer">
                   <div>
-                    <div className="font-medium flex items-center gap-2">
+                    <div className="font-medium flex items-center gap-2 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                       </svg>
@@ -123,14 +116,14 @@ export function SettingsModal({
                     </div>
                   </div>
                   <ToggleSwitch enabled={settings.ui.darkMode} onChange={() => {}} />
-                </button>
+                </div>
               </div>
             </div>
 
 
             {/* Notifications Section */}
-            <div className="pb-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-              <h3 className="text-sm font-normal mb-2" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
+            <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Notifications
               </h3>
               <div className="flex flex-col gap-2">
@@ -139,15 +132,9 @@ export function SettingsModal({
                     ...settings,
                     notifications: { ...settings.notifications, projectDetection: !settings.notifications.projectDetection }
                   })}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border flex items-center justify-between"
-                  style={{ 
-                    color: '#080A0B', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E]">
                   <div>
-                    <div className="font-medium">Project Detection</div>
+                    <div className="font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Project Detection</div>
                   </div>
                   <ToggleSwitch enabled={settings.notifications.projectDetection} onChange={() => {}} />
                 </button>
@@ -157,15 +144,9 @@ export function SettingsModal({
                     ...settings,
                     notifications: { ...settings.notifications, projectSuggestions: !settings.notifications.projectSuggestions }
                   })}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border flex items-center justify-between"
-                  style={{ 
-                    color: '#080A0B', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E]">
                   <div>
-                    <div className="font-medium">Project Suggestions</div>
+                    <div className="font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Project Suggestions</div>
                   </div>
                   <ToggleSwitch enabled={settings.notifications.projectSuggestions} onChange={() => {}} />
                 </button>
@@ -179,27 +160,21 @@ export function SettingsModal({
             </div>
 
             {/* Privacy & Data Section */}
-            <div className="pb-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-              <h3 className="text-sm font-normal mb-2" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
+            <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Privacy & Data
               </h3>
               <div className="flex flex-col gap-2">
                 {settings.privacy.excludedDomains.length > 0 && (
-                  <div className="px-3 py-2 rounded-lg border text-xs" style={{ borderColor: '#E5E5E5', backgroundColor: '#FFFFFF' }}>
-                    <div className="font-medium mb-1" style={{ color: '#080A0B' }}>Excluded: {settings.privacy.excludedDomains.join(', ')}</div>
+                  <div className="px-3 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] text-xs bg-white dark:bg-[#2C2C2E]">
+                    <div className="font-medium mb-1 text-[#080A0B] dark:text-[#FFFFFF]">Excluded: {settings.privacy.excludedDomains.join(', ')}</div>
                   </div>
                 )}
 
                 <button
                   onClick={onExportData}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                  style={{ 
-                    color: '#080A0B', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
-                  <div className="font-medium flex items-center gap-2">
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E]">
+                  <div className="font-medium flex items-center gap-2 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
@@ -209,14 +184,8 @@ export function SettingsModal({
 
                 <button
                   onClick={onImportData}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                  style={{ 
-                    color: '#080A0B', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
-                  <div className="font-medium flex items-center gap-2">
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E]">
+                  <div className="font-medium flex items-center gap-2 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
@@ -226,14 +195,8 @@ export function SettingsModal({
 
                 <button
                   onClick={onClearAllSessions}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                  style={{ 
-                    color: '#dc2626', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
-                  <div className="font-medium flex items-center gap-2">
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E]">
+                  <div className="font-medium flex items-center gap-2 text-[#dc2626] dark:text-[#FF6B6B]" style={{ fontFamily: "'Breeze Sans'" }}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
@@ -243,33 +206,21 @@ export function SettingsModal({
 
                 <button
                   onClick={onClearAllProjects}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                  style={{ 
-                    color: '#dc2626', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
-                  <div className="font-medium">Clear All Projects</div>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E]">
+                  <div className="font-medium text-[#dc2626] dark:text-[#FF6B6B]" style={{ fontFamily: "'Breeze Sans'" }}>Clear All Projects</div>
                 </button>
 
                 <button
                   onClick={onClearAllData}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                  style={{ 
-                    color: '#dc2626', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
-                  <div className="font-medium">Nuclear Reset</div>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E]">
+                  <div className="font-medium text-[#dc2626] dark:text-[#FF6B6B]" style={{ fontFamily: "'Breeze Sans'" }}>Nuclear Reset</div>
                 </button>
               </div>
             </div>
 
             {/* Developer Section */}
-            <div className="pb-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-              <h3 className="text-sm font-normal mb-2" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
+            <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Developer
               </h3>
               <div className="flex flex-col gap-2">
@@ -278,15 +229,9 @@ export function SettingsModal({
                     ...settings,
                     developer: { ...settings.developer, debugMode: !settings.developer.debugMode }
                   })}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border flex items-center justify-between"
-                  style={{ 
-                    color: '#080A0B', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E]">
                   <div>
-                    <div className="font-medium">Debug Mode</div>
+                    <div className="font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Debug Mode</div>
                   </div>
                   <ToggleSwitch enabled={settings.developer.debugMode} onChange={() => {}} />
                 </button>
@@ -296,75 +241,57 @@ export function SettingsModal({
                     ...settings,
                     developer: { ...settings.developer, showCoiPanel: !settings.developer.showCoiPanel }
                   })}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border flex items-center justify-between"
-                  style={{ 
-                    color: '#080A0B', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E]">
                   <div>
-                    <div className="font-medium">Show COI Panel</div>
+                    <div className="font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Show COI Panel</div>
                   </div>
                   <ToggleSwitch enabled={settings.developer.showCoiPanel} onChange={() => {}} />
                 </button>
 
                 <button
                   onClick={onResetAllSettings}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                  style={{ 
-                    color: '#dc2626', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
-                  <div className="font-medium">Reset All Settings</div>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E]">
+                  <div className="font-medium text-[#dc2626] dark:text-[#FF6B6B]" style={{ fontFamily: "'Breeze Sans'" }}>Reset All Settings</div>
                 </button>
 
                 <button
                   onClick={onReloadExtension}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 border"
-                  style={{ 
-                    color: '#080A0B', 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#E5E5E5',
-                    backgroundColor: '#FFFFFF'
-                  }}>
-                  <div className="font-medium">Reload Extension</div>
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E]">
+                  <div className="font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Reload Extension</div>
                 </button>
               </div>
             </div>
 
             {/* About Section */}
             <div className="mb-4">
-              <h3 className="text-sm font-normal mb-2" style={{ color: '#0072df', fontFamily: "'Breeze Sans'" }}>
+              <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                 About
               </h3>
-              <div className="px-3 py-2 rounded-lg border" style={{ backgroundColor: '#F5F5F5', borderColor: '#E5E5E5' }}>
-                <div className="text-xs" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+              <div className="px-3 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] bg-[#F5F5F5] dark:bg-[#2C2C2E]">
+                <div className="text-xs text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                   <div className="flex items-center justify-between mb-1">
-                    <span style={{ color: '#9A9FA6' }}>Version:</span>
-                    <span style={{ fontSize: '0.875rem', color: '#080A0B' }}>v0.0.1</span>
+                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Version:</span>
+                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">v0.0.1</span>
                   </div>
                   <div className="flex items-center justify-between mb-1">
-                    <span style={{ color: '#9A9FA6' }}>Sessions:</span>
-                    <span style={{ fontSize: '0.875rem', color: '#080A0B' }}>{sessionsCount}</span>
+                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Sessions:</span>
+                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{sessionsCount}</span>
                   </div>
                   <div className="flex items-center justify-between mb-1">
-                    <span style={{ color: '#9A9FA6' }}>Labels:</span>
-                    <span style={{ fontSize: '0.875rem', color: '#080A0B' }}>{labelsCount}</span>
+                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Labels:</span>
+                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{labelsCount}</span>
                   </div>
                   <div className="flex items-center justify-between mb-1">
-                    <span style={{ color: '#9A9FA6' }}>Pages:</span>
-                    <span style={{ fontSize: '0.875rem', color: '#080A0B' }}>{pagesCount}</span>
+                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Pages:</span>
+                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{pagesCount}</span>
                   </div>
                   <div className="flex items-center justify-between mb-1">
-                    <span style={{ color: '#9A9FA6' }}>Projects:</span>
-                    <span style={{ fontSize: '0.875rem', color: '#080A0B' }}>{projectsCount}</span>
+                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Projects:</span>
+                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{projectsCount}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span style={{ color: '#9A9FA6' }}>Candidates:</span>
-                    <span style={{ fontSize: '0.875rem', color: '#080A0B' }}>{candidatesCount}</span>
+                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Candidates:</span>
+                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{candidatesCount}</span>
                   </div>
                 </div>
               </div>

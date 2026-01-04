@@ -217,7 +217,7 @@ export function FocusPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50" style={{ fontFamily: "'Breeze Sans'" }}>
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-[#1C1C1E]" style={{ fontFamily: "'Breeze Sans'" }}>
       {/* Header with Focus Mode Toggle */}
       <div className="p-4 border-b" style={{ borderColor: '#E5E7EB' }}>
         {/* <div className="flex items-center justify-between mb-3">
@@ -252,16 +252,20 @@ export function FocusPanel() {
           onClick={toggleFocusMode}
           className="w-full p-5 rounded-xl transition-all flex items-center justify-between shadow-sm hover:shadow-md"
           style={{
-            backgroundColor: focusState.isActive ? '#0072de' : '#FFFFFF',
-            color: focusState.isActive ? '#FFFFFF' : '#080A0B',
-            border: focusState.isActive ? 'none' : '2px solid #E5E5E5'
+            backgroundColor: focusState.isActive 
+              ? (document.documentElement.classList.contains('dark') ? '#4A9FFF' : '#0072de')
+              : (document.documentElement.classList.contains('dark') ? '#2C2C2E' : '#FFFFFF'),
+            color: focusState.isActive ? '#FFFFFF' : (document.documentElement.classList.contains('dark') ? '#FFFFFF' : '#080A0B'),
+            border: focusState.isActive ? 'none' : (document.documentElement.classList.contains('dark') ? '2px solid #3A3A3C' : '2px solid #E5E5E5')
           }}
         >
           <div className="flex items-center gap-4">
             <div
               className="p-3 rounded-lg"
               style={{
-                backgroundColor: focusState.isActive ? 'rgba(255,255,255,0.2)' : '#F3F4F6'
+                backgroundColor: focusState.isActive 
+                  ? 'rgba(255,255,255,0.2)' 
+                  : (document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#F3F4F6')
               }}
             >
               {focusState.isActive ? (
@@ -287,8 +291,10 @@ export function FocusPanel() {
           <div
             className="px-4 py-2 rounded-lg text-sm font-medium"
             style={{
-              backgroundColor: focusState.isActive ? 'rgba(255,255,255,0.2)' : '#F3F4F6',
-              color: focusState.isActive ? '#FFFFFF' : '#080A0B'
+              backgroundColor: focusState.isActive 
+                ? 'rgba(255,255,255,0.2)' 
+                : (document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#F3F4F6'),
+              color: focusState.isActive ? '#FFFFFF' : (document.documentElement.classList.contains('dark') ? '#FFFFFF' : '#080A0B')
             }}
           >
             {focusState.isActive ? 'ON' : 'OFF'}
@@ -308,8 +314,7 @@ export function FocusPanel() {
             return (
               <div
                 key={categoryInfo.id}
-                className="bg-white rounded-xl shadow-sm overflow-hidden border hover:shadow-md transition-shadow"
-                style={{ borderColor: '#E5E5E5' }}
+                className="bg-white dark:bg-[#2C2C2E] rounded-xl shadow-sm overflow-hidden border border-[#E5E5E5] dark:border-[#3A3A3C] hover:shadow-md transition-shadow"
               >
                 {/* Category Header */}
                 <div className="flex items-center justify-between p-4">
@@ -319,12 +324,12 @@ export function FocusPanel() {
                   >
                     <div
                       className="w-10 h-10 flex items-center justify-center rounded-lg text-xl"
-                      style={{ backgroundColor: '#F3F4F6' }}
+                      style={{ backgroundColor: document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#F3F4F6' }}
                     >
                       {categoryInfo.emoji}
                     </div>
                     <div className="flex-1">
-                      <div className="font-semibold text-sm" style={{ color: '#080A0B' }}>
+                      <div className="font-semibold text-sm text-[#080A0B] dark:text-[#FFFFFF]">
                         {categoryInfo.name}
                       </div>
                       <div className="text-xs mt-0.5" style={{ color: '#9A9FA6' }}>
@@ -346,8 +351,10 @@ export function FocusPanel() {
                         : ''
                     }`}
                     style={{
-                      backgroundColor: isEnabled ? '#0072de' : '#F3F4F6',
-                      color: isEnabled ? '#FFFFFF' : '#080A0B'
+                      backgroundColor: isEnabled 
+                        ? (document.documentElement.classList.contains('dark') ? '#4A9FFF' : '#0072de')
+                        : (document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#F3F4F6'),
+                      color: isEnabled ? '#FFFFFF' : (document.documentElement.classList.contains('dark') ? '#FFFFFF' : '#080A0B')
                     }}
                   >
                     {isEnabled ? 'ON' : 'OFF'}
@@ -356,7 +363,7 @@ export function FocusPanel() {
 
                 {/* Category Entries (Expanded) */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 space-y-2 border-t" style={{ borderColor: '#F3F4F6' }}>
+                  <div className="px-4 pb-4 space-y-2 border-t border-[#F3F4F6] dark:border-[#3A3A3C]">
                     <div className="pt-3 space-y-2">
                       {entries.length === 0 ? (
                         <p className="text-xs text-center py-6" style={{ color: '#9A9FA6' }}>
@@ -366,11 +373,10 @@ export function FocusPanel() {
                         entries.map(({ entry, index }) => (
                           <div
                             key={index}
-                            className="flex items-start justify-between p-3 rounded-lg border hover:border-blue-200 transition-all"
-                            style={{ borderColor: '#E5E5E5', backgroundColor: '#FAFAFA' }}
+                            className="flex items-start justify-between p-3 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] bg-[#FAFAFA] dark:bg-[#1C1C1E] hover:border-blue-200 transition-all"
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-mono truncate font-medium" style={{ color: '#080A0B' }}>
+                              <div className="text-sm font-mono truncate font-medium text-[#080A0B] dark:text-[#FFFFFF]">
                                 {entry.pattern}
                               </div>
                               {entry.reason && (
@@ -381,7 +387,7 @@ export function FocusPanel() {
                             </div>
                             <button
                               onClick={() => deleteEntry(index)}
-                              className="ml-3 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                              className="ml-3 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900 transition-colors"
                               title="Delete entry"
                             >
                               <Trash2 className="h-4 w-4" style={{ color: '#EF4444' }} />
@@ -393,28 +399,31 @@ export function FocusPanel() {
 
                     {/* Add Entry Form */}
                     {addingEntry === categoryInfo.id ? (
-                      <div className="p-4 border rounded-xl" style={{ borderColor: '#E5E5E5', backgroundColor: '#FAFAFA' }}>
+                      <div className="p-4 border rounded-xl border-[#E5E5E5] dark:border-[#3A3A3C] bg-[#FAFAFA] dark:bg-[#1C1C1E]">
                         <input
                           type="text"
                           placeholder="*.example.com or example.com/path/*"
                           value={newEntryForm.pattern}
                           onChange={(e) => setNewEntryForm({ ...newEntryForm, pattern: e.target.value })}
-                          className="w-full px-4 py-3 text-sm border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          style={{ borderColor: '#E5E5E5', fontFamily: "'Breeze Sans'" }}
+                          className="w-full px-4 py-3 text-sm border border-[#E5E5E5] dark:border-[#3A3A3C] rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#2C2C2E] text-[#080A0B] dark:text-[#FFFFFF]"
+                          style={{ fontFamily: "'Breeze Sans'" }}
                         />
                         <input
                           type="text"
                           placeholder="Reason (optional)"
                           value={newEntryForm.reason}
                           onChange={(e) => setNewEntryForm({ ...newEntryForm, reason: e.target.value })}
-                          className="w-full px-4 py-3 text-sm border rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          style={{ borderColor: '#E5E5E5', fontFamily: "'Breeze Sans'" }}
+                          className="w-full px-4 py-3 text-sm border border-[#E5E5E5] dark:border-[#3A3A3C] rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#2C2C2E] text-[#080A0B] dark:text-[#FFFFFF]"
+                          style={{ fontFamily: "'Breeze Sans'" }}
                         />
                         <div className="flex gap-2">
                           <button
                             onClick={() => addEntry(categoryInfo.id)}
                             className="flex-1 px-4 py-3 rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow"
-                            style={{ backgroundColor: '#0072de', color: '#FFFFFF' }}
+                            style={{ 
+                              backgroundColor: document.documentElement.classList.contains('dark') ? '#4A9FFF' : '#0072de',
+                              color: '#FFFFFF' 
+                            }}
                           >
                             <Check className="h-4 w-4 inline mr-2" />
                             Add Site
@@ -425,7 +434,10 @@ export function FocusPanel() {
                               setNewEntryForm({ pattern: "", reason: "" })
                             }}
                             className="px-4 py-3 rounded-lg text-sm font-semibold transition-all"
-                            style={{ backgroundColor: '#F3F4F6', color: '#080A0B' }}
+                            style={{ 
+                              backgroundColor: document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#F3F4F6',
+                              color: document.documentElement.classList.contains('dark') ? '#FFFFFF' : '#080A0B'
+                            }}
                           >
                             <X className="h-4 w-4 inline" />
                           </button>
@@ -434,8 +446,8 @@ export function FocusPanel() {
                     ) : (
                       <button
                         onClick={() => setAddingEntry(categoryInfo.id)}
-                        className="w-full p-3 border-2 border-dashed rounded-lg text-sm font-medium transition-all hover:border-blue-300 hover:bg-blue-50"
-                        style={{ borderColor: '#E5E5E5', color: '#0072de' }}
+                        className="w-full p-3 border-2 border-dashed rounded-lg text-sm font-medium transition-all hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C]"
+                        style={{ color: document.documentElement.classList.contains('dark') ? '#4A9FFF' : '#0072de' }}
                       >
                         <Plus className="h-4 w-4 inline mr-1" />
                         Add Site to {categoryInfo.name}

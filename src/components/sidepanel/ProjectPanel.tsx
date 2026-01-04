@@ -323,7 +323,7 @@ function ProjectsPanel({
       )}
 
       {/* Header with Action Buttons - Sticky */}
-      <div className="sticky top-0 z-10 flex items-center justify-center gap-3 p-4 pt-0 bg-white border-b" style={{ borderColor: '#E5E5E5' }}>
+      <div className="sticky top-0 z-10 flex items-center justify-center gap-3 p-4 pt-0 bg-white dark:bg-[#1C1C1E] border-b border-[#E5E5E5] dark:border-[#3A3A3C]">
         <button
           onClick={() => {
             setShowCreateCard(!showCreateCard)
@@ -331,7 +331,14 @@ function ProjectsPanel({
             setNewProjectDescription("")
           }}
           className="font-normal h-10 mt-4 border-0 focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6 flex items-center gap-1.5 text-xs text-white transition-colors"
-          style={{ backgroundColor: 'var(--primary)', color: 'white', fontFamily: "'Breeze Sans'", border: 'none', outline: 'none', boxShadow: 'none' }}>
+          style={{ 
+            backgroundColor: document.documentElement.classList.contains('dark') ? '#4A9FFF' : '#0072de',
+            color: 'white', 
+            fontFamily: "'Breeze Sans'", 
+            border: 'none', 
+            outline: 'none', 
+            boxShadow: 'none' 
+          }}>
           <span className="flex items-center justify-center rounded-md" style={{ width: '16px', height: '16px', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {showCreateCard ? (
@@ -352,7 +359,13 @@ function ProjectsPanel({
           }}
           disabled={!currentPage && !showCurrentPage}
           className="font-normal h-10 mt-4 border-0 focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6 flex items-center gap-1.5 text-xs text-white transition-colors disabled:opacity-50"
-          style={{ backgroundColor: 'var(--primary)', fontFamily: "'Breeze Sans'", border: 'none', outline: 'none', boxShadow: 'none' }}>
+          style={{ 
+            backgroundColor: document.documentElement.classList.contains('dark') ? '#4A9FFF' : '#0072de',
+            fontFamily: "'Breeze Sans'", 
+            border: 'none', 
+            outline: 'none', 
+            boxShadow: 'none' 
+          }}>
           <span className="flex items-center justify-center rounded-md" style={{ width: '16px', height: '16px', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -366,15 +379,14 @@ function ProjectsPanel({
       {showCreateCard && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
           <div
-            className="rounded-lg p-5 w-72 shadow-lg bg-white"
-            style={{ borderColor: '#DDD', borderWidth: '1px' }}>
-            <h3 className="text-base font-normal mb-4" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+            className="rounded-lg p-5 w-72 shadow-lg bg-white dark:bg-[#2C2C2E] border border-[#DDD] dark:border-[#3A3A3C]">
+            <h3 className="text-base font-normal mb-4 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
               Create New Project
             </h3>
             
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-xs font-normal" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
+                <label className="text-xs font-normal text-[#666666] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
                   Project Name <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <input
@@ -382,32 +394,26 @@ function ProjectsPanel({
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder=""
-                  className="w-full mt-1 px-3 py-2 text-sm rounded-lg border outline-none focus:border-blue-500"
+                  className="w-full mt-1 px-3 py-2 text-sm rounded-lg border outline-none focus:border-blue-500 bg-[#FFFFFF] dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF] border-[#DDD] dark:border-[#3A3A3C]"
                   style={{ 
-                    fontFamily: "'Breeze Sans'",
-                    borderColor: '#DDD',
-                    backgroundColor: '#FFFFFF',
-                    color: '#080A0B'
+                    fontFamily: "'Breeze Sans'"
                   }}
                   autoFocus
                 />
               </div>
               
               <div>
-                <label className="text-xs font-normal" style={{ color: '#666', fontFamily: "'Breeze Sans'" }}>
+                <label className="text-xs font-normal text-[#666666] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
                   Description (Optional)
                 </label>
                 <textarea
                   value={newProjectDescription}
                   onChange={(e) => setNewProjectDescription(e.target.value)}
                   placeholder=""
-                  className="w-full mt-1 px-3 py-2 text-sm rounded-lg border outline-none focus:border-blue-500 resize-none"
+                  className="w-full mt-1 px-3 py-2 text-sm rounded-lg border outline-none focus:border-blue-500 resize-none bg-[#FFFFFF] dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF] border-[#DDD] dark:border-[#3A3A3C]"
                   style={{ 
                     fontFamily: "'Breeze Sans'",
-                    minHeight: '80px',
-                    borderColor: '#DDD',
-                    backgroundColor: '#FFFFFF',
-                    color: '#080A0B'
+                    minHeight: '80px'
                   }}
                 />
               </div>
@@ -420,10 +426,8 @@ function ProjectsPanel({
                     setNewProjectDescription("")
                   }}
                   disabled={creating}
-                  className="px-4 py-1.5 text-xs rounded-lg transition-colors"
+                  className="px-4 py-1.5 text-xs rounded-lg transition-colors bg-[#F5F5F5] dark:bg-[#2C2C2E] text-[#666666] dark:text-[#FFFFFF]"
                   style={{ 
-                    backgroundColor: '#F5F5F5',
-                    color: '#666',
                     fontFamily: "'Breeze Sans'"
                   }}>
                   Cancel
@@ -433,7 +437,9 @@ function ProjectsPanel({
                   disabled={!newProjectName.trim() || creating}
                   className="px-4 py-1.5 text-xs rounded-lg text-white transition-colors disabled:opacity-50"
                   style={{ 
-                    backgroundColor: newProjectName.trim() ? '#0072de' : '#CCC',
+                    backgroundColor: newProjectName.trim() 
+                      ? (document.documentElement.classList.contains('dark') ? '#4A9FFF' : '#0072de')
+                      : '#CCC',
                     fontFamily: "'Breeze Sans'",
                   }}>
                   {creating ? 'Creating...' : 'Create'}

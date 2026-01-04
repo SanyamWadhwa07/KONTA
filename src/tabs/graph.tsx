@@ -42,6 +42,25 @@ export default function GraphFullPage() {
   const faviconCache = useRef<Map<string, HTMLImageElement>>(new Map())
   const [focusedClusterId, setFocusedClusterId] = useState<number | null>(null)
   const [showAllClusters, setShowAllClusters] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'))
+
+  // Monitor dark mode changes
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          setIsDarkMode(document.documentElement.classList.contains('dark'))
+        }
+      })
+    })
+    
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+    
+    return () => observer.disconnect()
+  }, [])
 
   // Check URL parameters for focused cluster
   useEffect(() => {
@@ -238,10 +257,10 @@ export default function GraphFullPage() {
 
   if (loading && !graph) {
     return (
-      <div className="flex items-center justify-center w-screen h-screen bg-white">
+      <div className="flex items-center justify-center w-screen h-screen bg-white dark:bg-[#1C1C1E]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p style={{ fontFamily: "'Breeze Sans'", color: '#080A0B' }}>Loading knowledge graph...</p>
+          <div className="w-12 h-12 border-4 border-[#0072de] dark:border-[#4A9FFF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Loading knowledge graph...</p>
         </div>
       </div>
     )
@@ -249,12 +268,12 @@ export default function GraphFullPage() {
 
   if (!graph || graph.nodes.length === 0) {
     return (
-      <div className="flex items-center justify-center w-screen h-screen bg-white">
+      <div className="flex items-center justify-center w-screen h-screen bg-white dark:bg-[#1C1C1E]">
         <div className="text-center">
-          <p className="text-lg font-medium mb-2" style={{ fontFamily: "'Breeze Sans'", color: '#080A0B' }}>
+          <p className="text-lg font-medium mb-2 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
             No browsing data yet
           </p>
-          <p className="text-sm" style={{ color: '#9A9FA6' }}>
+          <p className="text-sm text-[#9A9FA6] dark:text-[#9A9FA6]">
             Start browsing to see your knowledge graph
           </p>
         </div>
@@ -696,40 +715,39 @@ export default function GraphFullPage() {
     (!allClustersSelected ? 1 : 0)
 
   return (
-    <div className="flex flex-col w-screen h-screen bg-white overflow-hidden">
+    <div className="flex flex-col w-screen h-screen bg-white dark:bg-[#1C1C1E] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-white" style={{ borderColor: '#E5E5E5' }}>
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+          <h1 className="text-xl font-bold text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
             Knowledge Graph - Full View
           </h1>
-          <p className="text-sm" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+          <p className="text-sm text-[#9A9FA6] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
             {filteredNodes.length} nodes · {graphData.links.length} connections
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowLabels(!showLabels)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF] hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
             style={{ 
-              color: '#080A0B', 
               fontFamily: "'Breeze Sans'", 
-              border: '1px solid #E5E5E5',
-              backgroundColor: showLabels ? '#eff6ff' : 'transparent'
+              border: '1px solid',
+              backgroundColor: showLabels ? '#eff6ff' : undefined
             }}
             title="Toggle node labels">
             <span>Labels</span>
           </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
-            style={{ color: '#080A0B', fontFamily: "'Breeze Sans'", border: '1px solid #E5E5E5' }}>
+            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF] hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
+            style={{ fontFamily: "'Breeze Sans'", border: '1px solid' }}>
             <Sliders className="h-3.5 w-3.5" />
             <span>Filters</span>
             {activeFilterCount > 0 && (
               <span 
-                className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full"
-                style={{ backgroundColor: '#0072de', color: 'white' }}>
+                className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-[#0072de] dark:bg-[#4A9FFF]"
+                style={{ color: 'white' }}>
                 {activeFilterCount}
               </span>
             )}
@@ -739,12 +757,13 @@ export default function GraphFullPage() {
               const newMode = graphMode === 'semantic' ? 'projects' : 'semantic'
               setGraphMode(newMode)
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
             style={{ 
-              color: graphMode === 'projects' ? '#FFFFFF' : '#080A0B', 
+              color: graphMode === 'projects' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
               fontFamily: "'Breeze Sans'", 
-              border: '1px solid #E5E5E5',
-              backgroundColor: graphMode === 'projects' ? '#0072de' : 'transparent'
+              border: '1px solid',
+              borderColor: graphMode === 'projects' ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: graphMode === 'projects' ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
             }}
             title="Switch between semantic and project-based clustering">
             <span>{graphMode === 'semantic' ? 'Semantic' : 'Projects'}</span>
@@ -754,12 +773,13 @@ export default function GraphFullPage() {
               setManualLinkMode(!manualLinkMode)
               setSelectedNodesForLink([])
             }}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
+            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
             style={{ 
-              color: manualLinkMode ? '#FFFFFF' : '#080A0B', 
+              color: manualLinkMode ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
               fontFamily: "'Breeze Sans'", 
-              border: '1px solid #E5E5E5',
-              backgroundColor: manualLinkMode ? '#0072de' : 'transparent'
+              border: '1px solid',
+              borderColor: manualLinkMode ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: manualLinkMode ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
             }}
             title="Click two nodes to create a manual link">
             <Link className="h-3.5 w-3.5" />
@@ -767,12 +787,13 @@ export default function GraphFullPage() {
           </button>
           <button
             onClick={() => setShowExplanations(!showExplanations)}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50"
+            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
             style={{ 
-              color: showExplanations ? '#FFFFFF' : '#080A0B', 
+              color: showExplanations ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
               fontFamily: "'Breeze Sans'", 
-              border: '1px solid #E5E5E5',
-              backgroundColor: showExplanations ? '#0072de' : 'transparent'
+              border: '1px solid',
+              borderColor: showExplanations ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: showExplanations ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
             }}
             title="Explain how connections are made">
             <span>📊</span>
@@ -780,8 +801,7 @@ export default function GraphFullPage() {
           </button>
           <button
             onClick={handleRefresh}
-            className="p-1.5 rounded-lg transition-colors hover:bg-gray-50"
-            style={{ color: '#9A9FA6' }}>
+            className="p-1.5 rounded-lg transition-colors bg-white dark:bg-[#2C2C2E] hover:bg-gray-50 dark:hover:bg-[#3A3A3C] text-[#9A9FA6] dark:text-[#9A9FA6]">
             <RotateCw className="h-4 w-4" />
           </button>
         </div>
@@ -789,11 +809,11 @@ export default function GraphFullPage() {
 
       {/* Manual Link Mode Banner */}
       {manualLinkMode && (
-        <div className="px-6 py-2 bg-blue-50 border-b" style={{ borderColor: '#E5E5E5' }}>
+        <div className="px-6 py-2 bg-blue-50 dark:bg-[#2C2C2E] border-b border-[#E5E5E5] dark:border-[#3A3A3C]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Link className="h-4 w-4" style={{ color: '#0072de' }} />
-              <span className="text-xs font-medium" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+              <Link className="h-4 w-4 text-[#0072de] dark:text-[#4A9FFF]" />
+              <span className="text-xs font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                 {selectedNodesForLink.length === 0 
                   ? 'Click two nodes to link them (or unlink if already connected)' 
                   : 'Click second node to toggle link'}
@@ -802,8 +822,8 @@ export default function GraphFullPage() {
             {selectedNodesForLink.length > 0 && (
               <button
                 onClick={() => setSelectedNodesForLink([])}
-                className="text-xs px-2 py-1 rounded hover:bg-blue-100"
-                style={{ color: '#0072de', fontFamily: "'Breeze Sans'" }}>
+                className="text-xs px-2 py-1 rounded text-[#0072de] dark:text-[#4A9FFF] hover:bg-blue-100 dark:hover:bg-[#3A3A3C]"
+                style={{ fontFamily: "'Breeze Sans'" }}>
                 Cancel
               </button>
             )}
@@ -812,26 +832,25 @@ export default function GraphFullPage() {
       )}
 
       {/* Search Bar */}
-      <div className="px-6 py-3 border-b bg-white" style={{ borderColor: '#E5E5E5' }}>
+      <div className="px-6 py-3 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#9A9FA6' }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9A9FA6]" />
           <input
             type="text"
             placeholder="Search nodes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 text-sm rounded-lg focus:outline-none focus:ring-2"
+            className="w-full pl-10 pr-10 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]"
             style={{ 
-              border: '1px solid #E5E5E5', 
-              fontFamily: "'Breeze Sans'",
-              color: '#080A0B'
+              border: '1px solid', 
+              fontFamily: "'Breeze Sans'"
             }}
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded">
-              <X className="h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-[#3A3A3C] rounded">
+              <X className="h-3.5 w-3.5 text-[#9A9FA6]" />
             </button>
           )}
         </div>
@@ -839,15 +858,15 @@ export default function GraphFullPage() {
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="px-6 py-4 border-b bg-gray-50" style={{ borderColor: '#E5E5E5' }}>
+        <div className="px-6 py-4 border-b bg-gray-50 dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C]">
           <div className="space-y-4">
             {/* Similarity Slider */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-medium" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                <label className="text-xs font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                   Min Similarity:
                 </label>
-                <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ backgroundColor: '#E5E5E5', color: '#080A0B' }}>
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-[#E5E5E5] dark:bg-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]">
                   {minSimilarity.toFixed(2)}
                 </span>
               </div>
@@ -865,7 +884,7 @@ export default function GraphFullPage() {
             {/* Cluster Filter */}
             {clusters.length > 0 && (
               <div className="flex items-start gap-2">
-                <span className="text-xs font-medium pt-1 whitespace-nowrap" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                <span className="text-xs font-medium pt-1 whitespace-nowrap text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                   Clusters:
                 </span>
                 <div className="flex-1 flex flex-wrap gap-1.5">
@@ -880,9 +899,9 @@ export default function GraphFullPage() {
                         onClick={() => toggleCluster(clusterId)}
                         className="px-2.5 py-1 text-xs font-medium rounded-full transition-all"
                         style={{
-                          backgroundColor: isActive ? getClusterColor(clusterId) : '#FFFFFF',
-                          color: isActive ? '#FFFFFF' : '#080A0B',
-                          border: `1px solid ${isActive ? getClusterColor(clusterId) : '#E5E5E5'}`,
+                          backgroundColor: isActive ? getClusterColor(clusterId) : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                          color: isActive ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+                          border: `1px solid ${isActive ? getClusterColor(clusterId) : (isDarkMode ? '#3A3A3C' : '#E5E5E5')}`,
                           fontFamily: "'Breeze Sans'"
                         }}>
                         {clusterLabel}
@@ -892,11 +911,9 @@ export default function GraphFullPage() {
                   {clusters.length > 3 && (
                     <button
                       onClick={() => setShowAllClusters(!showAllClusters)}
-                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all"
+                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]"
                       style={{
-                        backgroundColor: '#FFFFFF',
-                        color: '#080A0B',
-                        border: '1px solid #E5E5E5',
+                        border: '1px solid',
                         fontFamily: "'Breeze Sans'"
                       }}>
                       {showAllClusters ? 'Show Less' : `+${clusters.length - 3} More`}
@@ -905,8 +922,8 @@ export default function GraphFullPage() {
                   {!allClustersSelected && (
                     <button
                       onClick={clearClusterFilter}
-                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline"
-                      style={{ color: '#0072de', fontFamily: "'Breeze Sans'" }}>
+                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-[#0072de] dark:text-[#4A9FFF]"
+                      style={{ fontFamily: "'Breeze Sans'" }}>
                       Clear
                     </button>
                   )}
@@ -918,29 +935,26 @@ export default function GraphFullPage() {
       )}
 
       {/* Graph Container */}
-      <div ref={containerRef} className="flex-1 relative bg-white overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative bg-white dark:bg-[#1C1C1E] overflow-hidden">
         {/* Zoom Controls */}
         <div className="absolute bottom-6 right-6 z-10 flex flex-col gap-2">
           <button
             onClick={handleZoomIn}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95"
-            style={{ border: '2px solid #E5E5E5' }}
+            className="p-3 rounded-lg bg-white dark:bg-[#2C2C2E] shadow-md transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C] active:scale-95 border-2 border-[#E5E5E5] dark:border-[#3A3A3C]"
             title="Zoom in">
-            <ZoomIn className="h-5 w-5" style={{ color: '#080A0B' }} />
+            <ZoomIn className="h-5 w-5 text-[#080A0B] dark:text-[#FFFFFF]" />
           </button>
           <button
             onClick={handleZoomReset}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95"
-            style={{ border: '2px solid #E5E5E5' }}
+            className="p-3 rounded-lg bg-white dark:bg-[#2C2C2E] shadow-md transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C] active:scale-95 border-2 border-[#E5E5E5] dark:border-[#3A3A3C]"
             title="Reset zoom">
-            <RotateCw className="h-5 w-5" style={{ color: '#080A0B' }} />
+            <RotateCw className="h-5 w-5 text-[#080A0B] dark:text-[#FFFFFF]" />
           </button>
           <button
             onClick={handleZoomOut}
-            className="p-3 rounded-lg bg-white shadow-md transition-all hover:bg-gray-50 active:scale-95"
-            style={{ border: '2px solid #E5E5E5' }}
+            className="p-3 rounded-lg bg-white dark:bg-[#2C2C2E] shadow-md transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C] active:scale-95 border-2 border-[#E5E5E5] dark:border-[#3A3A3C]"
             title="Zoom out">
-            <ZoomOut className="h-5 w-5" style={{ color: '#080A0B' }} />
+            <ZoomOut className="h-5 w-5 text-[#080A0B] dark:text-[#FFFFFF]" />
           </button>
         </div>
 

@@ -51,7 +51,7 @@ function IndexSidePanel() {
   }, [])
 
   return (
-    <div className="h-screen w-full bg-white">
+    <div className="h-screen w-full bg-white dark:bg-[#1C1C1E]">
       {showPopulated ? (
         <PopulatedState 
           onShowEmpty={() => setShowPopulated(false)} 

@@ -117,6 +117,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
   const [canScrollRight, setCanScrollRight] = useState(false)
   const [canScrollLabelsLeft, setCanScrollLabelsLeft] = useState(false)
   const [canScrollLabelsRight, setCanScrollLabelsRight] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   const fetchCurrentTab = () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -383,8 +384,15 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
   useEffect(() => {
     sendMessage<{ settings: AppSettings | null }>({ type: "GET_SETTINGS" })
       .then((res) => {
+        console.log('[Settings] Loaded settings from storage:', res?.settings)
         if (res?.settings) {
           setSettings(res.settings)
+        } else {
+          // No settings found, use defaults and save them
+          console.log('[Settings] No settings found, using defaults')
+          const defaults = { ...DEFAULT_SETTINGS }
+          setSettings(defaults)
+          sendMessage({ type: "UPDATE_SETTINGS", payload: { settings: defaults } })
         }
       })
       .catch((err) => {
@@ -403,6 +411,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
   // Save settings whenever they change
   const updateSettings = useCallback((newSettings: AppSettings) => {
+    console.log('[Settings] Updating settings:', newSettings)
     setSettings(newSettings)
     sendMessage({ type: "UPDATE_SETTINGS", payload: { settings: newSettings } })
       .catch((err) => {
@@ -412,10 +421,15 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
   // Apply dark mode
   useEffect(() => {
+    console.log('[Dark Mode] settings.ui.darkMode:', settings.ui.darkMode)
     if (settings.ui.darkMode) {
+      console.log('[Dark Mode] Adding dark class')
       document.documentElement.classList.add('dark')
+      setIsDarkMode(true)
     } else {
+      console.log('[Dark Mode] Removing dark class')
       document.documentElement.classList.remove('dark')
+      setIsDarkMode(false)
     }
   }, [settings.ui.darkMode])
 
@@ -809,14 +823,14 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
 
   return (
-    <div className="relative h-full flex flex-col" style={{ backgroundColor: '#FFFFFF' }}>
+    <div className="relative h-full flex flex-col bg-white dark:bg-[#1C1C1E]">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b bg-white" style={{ borderColor: '#E5E5E5' }}>
+      <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
         <div className="flex items-center gap-3">
           <img src={chrome.runtime.getURL('assets/konta_logo.svg')} alt="Konta" className="w-8 h-8" />
           <h1 
-            className="text-xl font"
-            style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+            className="text-xl font text-[#080A0B] dark:text-[#FFFFFF]"
+            style={{ fontFamily: "'Breeze Sans'" }}>
             Konta
           </h1>
         </div>
@@ -824,8 +838,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         {/* Settings Button */}
         <button
           onClick={() => setShowSettingsModal(true)}
-          className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none"
-          style={{ color: 'var(--gray)' }}>
+          className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none text-[#9A9FA6] dark:text-[#9A9FA6]">
           <Settings className="h-5 w-5" />
           <span className="sr-only">Settings</span>
         </button>
@@ -839,13 +852,12 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       )}
 
       {/* Tabs with Navigation Arrows */}
-      <div className="flex items-center border-b gap-1 px-2" style={{ borderColor: '#E5E5E5' }}>
+      <div className="flex items-center border-b gap-1 px-2 border-[#E5E5E5] dark:border-[#3A3A3C]">
         {/* Left Arrow */}
         <button
           onClick={() => scroll('left')}
           disabled={!canScrollLeft}
-          className="flex-shrink-0 p-1.5 transition-colors rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ color: '#9A9FA6' }}>
+          className="flex-shrink-0 p-1.5 transition-colors rounded hover:bg-gray-100 dark:hover:bg-[#2C2C2E] disabled:opacity-30 disabled:cursor-not-allowed text-[#9A9FA6]">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -865,9 +877,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                 activeTab === "sessions" ? "" : "opacity-60"
               }`}
               style={{
-                backgroundColor: activeTab === "sessions" ? "white" : "transparent",
-                color: activeTab === "sessions" ? "#0072de" : "#64748b",
-                borderBottom: activeTab === "sessions" ? "2px solid #0072de" : "none",
+                backgroundColor: activeTab === "sessions" ? (isDarkMode ? '#1C1C1E' : 'white') : "transparent",
+                color: activeTab === "sessions" ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
+                borderBottom: activeTab === "sessions" ? `2px solid ${isDarkMode ? '#4A9FFF' : '#0072de'}` : "none",
                 fontFamily: "'Breeze Sans'"
               }}>
               Timeline
@@ -878,9 +890,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                 activeTab === "graph" ? "" : "opacity-60"
               }`}
               style={{
-                backgroundColor: activeTab === "graph" ? "white" : "transparent",
-                color: activeTab === "graph" ? "#0072de" : "#64748b",
-                borderBottom: activeTab === "graph" ? "2px solid #0072de" : "none",
+                backgroundColor: activeTab === "graph" ? (isDarkMode ? '#1C1C1E' : 'white') : "transparent",
+                color: activeTab === "graph" ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
+                borderBottom: activeTab === "graph" ? `2px solid ${isDarkMode ? '#4A9FFF' : '#0072de'}` : "none",
                 fontFamily: "'Breeze Sans'"
               }}>
               Knowledge Graph
@@ -891,9 +903,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                 activeTab === "projects" ? "" : "opacity-60"
               }`}
               style={{
-                backgroundColor: activeTab === "projects" ? "white" : "transparent",
-                color: activeTab === "projects" ? "#0072de" : "#64748b",
-                borderBottom: activeTab === "projects" ? "2px solid #0072de" : "none",
+                backgroundColor: activeTab === "projects" ? (isDarkMode ? '#1C1C1E' : 'white') : "transparent",
+                color: activeTab === "projects" ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
+                borderBottom: activeTab === "projects" ? `2px solid ${isDarkMode ? '#4A9FFF' : '#0072de'}` : "none",
                 fontFamily: "'Breeze Sans'"
               }}>
               Projects
@@ -904,9 +916,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                 activeTab === "focus" ? "" : "opacity-60"
               }`}
               style={{
-                backgroundColor: activeTab === "focus" ? "white" : "transparent",
-                color: activeTab === "focus" ? "#0072de" : "#64748b",
-                borderBottom: activeTab === "focus" ? "2px solid #0072de" : "none",
+                backgroundColor: activeTab === "focus" ? (isDarkMode ? '#1C1C1E' : 'white') : "transparent",
+                color: activeTab === "focus" ? (isDarkMode ? '#4A9FFF' : '#0072de') : (isDarkMode ? '#FFFFFF' : '#64748b'),
+                borderBottom: activeTab === "focus" ? `2px solid ${isDarkMode ? '#4A9FFF' : '#0072de'}` : "none",
                 fontFamily: "'Breeze Sans'"
               }}>
               Focus Mode
@@ -918,8 +930,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         <button
           onClick={() => scroll('right')}
           disabled={!canScrollRight}
-          className="flex-shrink-0 p-1.5 transition-colors rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ color: '#9A9FA6' }}>
+          className="flex-shrink-0 p-1.5 transition-colors rounded hover:bg-gray-100 dark:hover:bg-[#2C2C2E] disabled:opacity-30 disabled:cursor-not-allowed text-[#9A9FA6]">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
@@ -999,21 +1010,21 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         ) : (
           <>
         {/* Sticky Search Bar Only */}
-        <div className="sticky top-0 z-20 bg-white px-2 pt-4">
+        <div className="sticky top-0 z-20 bg-white dark:bg-[#1C1C1E] px-2 pt-4">
           {/* Back Button and Search Bar */}
           <div className="flex items-center gap-2 mb-5">
             {/* <button className="p-2" onClick={onShowEmpty} style={{ color: '#9A9FA6' }}>
               <ArrowLeft className="h-4 w-4" />
             </button> */}
-            <div className="relative flex items-center gap-3 px-4 py-2.5 rounded-full flex-1" style={{ backgroundColor: '#F5F5F5' }}>
-              <Search className="h-4 w-4" style={{ color: '#9A9FA6' }} />
+            <div className="relative flex items-center gap-3 px-4 py-2.5 rounded-full flex-1 bg-[#F5F5F5] dark:bg-[#1C1C1E] border border-transparent dark:border-[#3A3A3C]">
+              <Search className="h-4 w-4 text-[#9A9FA6]" />
               <input
                 type="text"
                 placeholder="Search what you have seen before"
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="flex-1 bg-transparent outline-none text-sm"
-                style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}
+                className="flex-1 bg-transparent outline-none text-sm text-[#080A0B] dark:text-[#FFFFFF]"
+                style={{ fontFamily: "'Breeze Sans'" }}
               />
             </div>
           </div>
@@ -1021,14 +1032,13 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
         {/* Filters Section */}
         {!searchQuery.trim() && (
-        <div className="sticky top-16 z-20 bg-white px-2 pb-1">
+        <div className="sticky top-16 z-20 bg-white dark:bg-[#1C1C1E] px-2 pb-1">
           <div className="flex items-center gap-1.5">
             {/* Left Scroll Arrow */}
             <button
               onClick={() => scrollLabels('left')}
               disabled={!canScrollLabelsLeft}
-              className="flex-shrink-0 p-1 transition-colors rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ color: '#9A9FA6' }}>
+              className="flex-shrink-0 p-1 transition-colors rounded hover:bg-gray-100 dark:hover:bg-[#2C2C2E] disabled:opacity-30 disabled:cursor-not-allowed text-[#9A9FA6]">
               <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
@@ -1048,9 +1058,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                     }}
                     className="px-3 py-1.5 rounded-full text-2xs font-medium transition-all flex-shrink-0"
                     style={{
-                      backgroundColor: selectedLabelId === label.id ? (label.color || '#000000') : '#FFFFFF',
-                      color: selectedLabelId === label.id ? '#FFFFFF' : '#000000',
-                      border: `1px solid ${label.color || '#000000'}`,
+                      backgroundColor: selectedLabelId === label.id ? (label.color || '#000000') : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                      color: selectedLabelId === label.id ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#000000'),
+                      border: `1px solid ${label.color || (isDarkMode ? '#3A3A3C' : '#000000')}`,
                       fontFamily: "'Breeze Sans'",
                       fontSize: '10px'
                     }}>
@@ -1063,8 +1073,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             {/* Right Scroll Arrow */}
             <button
               onClick={() => scrollLabels('right')}
-              className="flex-shrink-0 p-1 transition-colors rounded hover:bg-gray-100"
-              style={{ color: '#9A9FA6' }}>
+              className="flex-shrink-0 p-1 transition-colors rounded hover:bg-gray-100 dark:hover:bg-[#2C2C2E] text-[#9A9FA6]">
               <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
@@ -1073,10 +1082,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             {/* Add Label Button - Icon Only */}
             <button
               onClick={() => setShowAddLabelModal(true)}
-              className="flex-shrink-0 p-2 transition-all rounded-lg hover:bg-blue-50 active:bg-blue-100"
-              style={{
-                color: '#0074FB',
-              }}
+              className="flex-shrink-0 p-2 transition-all rounded-lg hover:bg-blue-50 dark:hover:bg-[#2C2C2E] active:bg-blue-100 dark:active:bg-[#3A3A3C] text-[#0074FB] dark:text-[#4A9FFF]"
               title="Add label">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1104,26 +1110,26 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <div className="flex gap-1">
                   <div
-                    className="w-2 h-2 rounded-full animate-bounce"
-                    style={{ backgroundColor: '#0074FB', animationDelay: '0ms' }}
+                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#4A9FFF]"
+                    style={{ animationDelay: '0ms' }}
                   />
                   <div
-                    className="w-2 h-2 rounded-full animate-bounce"
-                    style={{ backgroundColor: '#0074FB', animationDelay: '150ms' }}
+                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#4A9FFF]"
+                    style={{ animationDelay: '150ms' }}
                   />
                   <div
-                    className="w-2 h-2 rounded-full animate-bounce"
-                    style={{ backgroundColor: '#0074FB', animationDelay: '300ms' }}
+                    className="w-2 h-2 rounded-full animate-bounce bg-[#0074FB] dark:bg-[#4A9FFF]"
+                    style={{ animationDelay: '300ms' }}
                   />
                 </div>
-                <p className="text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                <p className="text-xs text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
                   Searching...
                 </p>
               </div>
             ) : results.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <Search className="h-8 w-8 opacity-30 mb-2" style={{ color: '#9A9FA6' }} />
-                <p className="text-sm" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+                <Search className="h-8 w-8 opacity-30 mb-2 text-[#9A9FA6]" />
+                <p className="text-sm text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
                   No results found.
                 </p>
               </div>
@@ -1138,8 +1144,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                 <div
                   key={`${pageEvent.url}-${opened}-${idx}`}
                   onClick={() => chrome.tabs.create({ url: pageEvent.url })}
-                  className="flex flex-col gap-1 p-2 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                  style={{ backgroundColor: '#FAFAFA', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                  className="flex flex-col gap-1 p-2 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-[#2C2C2E] transition-colors bg-[#FAFAFA] dark:bg-[#2C2C2E]"
+                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <img 
@@ -1150,7 +1156,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                           (e.target as HTMLImageElement).style.display = 'none'
                         }}
                       />
-                      <div className="text-sm font-normal truncate" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+                      <div className="text-sm font-normal truncate text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                         {pageEvent.title || pageEvent.url}
                       </div>
                     </div>
@@ -1289,20 +1295,20 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       </div>
 
       {/* Footer */}
-      <div className="sticky bottom-0 border-t bg-white px-4 py-3" style={{ borderColor: '#E5E5E5' }}>
+      <div className="sticky bottom-0 border-t bg-white dark:bg-[#1C1C1E] px-4 py-3 border-[#E5E5E5] dark:border-[#3A3A3C]">
         <button
           onClick={onShowEmpty}
-          className="w-full text-xs opacity-70 transition-opacity hover:opacity-100"
-          style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
+          className="w-full text-xs opacity-70 transition-opacity hover:opacity-100 text-[#9A9FA6] dark:text-[#9A9FA6]"
+          style={{ fontFamily: "'Breeze Sans'" }}>
           ← Back to empty state
         </button>
       </div>
       {showAddLabelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowAddLabelModal(false)}>
-          <div className="bg-white rounded-lg shadow-xl" style={{ width: '280px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-[#2C2C2E] rounded-lg shadow-xl" style={{ width: '280px' }} onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="px-4 py-3 border-b" style={{ borderColor: '#E5E5E5' }}>
-              <h2 className="text-sm font-medium" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+            <div className="px-4 py-3 border-b border-[#E5E5E5] dark:border-[#3A3A3C]">
+              <h2 className="text-sm font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                 Create Label
               </h2>
             </div>
@@ -1311,7 +1317,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
             <div className="px-4 py-3">
               <div className="flex flex-col gap-2.5">
                 <div>
-                  <label className="text-xs font-medium block mb-1" style={{ color: '#4B5563', fontFamily: "'Breeze Sans'" }}>
+                  <label className="text-xs font-medium block mb-1 text-[#4B5563] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
                     Name
                   </label>
                   <input
@@ -1320,8 +1326,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                     onChange={(e) => setNewLabelName(e.target.value)}
                     placeholder="e.g. Development"
                     autoFocus
-                    className="w-full px-2.5 py-1.5 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    style={{ borderColor: '#D1D5DB', fontFamily: "'Breeze Sans'" }}
+                    className="w-full px-2.5 py-1.5 border border-[#D1D5DB] dark:border-[#3A3A3C] rounded text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF]"
+                    style={{ fontFamily: "'Breeze Sans'" }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && newLabelName.trim()) {
                         handleAddLabel()
@@ -1333,34 +1339,31 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium" style={{ color: '#4B5563', fontFamily: "'Breeze Sans'" }}>
+                  <label className="text-xs font-medium text-[#4B5563] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
                     Color
                   </label>
                   <input
                     type="color"
                     value={newLabelColor}
                     onChange={(e) => setNewLabelColor(e.target.value)}
-                    className="w-8 h-8 border rounded cursor-pointer"
-                    style={{ borderColor: '#D1D5DB' }}
+                    className="w-8 h-8 border border-[#D1D5DB] dark:border-[#3A3A3C] rounded cursor-pointer"
                   />
-                  <div className="text-xs" style={{ color: '#9CA3AF', fontFamily: "'Breeze Sans'" }}>{newLabelColor}</div>
+                  <div className="text-xs text-[#9CA3AF] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>{newLabelColor}</div>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-2.5 border-t flex gap-2 justify-end" style={{ borderColor: '#E5E5E5', backgroundColor: '#F9FAFB' }}>
+            <div className="px-4 py-2.5 border-t flex gap-2 justify-end border-[#E5E5E5] dark:border-[#3A3A3C] bg-[#F9FAFB] dark:bg-[#2C2C2E]">
               <button
                 onClick={() => {
                   setShowAddLabelModal(false)
                   setNewLabelName("")
                   setNewLabelColor("#3B82F6")
                 }}
-                className="px-3 py-1.5 text-xs rounded transition-colors"
+                className="px-3 py-1.5 text-xs rounded transition-colors bg-white dark:bg-[#2C2C2E] text-[#6B7280] dark:text-[#FFFFFF] border-[#D1D5DB] dark:border-[#3A3A3C]"
                 style={{
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid',
                   fontFamily: "'Breeze Sans'",
                 }}>
                 Cancel
@@ -1370,7 +1373,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                 disabled={!newLabelName.trim()}
                 className="px-3 py-1.5 text-xs rounded text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: newLabelName.trim() ? '#0072df' : '#9CA3AF',
+                  backgroundColor: newLabelName.trim() ? (isDarkMode ? '#4A9FFF' : '#0072df') : '#9CA3AF',
                   fontFamily: "'Breeze Sans'",
                   fontWeight: 500
                 }}>
@@ -1427,6 +1430,7 @@ interface DaySectionProps {
   onTimelineViewChange?: (view: "sessions" | "clusters") => void
   isFirstDay?: boolean
   searchQuery?: string
+  isDarkMode?: boolean
 }
 
 function DaySection({
@@ -1444,28 +1448,34 @@ function DaySection({
   timelineView,
   onTimelineViewChange,
   isFirstDay,
-  searchQuery,
+  searchQuery
 }: DaySectionProps) {
+  const isDarkMode = document.documentElement.classList.contains('dark')
   const visibleCount = isExpanded ? sessions.length : 3
 
   return (
     <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
       {/* Day Header with View Toggle */}
       <div className="flex items-center justify-between px-2 pr-0 mb-1 mt-4">
-        <div className="text-sm font-normal" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+        <div className="text-sm font-normal text-[#0072DF] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
           <span>{dayLabel}</span>
         </div>
         {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
-          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E5E5E5' }}>
+          <div className="flex rounded-lg overflow-hidden border border-[#E5E5E5] dark:border-[#3A3A3C]">
             <button
               onClick={() => onTimelineViewChange("sessions")}
               className="px-2 py-1 text-2xs font-medium transition-all"
               style={{
-                backgroundColor: timelineView === "sessions" ? '#0072de' : '#FFFFFF',
-                color: timelineView === "sessions" ? '#FFFFFF' : '#666666',
+                backgroundColor: timelineView === "sessions" 
+                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
+                  : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                color: timelineView === "sessions" 
+                  ? (isDarkMode ? '#4A9FFF' : '#FFFFFF') 
+                  : (isDarkMode ? '#FFFFFF' : '#666666'),
+                border: timelineView === "sessions" && isDarkMode ? '1px solid #4A9FFF' : 'none',
+                borderRight: timelineView !== "sessions" ? (isDarkMode ? '1px solid #3A3A3C' : '1px solid #E5E5E5') : 'none',
                 fontFamily: "'Breeze Sans'",
-                fontSize: '10px',
-                borderRight: '1px solid #E5E5E5'
+                fontSize: '10px'
               }}>
               Sessions
             </button>
@@ -1473,8 +1483,13 @@ function DaySection({
               onClick={() => onTimelineViewChange("clusters")}
               className="px-2 py-1 text-2xs font-medium transition-all"
               style={{
-                backgroundColor: timelineView === "clusters" ? '#0072de' : '#FFFFFF',
-                color: timelineView === "clusters" ? '#FFFFFF' : '#666666',
+                backgroundColor: timelineView === "clusters" 
+                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
+                  : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                color: timelineView === "clusters" 
+                  ? (isDarkMode ? '#4A9FFF' : '#FFFFFF') 
+                  : (isDarkMode ? '#FFFFFF' : '#666666'),
+                border: timelineView === "clusters" && isDarkMode ? '1px solid #4A9FFF' : 'none',
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>
@@ -1584,10 +1599,9 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
 
   return (
     <div 
-      className="flex flex-col gap-1.5 p-3 rounded-xl transition-all relative"
+      className="flex flex-col gap-1.5 p-3 rounded-xl transition-all relative bg-white dark:bg-[#2C2C2E] border border-[#BCBCBC] dark:border-[#3A3A3C]"
       style={{ 
-        backgroundColor: isExpanded ? '#F5F5F5' : '#FFFFFF',
-        border: '1px solid #BCBCBC'
+        backgroundColor: isExpanded ? (document.documentElement.classList.contains('dark') ? '#2C2C2E' : '#F5F5F5') : undefined
       }}>
       {/* Session Header */}
       <div 
@@ -1598,8 +1612,8 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
         className="flex items-center gap-2 w-full cursor-pointer">
         <div className="flex items-center gap-3 flex-1">
           <p
-            className="text-sm font-medium leading-tight"
-            style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+            className="text-sm font-medium leading-tight text-[#080A0B] dark:text-[#FFFFFF]"
+            style={{ fontFamily: "'Breeze Sans'" }}>
             {sessionTitle}
           </p>
         </div>
@@ -1625,8 +1639,8 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
             className="px-2 py-1 text-xs rounded flex items-center gap-1.5"
             style={{
               border: '1.5px dashed #9CA3AF',
-              backgroundColor: '#F9FAFB',
-              color: '#6B7280',
+              backgroundColor: document.documentElement.classList.contains('dark') ? '#2C2C2E' : '#F9FAFB',
+              color: document.documentElement.classList.contains('dark') ? '#9A9FA6' : '#6B7280',
               fontFamily: "'Breeze Sans'"
             }}>
             <span>{labels.find(l => l.name === suggestedLabel.labelName)?.name || suggestedLabel.labelName}</span>
@@ -1665,7 +1679,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
               setShowLabelPicker(!showLabelPicker)
             }}
             title="Change label"
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            className="p-1 hover:bg-gray-100 dark:hover:bg-[#3A3A3C] rounded transition-colors"
             style={{ color: session.labelId ? (labels.find(l => l.id === session.labelId)?.color || '#9A9FA6') : '#9A9FA6' }}>
             <Tag className="h-4 w-4" />
           </button>
@@ -1673,9 +1687,9 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
           {/* Label Picker Dropdown */}
           {showLabelPicker && (
             <div
-              className="absolute bg-white rounded-lg py-1 min-w-fit z-50"
+              className="absolute bg-white dark:bg-[#2C2C2E] rounded-lg py-1 min-w-fit z-50"
               style={{
-                border: '1px solid #E5E5E5',
+                border: '1px solid ' + (document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#E5E5E5'),
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                 top: '100%',
                 right: 0,
@@ -1687,11 +1701,10 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                   onUpdateSessionLabel(session.id, undefined)
                   setShowLabelPicker(false)
                 }}
-                className="w-full text-left px-3 py-2 text-xs transition-colors"
+                className="w-full text-left px-3 py-2 text-xs transition-colors text-[#666666] dark:text-[#9A9FA6]"
                 style={{
-                  color: '#666',
                   fontFamily: "'Breeze Sans'",
-                  backgroundColor: !session.labelId ? '#F0F0F0' : 'transparent'
+                  backgroundColor: !session.labelId ? (document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#F0F0F0') : 'transparent'
                 }}>
                 No label
               </button>
@@ -1700,15 +1713,15 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                   key={label.id}
                   className="flex items-center justify-between px-3 py-2 text-xs transition-colors group"
                   style={{
-                    backgroundColor: session.labelId === label.id ? '#F0F0F0' : 'transparent'
+                    backgroundColor: session.labelId === label.id ? (document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#F0F0F0') : 'transparent'
                   }}>
                   <button
                     onClick={() => {
                       onUpdateSessionLabel(session.id, label.id)
                       setShowLabelPicker(false)
                     }}
-                    className="flex-1 text-left flex items-center gap-2"
-                    style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                    className="flex-1 text-left flex items-center gap-2 text-[#080A0B] dark:text-[#FFFFFF]"
+                    style={{ fontFamily: "'Breeze Sans'" }}>
                     <div
                       className="w-2 h-2 rounded-full"
                       style={{ backgroundColor: label.color || '#000' }}
@@ -1722,21 +1735,21 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                         onDeleteLabel(label.id)
                       }
                     }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded ml-1"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 dark:hover:bg-red-900 rounded ml-1"
                     title="Delete label"
                     style={{ color: '#9A9FA6' }}>
                     <X className="h-3 w-3" />
                   </button>
                 </div>
               ))}
-              <div className="h-px mx-2 my-1" style={{ backgroundColor: '#E5E5E5' }} />
+              <div className="h-px mx-2 my-1 bg-[#E5E5E5] dark:bg-[#3A3A3C]" />
               <button
                 onClick={() => {
                   onOpenCreateLabelModal?.()
                   setShowLabelPicker(false)
                 }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors"
-                style={{ color: '#0072DF', fontFamily: "'Breeze Sans'", fontWeight: '500' }}>
+                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-[#3A3A3C] transition-colors text-[#0072DF] dark:text-[#4A9FFF]"
+                style={{ fontFamily: "'Breeze Sans'", fontWeight: '500' }}>
                 + Create new label
               </button>
             </div>
@@ -1776,7 +1789,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                       e.stopPropagation()
                       setOpenMenuIndex(openMenuIndex === index ? null : index)
                     }}
-                    className="hover:bg-gray-200 rounded p-0.5 transition-colors">
+                    className="hover:bg-gray-200 dark:hover:bg-[#3A3A3C] rounded p-0.5 transition-colors">
                     <MoreVertical className="h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
                   </button>
                   {/* Favicon for the page */}
@@ -1793,8 +1806,8 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                     href={page.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs leading-tight truncate flex-1"
-                    style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+                    className="text-xs leading-tight truncate flex-1 text-[#080A0B] dark:text-[#FFFFFF]"
+                    style={{ fontFamily: "'Breeze Sans'" }}>
                     {page.title}
                   </a>
                 </div>
@@ -1805,9 +1818,9 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                 {/* Dropdown Menu */}
                 {openMenuIndex === index && (
                   <div
-                    className="absolute left-6 top-6 z-30 bg-white rounded-xl py-2 min-w-[200px]"
+                    className="absolute left-6 top-6 z-30 bg-white dark:bg-[#2C2C2E] rounded-xl py-2 min-w-[200px]"
                     style={{ 
-                      border: '1px solid #E5E5E5',
+                      border: '1px solid ' + (document.documentElement.classList.contains('dark') ? '#3A3A3C' : '#E5E5E5'),
                       boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
                     }}
                     onClick={(e) => e.stopPropagation()}>
@@ -1816,8 +1829,8 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                         window.open(page.url, '_blank')
                         setOpenMenuIndex(null)
                       }}
-                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center gap-3"
-                      style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 dark:hover:bg-[#3A3A3C] transition-colors flex items-center gap-3 text-[#080A0B] dark:text-[#FFFFFF]"
+                      style={{ fontFamily: "'Breeze Sans'" }}>
                       <ExternalLinkIcon className="h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
                       <span>Open in new tab</span>
                     </button>
@@ -1826,8 +1839,8 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                         chrome.windows.create({ url: page.url })
                         setOpenMenuIndex(null)
                       }}
-                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center gap-3"
-                      style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 dark:hover:bg-[#3A3A3C] transition-colors flex items-center gap-3 text-[#080A0B] dark:text-[#FFFFFF]"
+                      style={{ fontFamily: "'Breeze Sans'" }}>
                       <ExternalLinkIcon className="h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
                       <span>Open in new window</span>
                     </button>
@@ -1836,12 +1849,12 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                         navigator.clipboard.writeText(page.url)
                         setOpenMenuIndex(null)
                       }}
-                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center gap-3"
-                      style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 dark:hover:bg-[#3A3A3C] transition-colors flex items-center gap-3 text-[#080A0B] dark:text-[#FFFFFF]"
+                      style={{ fontFamily: "'Breeze Sans'" }}>
                       <Copy className="h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
                       <span>Copy link</span>
                     </button>
-                    <div className="h-px mx-2 my-1" style={{ backgroundColor: '#E5E5E5' }} />
+                    <div className="h-px mx-2 my-1 bg-[#E5E5E5] dark:bg-[#3A3A3C]" />
                     <button
                       onClick={async () => {
                         try {
@@ -1854,9 +1867,9 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                           console.error("Failed to delete page from session:", err)
                         }
                       }}
-                      className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 transition-colors flex items-center gap-3"
-                      style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
-                      <Trash2 className="h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900 transition-colors flex items-center gap-3 text-[#EF4444] dark:text-[#F87171]"
+                      style={{ fontFamily: "'Breeze Sans'" }}>
+                      <Trash2 className="h-3.5 w-3.5" />
                       <span>Delete from session</span>
                     </button>
                     <button
@@ -1864,8 +1877,8 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                         chrome.windows.create({ url: page.url, incognito: true })
                         setOpenMenuIndex(null)
                       }}
-                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center gap-3"
-                      style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 dark:hover:bg-[#3A3A3C] transition-colors flex items-center gap-3 text-[#080A0B] dark:text-[#FFFFFF]"
+                      style={{ fontFamily: "'Breeze Sans'" }}>
                       <EyeOff className="h-3.5 w-3.5" style={{ color: '#9A9FA6' }} />
                       <span>Open in incognito</span>
                     </button>
@@ -1908,26 +1921,32 @@ function ClusterDaySection({
   isFirstDay,
   searchQuery,
 }: ClusterDaySectionProps) {
+  const isDarkMode = document.documentElement.classList.contains('dark')
   const visibleCount = isExpanded ? clusters.length : 3
 
   return (
     <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
       {/* Day Header with View Toggle */}
       <div className="flex items-center justify-between px-2 pr-0 mb-1 mt-4">
-        <div className="text-sm font-normal" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+        <div className="text-sm font-normal text-[#0072DF] dark:text-[#4A9FFF]" style={{ fontFamily: "'Breeze Sans'" }}>
           <span>{dayLabel}</span>
         </div>
         {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
-          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #E5E5E5' }}>
+          <div className="flex rounded-lg overflow-hidden border border-[#E5E5E5] dark:border-[#3A3A3C]">
             <button
               onClick={() => onTimelineViewChange("sessions")}
               className="px-2 py-1 text-2xs font-medium transition-all"
               style={{
-                backgroundColor: timelineView === "sessions" ? '#0072de' : '#FFFFFF',
-                color: timelineView === "sessions" ? '#FFFFFF' : '#666666',
+                backgroundColor: timelineView === "sessions" 
+                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
+                  : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                color: timelineView === "sessions" 
+                  ? (isDarkMode ? '#4A9FFF' : '#FFFFFF') 
+                  : (isDarkMode ? '#FFFFFF' : '#666666'),
+                border: timelineView === "sessions" && isDarkMode ? '1px solid #4A9FFF' : 'none',
+                borderRight: timelineView !== "sessions" ? (isDarkMode ? '1px solid #3A3A3C' : '1px solid #E5E5E5') : 'none',
                 fontFamily: "'Breeze Sans'",
-                fontSize: '10px',
-                borderRight: '1px solid #E5E5E5'
+                fontSize: '10px'
               }}>
               Sessions
             </button>
@@ -1935,8 +1954,13 @@ function ClusterDaySection({
               onClick={() => onTimelineViewChange("clusters")}
               className="px-2 py-1 text-2xs font-medium transition-all"
               style={{
-                backgroundColor: timelineView === "clusters" ? '#0072de' : '#FFFFFF',
-                color: timelineView === "clusters" ? '#FFFFFF' : '#666666',
+                backgroundColor: timelineView === "clusters" 
+                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.15)' : '#0072de') 
+                  : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
+                color: timelineView === "clusters" 
+                  ? (isDarkMode ? '#4A9FFF' : '#FFFFFF') 
+                  : (isDarkMode ? '#FFFFFF' : '#666666'),
+                border: timelineView === "clusters" && isDarkMode ? '1px solid #4A9FFF' : 'none',
                 fontFamily: "'Breeze Sans'",
                 fontSize: '10px'
               }}>
@@ -2038,10 +2062,8 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
 
   return (
     <div
-      className="rounded-xl overflow-hidden cursor-pointer transition-all"
+      className="rounded-xl overflow-hidden cursor-pointer transition-all bg-white dark:bg-[#2C2C2E] border border-[#BCBCBC] dark:border-[#3A3A3C]"
       style={{
-        backgroundColor: '#FAFAFA',
-        border: '1px solid #E5E5E5',
         boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
       }}
       onClick={onToggle}>
@@ -2055,7 +2077,7 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
           />
           
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+            <div className="text-sm font-medium truncate text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
               {clusterLabel}
             </div>
             <div className="text-2xs mt-0.5 flex items-center gap-2" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'", fontSize: '10px' }}>
@@ -2068,7 +2090,7 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
           {/* Focus Cluster Button */}
           <button
             onClick={handleFocusCluster}
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            className="p-1.5 hover:bg-gray-200 dark:hover:bg-[#3A3A3C] rounded transition-colors"
             title="Focus cluster in graph">
             <Focus className="h-4 w-4" style={{ color: '#9A9FA6' }} />
           </button>
@@ -2080,7 +2102,7 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
             e.stopPropagation()
             onToggle()
           }}
-          className="p-1 hover:bg-gray-100 rounded transition-colors">
+          className="p-1 hover:bg-gray-100 dark:hover:bg-[#3A3A3C] rounded transition-colors">
           <ChevronDown
             className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
             style={{ color: '#9A9FA6' }}
@@ -2111,7 +2133,7 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
               return (
                 <div 
                   key={node.id} 
-                  className="flex items-center justify-between gap-3 py-1.5 px-2 rounded hover:bg-white transition-colors cursor-pointer"
+                  className="flex items-center justify-between gap-3 py-1.5 px-2 rounded hover:bg-white dark:hover:bg-[#1C1C1E] transition-colors cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation()
                     handleNodeClick(node)
@@ -2126,7 +2148,7 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
                         img.style.display = 'none'
                       }}
                     />
-                    <span className="text-xs leading-tight truncate flex-1" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+                    <span className="text-xs leading-tight truncate flex-1 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                       {node.title}
                     </span>
                   </div>

@@ -86,14 +86,14 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
   }
 
   return (
-    <div className="relative h-full flex flex-col bg-white">
+    <div className="relative h-full flex flex-col bg-white dark:bg-[#1C1C1E]">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b bg-white" style={{ borderColor: '#E5E5E5' }}>
+      <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
         <div className="flex items-center gap-3">
           <img src={chrome.runtime.getURL('assets/konta_logo.svg')} alt="Konta" className="w-8 h-8" />
           <h1 
-            className="text-xl font"
-            style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+            className="text-xl font text-[#080A0B] dark:text-[#FFFFFF]"
+            style={{ fontFamily: "'Breeze Sans'" }}>
             Konta
           </h1>
         </div>
@@ -101,8 +101,7 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
         {/* Close Button */}
         <button
           onClick={handleClose}
-          className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none"
-          style={{ color: 'var(--gray)' }}>
+          className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none text-[#9A9FA6] dark:text-[#9A9FA6]">
           <X className="h-5 w-5" />
           <span className="sr-only">Close</span>
         </button>
@@ -121,20 +120,20 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
           // Onboarding completion message
           <>
             <h2
-              className="text-2xl font mb-6"
-              style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+              className="text-2xl font mb-6 text-[#080A0B] dark:text-[#FFFFFF]"
+              style={{ fontFamily: "'Breeze Sans'" }}>
               You're all set!
             </h2>
 
             <p
-              className="text-lg mb-4"
-              style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
+              className="text-lg mb-4 text-[#080A0B] dark:text-[#FFFFFF]"
+              style={{ fontFamily: "'Breeze Sans'" }}>
               Close the sidebar and continue browsing
             </p>
 
             <p
-              className="text-xs leading-relaxed mb-4"
-              style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
+              className="text-xs leading-relaxed mb-4 text-[#9A9FA6] dark:text-[#9A9FA6]"
+              style={{ fontFamily: "'Breeze Sans'" }}>
               Konta will quietly learn from your browsing context. You can always come back here to view your sessions and projects.
             </p>
           </>
@@ -147,9 +146,8 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
             // Onboarding completion button
             <Button
               onClick={handleClose}
-              className="h-[46px] px-8 font text-base rounded-full"
+              className="h-[46px] px-8 font text-base rounded-full bg-[#0072de] dark:bg-[#4A9FFF]"
               style={{
-                backgroundColor: '#0072de',
                 color: 'white'
               }}>
               Let's go!
@@ -160,12 +158,11 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
 
       {/* Progress Bar at bottom - Only show during onboarding */}
       {isOnboarding && (
-        <div className="fixed bottom-0 left-0 right-0 h-1 z-50" style={{ backgroundColor: '#F0F0F0' }}>
+        <div className="fixed bottom-0 left-0 right-0 h-1 z-50 bg-[#F0F0F0] dark:bg-[#3A3A3C]">
           <div 
-            className="h-full transition-all duration-1000 ease-linear"
+            className="h-full transition-all duration-1000 ease-linear bg-[#0072de] dark:bg-[#4A9FFF]"
             style={{ 
-              width: `${(timeRemaining / 10) * 100}%`,
-              backgroundColor: '#0072de'
+              width: `${(timeRemaining / 10) * 100}%`
             }}
           />
         </div>
