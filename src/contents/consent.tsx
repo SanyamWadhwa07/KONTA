@@ -2,6 +2,7 @@ import type { PlasmoCSConfig, PlasmoGetStyle } from "plasmo"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { log, warn } from "~/lib/logger"
 
 import styleText from "data-text:~/style.css"
 

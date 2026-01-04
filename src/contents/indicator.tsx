@@ -1,5 +1,6 @@
 import type { PlasmoCSConfig } from "plasmo"
 import { useEffect, useState } from "react"
+import { log, warn } from "~/lib/logger"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -241,7 +242,7 @@ const Indicator = () => {
           id: `main-site-${projectId}-${Date.now()}`,
           type: 'project-main-site',
           title: `Part of ${projectName}`,
-          message: "This site is the main site of your project",
+          message: "Do you want to open the project in a new tab group\?",
           timestamp: Date.now(),
           payload: { projectId, projectName, currentUrl }
         }
@@ -767,7 +768,8 @@ const Indicator = () => {
                 lineHeight: 1.4,
                 position: 'absolute',
                 top: '48px',
-                [edgePosition === 'right' ? 'right' : 'left']: '0'
+                left: '0',
+                right: '0'
               }}>
               <div style={{ marginBottom: '12px' }}>
                 {notifications[0].message}

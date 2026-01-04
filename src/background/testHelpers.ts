@@ -2,6 +2,7 @@
  * Dev-only helpers for testing project detection features
  * Use these in the browser console via background page
  */
+import { log, warn } from "~/lib/logger"
 
 import { createTestCandidate, clearAllCandidates } from "./candidateDetector"
 import { addProject, loadProjects } from "./projectManager"

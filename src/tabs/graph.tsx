@@ -5,6 +5,7 @@ import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link } from
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
 import "~/style.css"
+import { log, warn } from "~/lib/logger"
 
 function sendMessage<T>(message: any): Promise<T> {
   return new Promise((resolve, reject) => {

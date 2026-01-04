@@ -2,6 +2,7 @@ import { X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import lottie from "lottie-web"
 import { Button } from "@/components/ui/button"
+import { log, warn } from "~/lib/logger"
 
 interface EmptyStateProps {
   onShowPopulated?: () => void

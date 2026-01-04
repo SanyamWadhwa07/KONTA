@@ -1,6 +1,7 @@
 // Blocklist Storage Manager
 
 import type { Blocklist, BlocklistEntry, CategoryStates } from "~/types/focus-mode"
+import { log, warn } from "~/lib/logger"
 
 const BLOCKLIST_KEY = "focus-mode-blocklist"
 

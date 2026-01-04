@@ -4,10 +4,25 @@
  */
 
 import type { Project, ProjectReminder } from "~/types/project"
+import type { AppSettings } from "../types/settings"
+import { DEFAULT_SETTINGS } from "../types/settings"
+import { log, warn } from "~/lib/logger"
 
 const REMINDER_ALARM_PREFIX = "project-reminder-"
 const MAX_SNOOZE_COUNT = 3
 const SNOOZE_DURATION_MS = 10 * 60 * 1000 // 10 minutes
+
+// Helper to load notification settings
+async function loadNotificationSettings(): Promise<AppSettings["notifications"]> {
+  try {
+    const result = await chrome.storage.local.get("aegis-settings")
+    const settings = result["aegis-settings"] as AppSettings | undefined
+    return settings?.notifications ?? DEFAULT_SETTINGS.notifications
+  } catch (error) {
+    console.warn("[ReminderManager] Failed to load settings, using defaults:", error)
+    return DEFAULT_SETTINGS.notifications
+  }
+}
 
 /**
  * Schedule or update a reminder alarm for a project
@@ -160,6 +175,14 @@ async function sendReminderNotification(projectId: string, project: Project): Pr
     // Find all tabs to inject indicator if not present
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
     
+    // Check if reminder notifications are enabled
+    const notificationSettings = await loadNotificationSettings()
+    
+    if (!notificationSettings.reminders) {
+      console.log("[ReminderManager] Reminder notifications disabled in settings, skipping")
+      return
+    }
+
     for (const tab of tabs) {
       if (!tab.id) continue
       

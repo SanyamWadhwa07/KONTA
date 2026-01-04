@@ -8,6 +8,7 @@ import type { PageEvent } from "~/types/page-event"
 import type { ProjectCandidate, CANDIDATE_THRESHOLDS } from "~/types/project-candidate"
 import { extractResourceIdentifier, type ResourceIdentifier } from "~/lib/resource-extractor"
 import { loadProjects } from "./projectManager"
+import { log } from "~/lib/logger"
 
 
 // Dev mode flag - set to true to use lower thresholds for faster testing
@@ -56,11 +57,11 @@ export async function checkPageForCandidate(
 ): Promise<ProjectCandidate | null> {
   // Extract resource from page
   const resource = extractResourceIdentifier(page.url)
-  console.log("[ProjectDetection] Checking page:", page.url, "Resource:", resource)
+  log("[ProjectDetection] Checking page:", page.url, "Resource:", resource)
 
   // Skip homepage/category resources - only track specific/deep resources
   if (resource.specificity === "homepage" || resource.specificity === "category") {
-    console.log("[ProjectDetection] Skipping homepage/category resource")
+    log("[ProjectDetection] Skipping homepage/category resource")
     return null
   }
 
@@ -75,7 +76,7 @@ export async function checkPageForCandidate(
   )
   
   if (isInProject) {
-    console.log("[ProjectDetection] URL already in a project, skipping candidate detection")
+    log("[ProjectDetection] URL already in a project, skipping candidate detection")
     return null
   }
 
@@ -124,10 +125,11 @@ export async function checkPageForCandidate(
     const snoozeBonus = (candidate.snoozeCount || 0) * 2
     const effectiveVisitThreshold = THRESHOLDS.MIN_VISITS + snoozeBonus
     
+    // Set status to ready if thresholds are met
+    // Allow re-notification in new sessions even if previously shown
     if (candidate.score >= THRESHOLDS.MIN_SCORE && 
         candidate.visitCount >= effectiveVisitThreshold &&
-        candidate.status === 'watching' &&
-        !candidate.notificationShown) {
+        candidate.status === 'watching') {
       candidate.status = 'ready'
     }
   } else {
@@ -160,13 +162,13 @@ export async function checkPageForCandidate(
     h => h.sessionId === sessionId && h.action === 'shown'
   )
   
-  console.log("[ProjectDetection] Candidate status:", candidate.status, "Score:", candidate.score, "Already notified in session:", alreadyNotifiedInSession)
+  log("[ProjectDetection] Candidate status:", candidate.status, "Score:", candidate.score, "Already notified in session:", alreadyNotifiedInSession)
   if (candidate.status === 'ready' && !alreadyNotifiedInSession) {
-    console.log("[ProjectDetection] ✅ Ready to notify!")
+    log("[ProjectDetection] ✅ Ready to notify!")
     return candidate
   }
 
-  console.log("[ProjectDetection] Not ready yet (status must be 'ready' and not already notified, currently:", candidate.status, "notified:", alreadyNotifiedInSession)
+  log("[ProjectDetection] Not ready yet (status must be 'ready' and not already notified, currently:", candidate.status, "notified:", alreadyNotifiedInSession)
   return null
 }
 
@@ -317,7 +319,7 @@ export async function createTestCandidate(
   candidates.push(candidate)
   await saveCandidates(candidates)
 
-  console.log("[TestHelper] Created test candidate with", visitCount, "visits:", candidate)
+  log("[TestHelper] Created test candidate with", visitCount, "visits:", candidate)
   return candidate
 }
 
@@ -326,5 +328,5 @@ export async function createTestCandidate(
  */
 export async function clearAllCandidates(): Promise<void> {
   await saveCandidates([])
-  console.log("[TestHelper] Cleared all candidates")
+  log("[TestHelper] Cleared all candidates")
 }

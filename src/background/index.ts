@@ -64,6 +64,7 @@ import {
   openProjectInTabGroup,
   handleReminderAlarm
 } from "./reminderManager"
+import { log, warn } from "~/lib/logger"
 
 // Track registered session listeners (sidepanel tabs)
 const sessionListeners = new Set<number>()
@@ -931,6 +932,124 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch((error) => {
         console.error("OPEN_PROJECT_IN_TAB_GROUP failed:", error)
         sendResponse({ success: false, error: error.message })
+      })
+    return true
+  }
+
+  // Settings Handlers
+  if (message.type === "GET_SETTINGS") {
+    chrome.storage.local.get(["aegis-settings"], (result) => {
+      sendResponse({ settings: result["aegis-settings"] || null })
+    })
+    return true
+  }
+
+  if (message.type === "UPDATE_SETTINGS") {
+    const { settings } = message.payload
+    chrome.storage.local.set({ "aegis-settings": settings }, () => {
+      sendResponse({ success: true })
+    })
+    return true
+  }
+
+  if (message.type === "RESET_ALL_SETTINGS") {
+    // Clear all settings and cache
+    chrome.storage.local.remove(["aegis-settings"], () => {
+      sendResponse({ success: true })
+    })
+    return true
+  }
+
+  if (message.type === "CLEAR_ALL_DATA") {
+    // Nuclear option: clear everything
+    ;(async () => {
+      try {
+        await chrome.storage.local.clear()
+        sendResponse({ success: true })
+      } catch (error) {
+        console.error("CLEAR_ALL_DATA failed:", error)
+        sendResponse({ success: false })
+      }
+    })()
+    return true
+  }
+
+  if (message.type === "CLEAR_ALL_PROJECTS") {
+    chrome.storage.local.set({ "aegis-projects": [] }, () => {
+      sendResponse({ success: true })
+    })
+    return true
+  }
+
+  if (message.type === "EXPORT_ALL_DATA") {
+    ;(async () => {
+      try {
+        const sessions = getSessions()
+        const labels = await loadLabels()
+        const projects = await loadProjects()
+        const settings = await new Promise((resolve) => {
+          chrome.storage.local.get(["aegis-settings"], (result) => {
+            resolve(result["aegis-settings"])
+          })
+        })
+        
+        const exportData = {
+          version: "1.0",
+          exportedAt: new Date().toISOString(),
+          data: {
+            sessions,
+            labels,
+            projects,
+            settings
+          }
+        }
+        
+        sendResponse({ data: exportData })
+      } catch (error) {
+        console.error("EXPORT_ALL_DATA failed:", error)
+        sendResponse({ data: null })
+      }
+    })()
+    return true
+  }
+
+  if (message.type === "IMPORT_DATA") {
+    const { data } = message.payload
+    ;(async () => {
+      try {
+        // Import sessions, labels, projects, settings
+        if (data.data?.sessions) {
+          // Sessions are handled by sessionManager
+          // We'd need to implement an import function there
+        }
+        if (data.data?.labels) {
+          await chrome.storage.local.set({ "aegis-labels": data.data.labels })
+        }
+        if (data.data?.projects) {
+          await chrome.storage.local.set({ "aegis-projects": data.data.projects })
+        }
+        if (data.data?.settings) {
+          await chrome.storage.local.set({ "aegis-settings": data.data.settings })
+        }
+        
+        sendResponse({ success: true })
+      } catch (error) {
+        console.error("IMPORT_DATA failed:", error)
+        sendResponse({ success: false })
+      }
+    })()
+    return true
+  }
+
+  if (message.type === "GET_CANDIDATES_COUNT") {
+    loadCandidates()
+      .then((candidates) => {
+        const active = candidates.filter(c => c.status !== 'dismissed').length
+        sendResponse({ count: active })
+      })
+      .catch((error) => {
+        console.error("GET_CANDIDATES_COUNT failed:", error)
+        sendResponse({ count: 0 })
       })
     return true
   }

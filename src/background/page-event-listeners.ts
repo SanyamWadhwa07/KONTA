@@ -5,6 +5,29 @@ import { markGraphForRebuild, broadcastSessionUpdate } from "./index"
 import { checkPageForCandidate, markCandidateNotified } from "./candidateDetector"
 import { checkForProjectSuggestion } from "./projectSuggestions"
 import { loadProjects } from "./projectManager"
+import type { AppSettings } from "~/types/settings"
+import { DEFAULT_SETTINGS } from "~/types/settings"
+import { log, warn } from "~/lib/logger"
+
+// Helper to load notification settings
+async function loadNotificationSettings(): Promise<AppSettings["notifications"]> {
+  try {
+    const result = await chrome.storage.local.get("aegis-settings")
+    log("[PageEventListeners] Raw storage result:", result)
+    const settings = result["aegis-settings"] as AppSettings | undefined
+    log("[PageEventListeners] Parsed settings object:", settings)
+    const notifications = settings?.notifications ?? DEFAULT_SETTINGS.notifications
+    log("[PageEventListeners] Loaded notification settings:", {
+      projectDetection: notifications.projectDetection,
+      reminders: notifications.reminders,
+      projectSuggestions: notifications.projectSuggestions
+    })
+    return notifications
+  } catch (error) {
+    warn("[PageEventListeners] Failed to load settings, using defaults:", error)
+    return DEFAULT_SETTINGS.notifications
+  }
+}
 
 // Track recently shown project main site notifications to prevent loops
 const recentMainSiteNotifications = new Map<string, number>()
@@ -20,12 +43,12 @@ function cleanUrl(url: string): string {
   // Extension IDs are 32 lowercase letters
   const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
   if (chromeExtPattern.test(url)) {
-    console.log("[cleanUrl] Detected chrome-extension URL:", url)
+    log("[cleanUrl] Detected chrome-extension URL:", url)
     // Extract the actual URL after /tabs/
     const cleanedUrl = url.replace(chromeExtPattern, '')
     // Add https:// if it doesn't have a protocol
     const finalUrl = cleanedUrl.startsWith('http') ? cleanedUrl : 'https://' + cleanedUrl
-    console.log("[cleanUrl] Cleaned URL:", finalUrl)
+    log("[cleanUrl] Cleaned URL:", finalUrl)
     return finalUrl
   }
   // Ensure URL has protocol (not relative)
@@ -70,7 +93,7 @@ export const setupPageVisitListener = () => {
       const url = message.payload?.url
       if (url) {
         manuallyOpenedSites.set(url, Date.now())
-        console.log('[ManualOpen] Tracking site opened from sidepanel:', url)
+        log('[ManualOpen] Tracking site opened from sidepanel:', url)
       }
       return
     }
@@ -81,8 +104,8 @@ export const setupPageVisitListener = () => {
         openedAt: message.payload.openedAt ?? message.payload.timestamp
       }
 
-      console.log("[PageEvent] PAGE_VISITED:", baseEvent)
-      console.log("[PageEvent] Behavior State:", getBehaviorState())
+      log("[PageEvent] PAGE_VISITED:", baseEvent)
+      log("[PageEvent] Behavior State:", getBehaviorState())
 
       ;(async () => {
         try {
@@ -112,7 +135,7 @@ export const setupPageVisitListener = () => {
             const titleEmbedding = await generateEmbedding(searchQuery)
             if (titleEmbedding) {
               baseEvent.titleEmbedding = titleEmbedding
-              console.log("[PageEvent] Embedding generated for search query:", searchQuery)
+              log("[PageEvent] Embedding generated for search query:", searchQuery)
             }
           } else if (existingWithEmbedding?.titleEmbedding) {
             baseEvent.titleEmbedding = existingWithEmbedding.titleEmbedding
@@ -122,7 +145,7 @@ export const setupPageVisitListener = () => {
             const titleEmbedding = await generateEmbedding(textForEmbedding)
             if (titleEmbedding) {
               baseEvent.titleEmbedding = titleEmbedding
-              console.log("[PageEvent] Embedding generated for:", searchQuery ? `search query "${searchQuery}"` : `title "${baseEvent.title}"`)
+              log("[PageEvent] Embedding generated for:", searchQuery ? `search query "${searchQuery}"` : `title "${baseEvent.title}"`)
             }
           }
 
@@ -172,7 +195,7 @@ export const setupPageVisitListener = () => {
             const now = Date.now()
             const manuallyOpened = manuallyOpenedSites.get(baseEvent.url)
             if (manuallyOpened && (now - manuallyOpened) < MANUAL_OPEN_COOLDOWN_MS) {
-              console.log('[MainSiteNotification] Skipping notification - site was manually opened from sidepanel')
+              log('[MainSiteNotification] Skipping notification - site was manually opened from sidepanel')
               return
             }
             
@@ -180,24 +203,32 @@ export const setupPageVisitListener = () => {
             const lastShown = recentMainSiteNotifications.get(matchingProject.id)
             
             if (!lastShown || (now - lastShown) > NOTIFICATION_COOLDOWN_MS) {
-              console.log("[ProjectMainSite] ✅ Detected visit to main site of project:", matchingProject.name)
+              log("[ProjectMainSite] ✅ Detected visit to main site of project:", matchingProject.name)
               recentMainSiteNotifications.set(matchingProject.id, now)
               
-              chrome.tabs.sendMessage(tabId, {
-                type: "PROJECT_MAIN_SITE_VISIT",
-                payload: {
-                  projectId: matchingProject.id,
-                  projectName: matchingProject.name,
-                  currentUrl: cleanUrl(baseEvent.url)
-                }
-              }).catch((err) => {
-                console.log("[ProjectMainSite] Could not send notification:", err)
-              })
+              // Check if project suggestion notifications are enabled
+              const notificationSettings = await loadNotificationSettings()
+              log("[ProjectMainSite] Settings check - projectSuggestions enabled:", notificationSettings.projectSuggestions)
+              
+              if (notificationSettings.projectSuggestions) {
+                chrome.tabs.sendMessage(tabId, {
+                  type: "PROJECT_MAIN_SITE_VISIT",
+                  payload: {
+                    projectId: matchingProject.id,
+                    projectName: matchingProject.name,
+                    currentUrl: cleanUrl(baseEvent.url)
+                  }
+                }).catch((err) => {
+                  log("[ProjectMainSite] Could not send notification:", err)
+                })
+              } else {
+                log("[ProjectMainSite] Notification disabled in settings, skipping")
+              }
             } else {
-              console.log("[ProjectMainSite] ⏸️ Skipping notification (cooldown active):", matchingProject.name)
+              log("[ProjectMainSite] ⏸️ Skipping notification (cooldown active):", matchingProject.name)
             }
           } else {
-            console.log("[ProjectMainSite] No matching project for:", baseEvent.url)
+            log("[ProjectMainSite] No matching project for:", baseEvent.url)
           }
 
           // Check if this page should create/update a project candidate
@@ -206,50 +237,64 @@ export const setupPageVisitListener = () => {
           if (currentSessionId) {
             const candidate = await checkPageForCandidate(baseEvent, currentSessionId, allSessions)
             if (candidate) {
-              console.log("[ProjectDetection] Candidate ready to notify:", candidate)
+              log("[ProjectDetection] Candidate ready to notify:", candidate)
               
-              // Mark as notified FIRST before sending message (to prevent duplicates)
+              // Mark as notified FIRST (to prevent returning same candidate repeatedly)
               await markCandidateNotified(candidate.id, currentSessionId)
               
-              // Send notification to content script (will show subtle banner)
-              if (tabId) {
-                chrome.tabs.sendMessage(tabId, {
-                  type: "PROJECT_CANDIDATE_READY",
-                  payload: {
-                    candidateId: candidate.id,
-                    primaryDomain: candidate.primaryDomain,
-                    keywords: candidate.keywords,
-                    visitCount: candidate.visitCount,
-                    score: candidate.score,
-                    scoreBreakdown: candidate.scoreBreakdown,
-                    sessionId: currentSessionId
-                  }
-                }).catch((err) => {
-                  console.log("[CandidateDetector] Could not send notification to tab:", err)
-                })
+              // Check if project detection notifications are enabled
+              const notificationSettings = await loadNotificationSettings()
+              log("[ProjectDetection] Settings check - projectDetection enabled:", notificationSettings.projectDetection)
+              if (notificationSettings.projectDetection) {
+                // Send notification to content script (will show subtle banner)
+                if (tabId) {
+                  chrome.tabs.sendMessage(tabId, {
+                    type: "PROJECT_CANDIDATE_READY",
+                    payload: {
+                      candidateId: candidate.id,
+                      primaryDomain: candidate.primaryDomain,
+                      keywords: candidate.keywords,
+                      visitCount: candidate.visitCount,
+                      score: candidate.score,
+                      scoreBreakdown: candidate.scoreBreakdown,
+                      sessionId: currentSessionId
+                    }
+                  }).catch((err) => {
+                    log("[CandidateDetector] Could not send notification to tab:", err)
+                  })
+                }
+              } else {
+                log("[ProjectDetection] Notification disabled in settings, skipping")
               }
             }
             
             // Also check for project suggestions (add to existing project)
             const suggestion = await checkForProjectSuggestion(baseEvent, baseEvent.url)
             if (suggestion) {
-              console.log("[ProjectSuggestion] ✅ Suggestion valid, sending notification:", suggestion.project.name, "score:", suggestion.score)
-              if (tabId) {
-                chrome.tabs.sendMessage(tabId, {
-                  type: "PROJECT_SUGGESTION_READY",
-                  payload: {
-                    projectId: suggestion.project.id,
-                    projectName: suggestion.project.name,
-                    currentUrl: cleanUrl(baseEvent.url),
-                    currentTitle: baseEvent.title,
-                    score: suggestion.score
-                  }
-                }).catch((err) => {
-                  console.log("[ProjectSuggestion] Could not send notification:", err)
-                })
+              // Check if project suggestion notifications are enabled
+              const notificationSettings = await loadNotificationSettings()
+              log("[ProjectSuggestion] Settings check - projectSuggestions enabled:", notificationSettings.projectSuggestions)
+              if (notificationSettings.projectSuggestions) {
+                log("[ProjectSuggestion] ✅ Suggestion valid, sending notification:", suggestion.project.name, "score:", suggestion.score)
+                if (tabId) {
+                  chrome.tabs.sendMessage(tabId, {
+                    type: "PROJECT_SUGGESTION_READY",
+                    payload: {
+                      projectId: suggestion.project.id,
+                      projectName: suggestion.project.name,
+                      currentUrl: cleanUrl(baseEvent.url),
+                      currentTitle: baseEvent.title,
+                      score: suggestion.score
+                    }
+                  }).catch((err) => {
+                    log("[ProjectSuggestion] Could not send notification:", err)
+                  })
+                }
+              } else {
+                log("[ProjectSuggestion] Notification disabled in settings, skipping")
               }
             } else {
-              console.log("[ProjectSuggestion] ⚠️ No valid suggestion (already in project or dismissed)")
+              log("[ProjectSuggestion] ⚠️ No valid suggestion (already in project or dismissed)")
             }
           }
         } catch (error) {

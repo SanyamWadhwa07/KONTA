@@ -1,4 +1,5 @@
 import type { SearchResult } from "~/background/search-coordinator"
+import { log, warn } from "~/lib/logger"
 
 export function logSearchResults(query: string, results: SearchResult[], elapsedMs: number): void {
   console.log(`Search completed in ${elapsedMs.toFixed(1)}ms for query: "${query}"`)

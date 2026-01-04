@@ -2,6 +2,7 @@ import "./style.css"
 import { useState, useEffect } from "react"
 import { EmptyState } from "@/components/sidepanel/EmptyState"
 import { PopulatedState } from "@/components/sidepanel/PopulatedState"
+import { log, warn } from "~/lib/logger"
 
 function IndexSidePanel() {
   const [showPopulated, setShowPopulated] = useState(false)

@@ -12,6 +12,7 @@
  */
 
 import type { PlasmoCSConfig } from "plasmo"
+import { log, warn } from "~/lib/logger"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],

@@ -4,6 +4,7 @@ import { forceCollide } from "d3-force"
 import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2 } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel } from "~/lib/knowledge-graph"
+import { log, warn } from "~/lib/logger"
 
 // Clean URL to remove chrome-extension prefix if present
 function cleanUrl(url: string): string {

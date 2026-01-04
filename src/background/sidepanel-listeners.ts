@@ -1,3 +1,5 @@
+import { log, warn } from "~/lib/logger"
+
 // Listen for SIDEPANEL_CLOSED events
 export const setupSidepanelClosedListener = () => {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

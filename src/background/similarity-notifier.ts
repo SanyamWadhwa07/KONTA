@@ -1,5 +1,6 @@
 import type { PageEvent } from "~/types/page-event"
 import { getSessions } from "./sessionManager"
+import { log, warn } from "~/lib/logger"
 
 // Common utility domains that shouldn't trigger notifications
 const EXCLUDED_DOMAINS = new Set([

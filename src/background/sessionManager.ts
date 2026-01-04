@@ -5,6 +5,7 @@ import { checkSessionChange } from "./ephemeralBehavior"
 import { inferSessionTitle } from "~/lib/session-title-inference"
 import { classifyPageContext, isSameContext } from "~/lib/context-classifier"
 import { learnFromSession } from "./contextLearning"
+import { log, warn } from "~/lib/logger"
 
 // Sessionization thresholds
 const SESSION_GAP_MS = 30 * 60 * 1000 // 30 minutes - inactivity creates new session

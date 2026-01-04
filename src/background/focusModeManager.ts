@@ -2,6 +2,7 @@
 
 import type { BlocklistCategory, FocusModeState } from "~/types/focus-mode"
 import { loadBlocklist } from "./blocklistStore"
+import { log, warn } from "~/lib/logger"
 
 const FOCUS_MODE_STATE_KEY = "focus-mode-state"
 const RULE_ID_START = 10000 // Start rule IDs at 10000 to avoid conflicts

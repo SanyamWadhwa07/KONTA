@@ -2,6 +2,7 @@ import { X, Folder, Edit2, ExternalLink, Bell, BellOff, Trash2, Clock, ChevronDo
 import { useEffect, useMemo, useState } from "react"
 import type { Session } from "~/types/session"
 import type { Project } from "~/types/project"
+import { log, warn } from "~/lib/logger"
 
 const isNewTabUrl = (url?: string) => {
   if (!url) return true

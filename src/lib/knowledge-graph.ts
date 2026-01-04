@@ -1,5 +1,6 @@
 import type { PageEvent } from "~/types/page-event"
 import type { Project } from "~/types/project"
+import { log, warn } from "~/lib/logger"
 import type { Session } from "~/types/session"
 
 // Clean URL to remove chrome-extension prefix if present

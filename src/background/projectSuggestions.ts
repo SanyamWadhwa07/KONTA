@@ -13,6 +13,7 @@
 import type { PageEvent } from "~/types/page-event"
 import type { Project } from "~/types/project"
 import { loadProjects } from "./projectManager"
+import { log, warn } from "~/lib/logger"
 
 const SUGGESTION_THRESHOLD = 0.7 // 70% similarity required (conservative - false positives are annoying)
 const DISMISSAL_COOLDOWN = 24 * 60 * 60 * 1000 // 24 hours
