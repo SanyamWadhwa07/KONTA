@@ -65,6 +65,9 @@ import {
   handleReminderAlarm
 } from "./reminderManager"
 import { log, warn } from "~/lib/logger"
+import { DEFAULT_SETTINGS } from "~/types/settings"
+import { saveSessions } from "./sessionStore"
+import { importBrowserHistory } from "./historyImporter"
 
 // Track registered session listeners (sidepanel tabs)
 const sessionListeners = new Set<number>()
@@ -197,6 +200,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     graphNeedsRebuild = true
     rebuildGraphIfNeeded()
     sendResponse({ graph: knowledgeGraph })
+    return true
+  }
+
+  if (message.type === "IMPORT_HISTORY") {
+    ;(async () => {
+      try {
+        log("[Background] IMPORT_HISTORY requested")
+        
+        // Check if already imported
+        const result = await chrome.storage.local.get(['history-imported'])
+        if (result['history-imported']) {
+          log("[Background] History already imported, skipping")
+          sendResponse({ success: true, alreadyImported: true })
+          return
+        }
+        
+        // Import history (no session check - onboarding creates minimal sessions)
+        await importBrowserHistory()
+        
+        // Force graph rebuild after import
+        graphNeedsRebuild = true
+        rebuildGraphIfNeeded()
+        log("[Background] Graph rebuilt after history import")
+        
+        sendResponse({ success: true })
+      } catch (error) {
+        console.error("[Background] IMPORT_HISTORY failed:", error)
+        sendResponse({ success: false, error: error.message })
+      }
+    })()
     return true
   }
 

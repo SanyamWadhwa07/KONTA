@@ -205,6 +205,20 @@ const Indicator = () => {
         })
         setOnboardingComplete(true)
         
+        // Trigger history import for fresh installs
+        log("📚 Triggering history import...")
+        chrome.runtime.sendMessage({ type: "IMPORT_HISTORY" }, (response) => {
+          if (response?.success) {
+            if (response.alreadyImported) {
+              log("✅ History already imported")
+            } else {
+              log("✅ History import completed successfully")
+            }
+          } else {
+            log("❌ History import failed:", response?.error)
+          }
+        })
+        
         const notification: Notification = {
           id: `onboarding-${Date.now()}`,
           type: 'learning',

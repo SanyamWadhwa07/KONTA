@@ -1,5 +1,5 @@
 import { env, pipeline } from "@xenova/transformers"
-import { log, warn } from "~/lib/logger"
+import { log } from "~/lib/logger"
 
 // ================================
 // AGGRESSIVE MV3 FIX
