@@ -266,7 +266,8 @@ export default function GraphFullPage() {
         }, 1000) // Wait for simulation to settle
       } else if (graphRef.current && !hasUserInteractedRef.current) {
         setTimeout(() => {
-          graphRef.current?.zoomToFit(400, 50)
+          // Zoom to fit with more padding to show all clusters
+          graphRef.current?.zoomToFit(400, 300)
         }, 500)
       }
     }
@@ -701,7 +702,7 @@ export default function GraphFullPage() {
 
   const handleZoomReset = () => {
     if (graphRef.current) {
-      graphRef.current.zoomToFit(400, 50)
+      graphRef.current.zoomToFit(400, 300)
       hasUserInteractedRef.current = true
     }
   }

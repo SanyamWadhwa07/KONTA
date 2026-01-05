@@ -249,14 +249,8 @@ export function GraphPanel() {
       if (!hasUserInteractedRef.current && graphRef.current) {
         setTimeout(() => {
           if (graphRef.current && !hasUserInteractedRef.current) {
-            graphRef.current.zoomToFit(400, 80)
-            // Apply additional zoom out for better initial view
-            setTimeout(() => {
-              if (graphRef.current && !hasUserInteractedRef.current) {
-                const currentZoom = graphRef.current.zoom()
-                graphRef.current.zoom(currentZoom * 0.7, 200)
-              }
-            }, 450)
+            // Zoom to fit with more padding to show all clusters
+            graphRef.current.zoomToFit(400, 300)
           }
         }, 500)
       }
@@ -315,7 +309,9 @@ export function GraphPanel() {
     // Transform to react-force-graph format
     const graphData = {
       nodes: filteredNodes.map(n => {
-        const displayLabel = n.domain
+        const displayLabel = n.title.length > 15 
+          ? n.title.substring(0, 15) + '...' 
+          : n.title
         return {
           id: n.id,
           name: n.title,
@@ -482,13 +478,7 @@ export function GraphPanel() {
 
   const handleZoomReset = () => {
     if (graphRef.current) {
-      graphRef.current.zoomToFit(400, 80)
-      setTimeout(() => {
-        if (graphRef.current) {
-          const currentZoom = graphRef.current.zoom()
-          graphRef.current.zoom(currentZoom * 0.7, 200)
-        }
-      }, 450)
+      graphRef.current.zoomToFit(400, 300)
       hasUserInteractedRef.current = true
     }
   }
@@ -1028,7 +1018,7 @@ export function GraphPanel() {
             nodeRelSize={8}
             nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
               const label = node.label
-              const fontSize = 12 / globalScale // Increased font size
+              const fontSize = 9 / globalScale // Reduced from 12 for better appearance
               ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
               
               // Check if node is connected
@@ -1065,22 +1055,48 @@ export function GraphPanel() {
                 ctx.setLineDash([])
               }
               
-              // Only draw labels when zoomed in enough (>1.5x) and labels are enabled
-              if (showLabels && globalScale > 1.2) { // Show labels sooner (1.2x instead of 1.5x)
+              // Draw labels: always for isolated nodes, or when zoomed in and labels enabled
+              const shouldShowLabel = !isConnected || (showLabels && globalScale > 1.2)
+              if (shouldShowLabel) {
                 ctx.textAlign = 'center'
-                ctx.textBaseline = 'top'
+                ctx.textBaseline = 'middle'
                 
                 // Measure text for background
                 const textWidth = ctx.measureText(label).width
-                const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2)
+                const padding = fontSize * 0.4
+                const bckgDimensions = [textWidth + padding * 2, fontSize + padding * 1.5]
+                const labelX = node.x
+                const labelY = node.y + (size * 1.5) + 8
                 
-                // Draw background for better readability
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-                ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y + (size * 1.5) + 5, bckgDimensions[0], bckgDimensions[1])
+                // Draw rounded background box with subtle border and shadow effect
+                const radius = fontSize * 0.3
+                ctx.beginPath()
+                ctx.moveTo(labelX - bckgDimensions[0] / 2 + radius, labelY - bckgDimensions[1] / 2)
+                ctx.lineTo(labelX + bckgDimensions[0] / 2 - radius, labelY - bckgDimensions[1] / 2)
+                ctx.quadraticCurveTo(labelX + bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2, labelX + bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2 + radius)
+                ctx.lineTo(labelX + bckgDimensions[0] / 2, labelY + bckgDimensions[1] / 2 - radius)
+                ctx.quadraticCurveTo(labelX + bckgDimensions[0] / 2, labelY + bckgDimensions[1] / 2, labelX + bckgDimensions[0] / 2 - radius, labelY + bckgDimensions[1] / 2)
+                ctx.lineTo(labelX - bckgDimensions[0] / 2 + radius, labelY + bckgDimensions[1] / 2)
+                ctx.quadraticCurveTo(labelX - bckgDimensions[0] / 2, labelY + bckgDimensions[1] / 2, labelX - bckgDimensions[0] / 2, labelY + bckgDimensions[1] / 2 - radius)
+                ctx.lineTo(labelX - bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2 + radius)
+                ctx.quadraticCurveTo(labelX - bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2, labelX - bckgDimensions[0] / 2 + radius, labelY - bckgDimensions[1] / 2)
+                ctx.closePath()
                 
-                // Draw text
-                ctx.fillStyle = '#000'
-                ctx.fillText(label, node.x, node.y + (size * 1.5) + 5)
+                // Fill with gradient-like effect using white background
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+                ctx.fill()
+                
+                // Add subtle border
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+                ctx.lineWidth = 0.8 / globalScale
+                ctx.stroke()
+                
+                // Draw text with slightly darker color for better contrast
+                ctx.fillStyle = '#1F2937'
+                ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
+                ctx.textAlign = 'center'
+                ctx.textBaseline = 'middle'
+                ctx.fillText(label, labelX, labelY)
               }
             }}
             nodeCanvasObjectMode={() => 'replace'}
