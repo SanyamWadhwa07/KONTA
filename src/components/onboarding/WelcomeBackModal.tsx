@@ -41,7 +41,7 @@ export function WelcomeBackModal({ open, onOpenChange, onOpenPopulated }: Welcom
           </p>
           <Button 
             onClick={onOpenPopulated}
-            className="font-normal h-10 mt-4 border-0 text-[#9A9FA6] dark:text-[#9A9FA6] focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6"
+            className="font-normal h-10 mt-4 border-0 text-[#FFFFFF] dark:text-[#080A0B] focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6"
             style={{ backgroundColor: 'var(--primary)', fontFamily: "'Breeze Sans'", border: 'none', outline: 'none', boxShadow: 'none' }}>
             Open Memory Timeline
           </Button>
