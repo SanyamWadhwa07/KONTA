@@ -283,8 +283,8 @@ const Indicator = () => {
         const notification: Notification = {
           id: `reminder-${projectId}-${Date.now()}`,
           type: 'project-reminder',
-          title: `${projectName}`,
-          message: projectDescription || "Time to work on this project",
+          title: `Reminder: ${projectName}`,
+          message: projectDescription || "Time to work on this project!",
           timestamp: Date.now(),
           payload: { projectId, projectName, projectDescription, snoozeCount }
         }
