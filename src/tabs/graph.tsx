@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import ForceGraph2D from "react-force-graph-2d"
 import { forceCollide } from "d3-force"
-import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link } from "lucide-react"
+import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Info } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
 import "~/style.css"
@@ -43,6 +43,8 @@ export default function GraphFullPage() {
   const [focusedClusterId, setFocusedClusterId] = useState<number | null>(null)
   const [showAllClusters, setShowAllClusters] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'))
+  const [refreshCount, setRefreshCount] = useState(0)
+  const refreshCountRef = useRef(0)
 
   // Load dark mode setting on mount
   useEffect(() => {
@@ -125,14 +127,22 @@ export default function GraphFullPage() {
   const loadGraph = useCallback(async () => {
     setLoading(true)
     try {
-      const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
-      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
-      if (response?.graph) {
-        if (response.graph.lastUpdated !== lastGraphTimestampRef.current) {
-          log("[GraphFullPage] Graph data changed, updating UI")
+      // Execute refresh 5 times before showing the graph
+      for (let i = 0; i < 5; i++) {
+        const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
+        const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
+        if (response?.graph) {
+          log(`[GraphFullPage] Refresh ${i + 1}/5 - Graph data received`)
           setGraph(response.graph)
           lastGraphTimestampRef.current = response.graph.lastUpdated
           hasUserInteractedRef.current = false
+          refreshCountRef.current = i + 1
+          setRefreshCount(i + 1)
+        }
+        
+        // Add delay between refreshes (except after the last one)
+        if (i < 4) {
+          await new Promise(resolve => setTimeout(resolve, 300))
         }
       }
     } catch (err) {
@@ -294,6 +304,19 @@ export default function GraphFullPage() {
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[#0072de] dark:border-[#3e91ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Loading knowledge graph...</p>
+          <div className="mt-6 flex items-center justify-center gap-1">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className={`h-2 w-2 rounded-full transition-all ${
+                  i < refreshCount ? 'bg-[#0072de] dark:bg-[#3e91ff]' : 'bg-gray-300 dark:bg-[#3A3A3C]'
+                }`}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-[#9A9FA6] mt-3" style={{ fontFamily: "'Breeze Sans'" }}>
+            Refresh {refreshCount}/5
+          </p>
         </div>
       </div>
     )
@@ -831,7 +854,7 @@ export default function GraphFullPage() {
               backgroundColor: showExplanations ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
             }}
             title="Explain how connections are made">
-            <span>📊</span>
+            <Info className="h-3.5 w-3.5" />
             <span>Explain</span>
           </button>
           <button
@@ -1113,9 +1136,12 @@ export default function GraphFullPage() {
       {showExplanations && graph && (
         <div className="absolute top-20 right-6 w-96 max-h-[calc(100vh-7rem)] bg-white dark:bg-[#1C1C1E] rounded-lg shadow-2xl border-2 border-[#E5E5E5] dark:border-[#3A3A3C] overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E5E5] dark:border-[#3A3A3C] bg-gradient-to-r from-blue-50 to-white dark:from-blue-900/20 dark:to-[#1C1C1E]">
-            <h3 className="font-semibold text-sm text-[#080A0B] dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
-              📊 Connection Explanations
-            </h3>
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-600 dark:text-[#3e91ff]" />
+              <h3 className="font-semibold text-sm text-[#080A0B] dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
+                Connection Explanations
+              </h3>
+            </div>
             <button 
               onClick={() => setShowExplanations(false)}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
