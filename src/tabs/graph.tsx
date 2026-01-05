@@ -982,7 +982,6 @@ export default function GraphFullPage() {
               background: 'transparent',
               border: '0',
               color: graphMode === 'semantic' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
-              fontWeight: 600
             }}
             title="Show clusters"
           >
@@ -1001,7 +1000,6 @@ export default function GraphFullPage() {
               background: 'transparent',
               border: '0',
               color: graphMode === 'projects' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
-              fontWeight: 600
             }}
             title="Show projects"
           >
