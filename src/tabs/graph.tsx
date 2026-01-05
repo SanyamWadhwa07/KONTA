@@ -864,24 +864,6 @@ export default function GraphFullPage() {
             )}
           </button>
           <button
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              const newMode = graphMode === 'semantic' ? 'projects' : 'semantic'
-              setGraphMode(newMode)
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
-            style={{ 
-              color: graphMode === 'projects' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
-              fontFamily: "'Breeze Sans'", 
-              border: '1px solid',
-              borderColor: graphMode === 'projects' ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
-              backgroundColor: graphMode === 'projects' ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
-            }}
-            title="Switch between cluster and project-based grouping">
-            <span>{graphMode === 'semantic' ? 'Clusters' : 'Projects'}</span>
-          </button>
-          <button
             onClick={() => {
               setManualLinkMode(!manualLinkMode)
               setSelectedNodesForLink([])
@@ -945,15 +927,15 @@ export default function GraphFullPage() {
       )}
 
       {/* Search Bar */}
-      <div className="px-6 py-3 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
-        <div className="relative">
+      <div className="px-6 py-3 border-b gap-2 flex justify-between bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
+        <div className="relative flex w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9A9FA6]" />
           <input
             type="text"
             placeholder="Search nodes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]"
+            className="flex-1 pl-10 pr-10 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]"
             style={{ 
               border: '1px solid', 
               fontFamily: "'Breeze Sans'"
@@ -966,6 +948,65 @@ export default function GraphFullPage() {
               <X className="h-3.5 w-3.5 text-[#9A9FA6]" />
             </button>
           )}
+        </div>
+        <div
+          className="relative inline-flex items-center rounded-full p-1"
+          style={{
+            width: 160,
+            border: '1px solid',
+            borderColor: isDarkMode ? '#3A3A3C' : '#E5E5E5',
+            backgroundColor: isDarkMode ? '#111214' : 'transparent',
+            fontFamily: "'Breeze Sans'"
+          }}
+        >
+          {/* Sliding knob */}
+          <div
+            aria-hidden
+            className="absolute top-0 bottom-0 left-0 w-1/2 rounded-full transition-transform duration-200"
+            style={{
+              transform: graphMode === 'projects' ? 'translateX(100%)' : 'translateX(0)',
+              backgroundColor: (isDarkMode ? '#3e91ff' : '#0072de'),
+              boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+            }}
+          />
+
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setGraphMode('semantic')
+            }}
+            className="relative z-10 flex-1 text-xs py-1.5 rounded-full transition-colors"
+            aria-pressed={graphMode === 'semantic'}
+            style={{
+              background: 'transparent',
+              border: '0',
+              color: graphMode === 'semantic' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+              fontWeight: 600
+            }}
+            title="Show clusters"
+          >
+            Clusters
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setGraphMode('projects')
+            }}
+            className="relative z-10 flex-1 text-xs py-1.5 rounded-full transition-colors"
+            aria-pressed={graphMode === 'projects'}
+            style={{
+              background: 'transparent',
+              border: '0',
+              color: graphMode === 'projects' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+              fontWeight: 600
+            }}
+            title="Show projects"
+          >
+            Projects
+          </button>
         </div>
       </div>
 
