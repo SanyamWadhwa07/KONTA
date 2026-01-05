@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import ForceGraph2D from "react-force-graph-2d"
 import { forceCollide } from "d3-force"
 import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link } from "lucide-react"
@@ -34,6 +34,8 @@ export default function GraphFullPage() {
   const [manualLinks, setManualLinks] = useState<Array<{source: string, target: string}>>([] )
   const [showExplanations, setShowExplanations] = useState(false)
   const [graphMode, setGraphMode] = useState<'semantic' | 'projects'>('semantic')
+  const [hoveredNode, setHoveredNode] = useState<any>(null)
+  const [hoveredNodePos, setHoveredNodePos] = useState<{x: number, y: number}>({x: 0, y: 0})
   const graphRef = useRef<any>()
   const containerRef = useRef<HTMLDivElement>(null)
   const hasUserInteractedRef = useRef(false)
@@ -288,6 +290,103 @@ export default function GraphFullPage() {
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
+  // Compute graph data before early returns to avoid hook order issues
+  const clusters = graph ? Array.from(new Set(graph.nodes.map(n => n.cluster))) : []
+  const allClustersSelected = selectedClusters.size === 0
+
+  const { graphData, filteredNodes } = useMemo(() => {
+    if (!graph) {
+      return { graphData: { nodes: [], links: [] }, filteredNodes: [] }
+    }
+
+    let timeFilteredNodes = graph.nodes
+    if (timeFilter !== "all") {
+      const now = Date.now()
+      const cutoff = timeFilter === "today" 
+        ? now - 24 * 60 * 60 * 1000 
+        : now - 7 * 24 * 60 * 60 * 1000
+      
+      timeFilteredNodes = graph.nodes.filter(n => {
+        return (graph.lastUpdated - (n.visitCount * 1000)) >= cutoff
+      })
+    }
+
+    const searchFilteredNodes = searchQuery.trim()
+      ? timeFilteredNodes.filter(n => 
+          n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          n.domain.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : timeFilteredNodes
+
+    const filteredNodes = searchFilteredNodes.filter(n => {
+      if (allClustersSelected) return true
+      return selectedClusters.has(n.cluster)
+    })
+
+    const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
+
+    // Use weight (composite) instead of similarity (embedding-only) for multi-factor filtering
+    const filteredEdges = graph.edges.filter(e => 
+      (e.weight || e.similarity) >= minSimilarity &&
+      filteredNodeIds.has(e.source) &&
+      filteredNodeIds.has(e.target)
+    )
+
+    const nodesByCluster = new Map<number, typeof filteredNodes>()
+    filteredNodes.forEach(n => {
+      if (!nodesByCluster.has(n.cluster)) {
+        nodesByCluster.set(n.cluster, [])
+      }
+      nodesByCluster.get(n.cluster)!.push(n)
+    })
+
+    return {
+      filteredNodes,
+      graphData: {
+        nodes: filteredNodes.map(n => {
+          // Use project name in project mode, domain in semantic mode
+          const displayLabel = graphMode === 'projects' && n.projectName 
+            ? n.projectName 
+            : n.domain
+          
+          return {
+            id: n.id,
+            name: n.title,
+            url: n.url,
+            domain: n.domain,
+            cluster: n.cluster,
+            visitCount: n.visitCount,
+            searchQuery: n.searchQuery,
+            projectName: n.projectName,
+            description: n.description,
+            keywords: n.keywords,
+            color: getClusterColor(n.cluster),
+            label: displayLabel
+          }
+        }),
+        links: [
+          ...filteredEdges.map(e => ({
+            source: e.source,
+            target: e.target,
+            value: e.similarity,
+            isManual: false
+          })),
+          ...manualLinks
+            .filter(link => 
+              filteredNodeIds.has(link.source) && 
+              filteredNodeIds.has(link.target)
+            )
+            .map(link => ({
+              source: link.source,
+              target: link.target,
+              value: 1,
+              isManual: true
+            }))
+        ]
+      }
+    }
+  }, [graph, searchQuery, timeFilter, selectedClusters, minSimilarity, manualLinks, graphMode, allClustersSelected])
+
   if (loading && !graph) {
     return (
       <div className="flex items-center justify-center w-screen h-screen bg-white dark:bg-[#1C1C1E]">
@@ -312,93 +411,6 @@ export default function GraphFullPage() {
         </div>
       </div>
     )
-  }
-
-  const clusters = Array.from(new Set(graph.nodes.map(n => n.cluster)))
-  const allClustersSelected = selectedClusters.size === 0
-
-  let timeFilteredNodes = graph.nodes
-  if (timeFilter !== "all") {
-    const now = Date.now()
-    const cutoff = timeFilter === "today" 
-      ? now - 24 * 60 * 60 * 1000 
-      : now - 7 * 24 * 60 * 60 * 1000
-    
-    timeFilteredNodes = graph.nodes.filter(n => {
-      return (graph.lastUpdated - (n.visitCount * 1000)) >= cutoff
-    })
-  }
-
-  const searchFilteredNodes = searchQuery.trim()
-    ? timeFilteredNodes.filter(n => 
-        n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.domain.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : timeFilteredNodes
-
-  const filteredNodes = searchFilteredNodes.filter(n => {
-    if (allClustersSelected) return true
-    return selectedClusters.has(n.cluster)
-  })
-
-  const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
-
-  // Use weight (composite) instead of similarity (embedding-only) for multi-factor filtering
-  const filteredEdges = graph.edges.filter(e => 
-    (e.weight || e.similarity) >= minSimilarity &&
-    filteredNodeIds.has(e.source) &&
-    filteredNodeIds.has(e.target)
-  )
-
-  const nodesByCluster = new Map<number, typeof filteredNodes>()
-  filteredNodes.forEach(n => {
-    if (!nodesByCluster.has(n.cluster)) {
-      nodesByCluster.set(n.cluster, [])
-    }
-    nodesByCluster.get(n.cluster)!.push(n)
-  })
-
-  const graphData = {
-    nodes: filteredNodes.map(n => {
-      // Use project name in project mode, domain in semantic mode
-      const displayLabel = graphMode === 'projects' && n.projectName 
-        ? n.projectName 
-        : n.domain
-      
-      return {
-        id: n.id,
-        name: n.title,
-        url: n.url,
-        domain: n.domain,
-        cluster: n.cluster,
-        visitCount: n.visitCount,
-        searchQuery: n.searchQuery,
-        projectName: n.projectName,
-        description: n.description,
-        keywords: n.keywords,
-        color: getClusterColor(n.cluster),
-        label: displayLabel
-      }
-    }),
-    links: [
-      ...filteredEdges.map(e => ({
-        source: e.source,
-        target: e.target,
-        value: e.similarity,
-        isManual: false
-      })),
-      ...manualLinks
-        .filter(link => 
-          filteredNodeIds.has(link.source) && 
-          filteredNodeIds.has(link.target)
-        )
-        .map(link => ({
-          source: link.source,
-          target: link.target,
-          value: 1,
-          isManual: true
-        }))
-    ]
   }
 
   const handleNodeClick = (node: any) => {
@@ -511,8 +523,7 @@ export default function GraphFullPage() {
 
   // Draw cluster boundaries for clusters with 2+ nodes
   const drawClusterBoundaries = (ctx: CanvasRenderingContext2D, globalScale: number) => {
-    // Only draw if zoomed out too much
-    if (globalScale < 0.5) return
+    // Draw at all zoom levels
     
     // Find connected components within each Louvain cluster
     const getConnectedComponents = (nodes: any[], edges: any[]) => {
@@ -649,18 +660,18 @@ export default function GraphFullPage() {
         ? faviconCache.current.get(topDomain)! 
         : null
       
-      // Set font and measure text
-      const fontSize = 10 / globalScale
+      // Set font and measure text - Fixed size regardless of zoom
+      const fontSize = 10
       ctx.font = `${fontSize}px 'Breeze Sans', sans-serif`
       const textWidth = ctx.measureText(clusterLabel).width
-      const labelPadding = 6 / globalScale
-      const iconSize = favicon ? 12 / globalScale : 0
-      const iconPadding = favicon ? 4 / globalScale : 0
+      const labelPadding = 6
+      const iconSize = favicon ? 14 : 0
+      const iconPadding = favicon ? 4 : 0
       
       // Draw label background with border
       ctx.fillStyle = 'white'
       ctx.strokeStyle = color + '60'
-      ctx.lineWidth = 1 / globalScale
+      ctx.lineWidth = 1
       ctx.setLineDash([])
       const totalWidth = iconSize + iconPadding + textWidth
       const labelRectX = centerX - totalWidth/2 - labelPadding
@@ -670,7 +681,7 @@ export default function GraphFullPage() {
       
       // Rounded rectangle for label background
       ctx.beginPath()
-      const labelRadius = 4 / globalScale
+      const labelRadius = 4
       ctx.moveTo(labelRectX + labelRadius, labelRectY)
       ctx.lineTo(labelRectX + labelRectW - labelRadius, labelRectY)
       ctx.quadraticCurveTo(labelRectX + labelRectW, labelRectY, labelRectX + labelRectW, labelRectY + labelRadius)
@@ -999,29 +1010,12 @@ export default function GraphFullPage() {
             graphData={graphData}
             width={dimensions.width}
             height={dimensions.height}
-            nodeLabel={(node: any) => {
-              if (graphMode === 'projects') {
-                // Project mode: show project info
-                const parts = [`<b>${node.name}</b>`]
-                if (node.url) parts.push(`URL: ${node.url}`)
-                if (node.description) parts.push(`Description: ${node.description}`)
-                if (node.keywords && node.keywords.length > 0) {
-                  parts.push(`Keywords: ${node.keywords.join(', ')}`)
-                }
-                parts.push(`Sites: ${node.visitCount}`)
-                return parts.join('\n')
-              } else {
-                // Semantic mode: show page info
-                return `${node.name}\nVisits: ${node.visitCount}`
-              }
-            }}
+            nodeLabel={null}
             nodeColor={(node: any) => node.color}
             nodeVal={calculateNodeSize}
             nodeRelSize={8}
             nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
               const label = node.label
-              const fontSize = 16 / globalScale // Increased from 11
-              ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
               
               // Check if node is connected
               const isConnected = graphData.links.some((link: any) => {
@@ -1029,6 +1023,10 @@ export default function GraphFullPage() {
                 const targetId = typeof link.target === 'object' ? link.target.id : link.target
                 return sourceId === node.id || targetId === node.id
               })
+              
+              // Dynamic font size: 11px for isolated nodes, 4px for clustered nodes
+              const fontSize = isConnected ? 4 : 11
+              ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
               
               const baseSize = calculateNodeSize(node) // Use the calculated value from nodeVal
               // Apply size boost for isolated nodes in rendering
@@ -1041,31 +1039,61 @@ export default function GraphFullPage() {
               ctx.fill()
               
               ctx.strokeStyle = isSelected ? '#FFFFFF' : '#ffffff'
-              ctx.lineWidth = isSelected ? 4 / globalScale : 2 / globalScale
+              ctx.lineWidth = isSelected ? 3 : 2
               ctx.stroke()
               
               if (isSelected) {
                 ctx.beginPath()
                 ctx.arc(node.x, node.y, size * 1.3, 0, 2 * Math.PI, false)
                 ctx.strokeStyle = '#0072de'
-                ctx.lineWidth = 2 / globalScale
-                ctx.setLineDash([5 / globalScale, 5 / globalScale])
+                ctx.lineWidth = 2
+                ctx.setLineDash([5, 5])
                 ctx.stroke()
                 ctx.setLineDash([])
               }
               
-              if (showLabels && globalScale > 1.5) {
+              // Draw labels: always for isolated nodes, or when zoomed in and labels enabled
+              const shouldShowLabel = !isConnected || (showLabels && globalScale > 1.2)
+              if (shouldShowLabel) {
                 ctx.textAlign = 'center'
-                ctx.textBaseline = 'top'
-                ctx.fillStyle = '#1f2937'
-                // Add background for better readability
-                const textWidth = ctx.measureText(label).width
-                const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2)
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-                ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y + size + 2, bckgDimensions[0], bckgDimensions[1])
+                ctx.textBaseline = 'middle'
                 
-                ctx.fillStyle = '#000'
-                ctx.fillText(label, node.x, node.y + size + 2)
+                // Measure text for background
+                const textWidth = ctx.measureText(label).width
+                const padding = fontSize * 0.4
+                const bckgDimensions = [textWidth + padding * 2, fontSize + padding * 1.5]
+                const labelX = node.x
+                const labelY = node.y + size + 8
+                
+                // Draw rounded background box with subtle border and shadow effect
+                const radius = fontSize * 0.3
+                ctx.beginPath()
+                ctx.moveTo(labelX - bckgDimensions[0] / 2 + radius, labelY - bckgDimensions[1] / 2)
+                ctx.lineTo(labelX + bckgDimensions[0] / 2 - radius, labelY - bckgDimensions[1] / 2)
+                ctx.quadraticCurveTo(labelX + bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2, labelX + bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2 + radius)
+                ctx.lineTo(labelX + bckgDimensions[0] / 2, labelY + bckgDimensions[1] / 2 - radius)
+                ctx.quadraticCurveTo(labelX + bckgDimensions[0] / 2, labelY + bckgDimensions[1] / 2, labelX + bckgDimensions[0] / 2 - radius, labelY + bckgDimensions[1] / 2)
+                ctx.lineTo(labelX - bckgDimensions[0] / 2 + radius, labelY + bckgDimensions[1] / 2)
+                ctx.quadraticCurveTo(labelX - bckgDimensions[0] / 2, labelY + bckgDimensions[1] / 2, labelX - bckgDimensions[0] / 2, labelY + bckgDimensions[1] / 2 - radius)
+                ctx.lineTo(labelX - bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2 + radius)
+                ctx.quadraticCurveTo(labelX - bckgDimensions[0] / 2, labelY - bckgDimensions[1] / 2, labelX - bckgDimensions[0] / 2 + radius, labelY - bckgDimensions[1] / 2)
+                ctx.closePath()
+                
+                // Fill with gradient-like effect using white background
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+                ctx.fill()
+                
+                // Add subtle border
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+                ctx.lineWidth = 1
+                ctx.stroke()
+                
+                // Draw text with slightly darker color for better contrast
+                ctx.fillStyle = '#1F2937'
+                ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
+                ctx.textAlign = 'center'
+                ctx.textBaseline = 'middle'
+                ctx.fillText(label, labelX, labelY)
               }
             }}
             nodeCanvasObjectMode={() => 'replace'}
@@ -1074,7 +1102,15 @@ export default function GraphFullPage() {
             linkLineDash={(link: any) => link.isManual ? [5, 5] : null}
             linkDirectionalParticles={0}
             onNodeClick={handleNodeClick}
-            onNodeHover={null}
+            onNodeHover={(node: any) => {
+              if (node?.id !== hoveredNode?.id) {
+                setHoveredNode(node)
+                if (node && graphRef.current) {
+                  const screenPos = graphRef.current.graph2ScreenCoords(node.x || 0, node.y || 0)
+                  setHoveredNodePos(screenPos)
+                }
+              }
+            }}
             cooldownTicks={150}
             dagMode={null}
             d3VelocityDecay={0.3}
@@ -1108,6 +1144,73 @@ export default function GraphFullPage() {
           </div>
         )}
       </div>
+
+      {/* Beautiful Hover Tooltip */}
+      {hoveredNode && (
+        <div
+          className="absolute z-50 pointer-events-none transition-all duration-100"
+          style={{
+            left: `${hoveredNodePos.x}px`,
+            top: `${hoveredNodePos.y}px`,
+            transform: 'translate(-50%, -10%)'
+          }}
+        >
+          {/* Tooltip Card */}
+          <div className="text-white rounded-lg px-3 py-2.5 backdrop-blur-sm mb-2" style={{
+            backgroundColor: 'rgba(0, 114, 222, 0.95)',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 114, 222, 0.3)',
+            minWidth: '210px',
+            fontFamily: "'Breeze Sans', sans-serif"
+          }}>
+            {/* Title */}
+            <div className="font-semibold text-sm mb-2 leading-tight line-clamp-2">
+              {hoveredNode.name}
+            </div>
+            
+            {/* Stats Grid */}
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="opacity-90">Visits</span>
+                <span className="font-mono font-semibold" style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  padding: '2px 8px',
+                  borderRadius: '4px'
+                }}>
+                  {hoveredNode.visitCount}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <span className="opacity-90">Domain</span>
+                <span className="font-mono text-[10px] truncate max-w-[110px] ml-2" title={hoveredNode.domain}>
+                  {hoveredNode.domain}
+                </span>
+              </div>
+              
+              {hoveredNode.searchQuery && (
+                <div className="flex items-start justify-between gap-1">
+                  <span className="opacity-90 flex-shrink-0">🔍 Query</span>
+                  <span className="text-right truncate max-w-[110px]" title={hoveredNode.searchQuery}>
+                    {hoveredNode.searchQuery}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="mt-2.5 pt-2 border-t border-white border-opacity-20 text-[11px] opacity-75 text-center">
+              Click to open • Drag to move
+            </div>
+          </div>
+          
+          {/* Arrow pointing down */}
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-0 h-0" style={{
+            borderLeft: '8px solid transparent',
+            borderRight: '8px solid transparent',
+            borderTop: '8px solid rgba(0, 114, 222, 0.95)',
+          }} />
+        </div>
+      )}
 
       {/* Explanation Panel */}
       {showExplanations && graph && (

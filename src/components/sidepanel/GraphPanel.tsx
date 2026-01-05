@@ -46,6 +46,8 @@ export function GraphPanel() {
   const [selectedNodesForLink, setSelectedNodesForLink] = useState<string[]>([])
   const [manualLinks, setManualLinks] = useState<Array<{source: string, target: string}>>([])
   const [showExplanations, setShowExplanations] = useState(false)
+  const [hoveredNode, setHoveredNode] = useState<any>(null)
+  const [hoveredNodePos, setHoveredNodePos] = useState<{x: number, y: number}>({x: 0, y: 0})
   const graphRef = useRef<any>()
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 500, height: 400 })
@@ -547,9 +549,6 @@ export function GraphPanel() {
   const drawClusterBoundaries = (ctx: CanvasRenderingContext2D, globalScale: number) => {
     // Safety check for graphData
     if (!graphData || !graphData.nodes || !graphData.links) return
-
-    // Only draw if zoomed out too much
-    if (globalScale < 0.5) return
     
     // Helper: Find connected components within a set of nodes
     const getConnectedComponents = (nodes: any[], allEdges: any[]) => {
@@ -685,18 +684,18 @@ export function GraphPanel() {
         ? faviconCache.current.get(topDomain)! 
         : null
       
-      // Set font and measure text
-      const fontSize = 10 / globalScale
+      // Set font and measure text - Fixed size regardless of zoom
+      const fontSize = 10
       ctx.font = `${fontSize}px 'Breeze Sans', sans-serif`
       const textWidth = ctx.measureText(clusterLabel).width
-      const labelPadding = 6 / globalScale
-      const iconSize = favicon ? 12 / globalScale : 0
-      const iconPadding = favicon ? 4 / globalScale : 0
+      const labelPadding = 6
+      const iconSize = favicon ? 14 : 0
+      const iconPadding = favicon ? 4 : 0
       
       // Draw label background with border
       ctx.fillStyle = 'white'
       ctx.strokeStyle = color + '60'
-      ctx.lineWidth = 1 / globalScale
+      ctx.lineWidth = 1
       ctx.setLineDash([])
       const totalWidth = iconSize + iconPadding + textWidth
       const labelRectX = centerX - totalWidth/2 - labelPadding
@@ -706,7 +705,7 @@ export function GraphPanel() {
       
       // Rounded rectangle for label background
       ctx.beginPath()
-      const labelRadius = 4 / globalScale
+      const labelRadius = 4
       ctx.moveTo(labelRectX + labelRadius, labelRectY)
       ctx.lineTo(labelRectX + labelRectW - labelRadius, labelRectY)
       ctx.quadraticCurveTo(labelRectX + labelRectW, labelRectY, labelRectX + labelRectW, labelRectY + labelRadius)
@@ -995,10 +994,7 @@ export function GraphPanel() {
             graphData={graphData}
             width={dimensions.width}
             height={dimensions.height}
-            nodeLabel={(node: any) => {
-              // Simplified tooltip: just title and visit count
-              return `${node.name}\nVisits: ${node.visitCount}`
-            }}
+            nodeLabel={null}
             nodeColor={(node: any) => node.color}
             nodeVal={(node: any) => {
               // Check if node is connected (has any edges)
@@ -1018,8 +1014,6 @@ export function GraphPanel() {
             nodeRelSize={8}
             nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
               const label = node.label
-              const fontSize = 9 / globalScale // Reduced from 12 for better appearance
-              ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
               
               // Check if node is connected
               const isConnected = graphData.links.some((link: any) => {
@@ -1027,6 +1021,10 @@ export function GraphPanel() {
                 const targetId = typeof link.target === 'object' ? link.target.id : link.target
                 return sourceId === node.id || targetId === node.id
               })
+              
+              // Dynamic font size: 11px for isolated nodes, 4px for clustered nodes
+              const fontSize = isConnected ? 4 : 11
+              ctx.font = `${fontSize}px 'Breeze Sans', Sans-Serif`
               
               const baseSize = node.__bckgDimensions ? node.__bckgDimensions[0] : 6
               // Apply size boost for isolated nodes in rendering
@@ -1041,7 +1039,7 @@ export function GraphPanel() {
               
               // Draw border (thicker for selected nodes)
               ctx.strokeStyle = isSelected ? '#FFFFFF' : '#ffffff'
-              ctx.lineWidth = isSelected ? 4 / globalScale : 2 / globalScale
+              ctx.lineWidth = isSelected ? 3 : 2
               ctx.stroke()
               
               // Draw selection ring for selected nodes
@@ -1049,8 +1047,8 @@ export function GraphPanel() {
                 ctx.beginPath()
                 ctx.arc(node.x, node.y, size * 2, 0, 2 * Math.PI, false)
                 ctx.strokeStyle = '#0072de'
-                ctx.lineWidth = 2 / globalScale
-                ctx.setLineDash([5 / globalScale, 5 / globalScale])
+                ctx.lineWidth = 2
+                ctx.setLineDash([5, 5])
                 ctx.stroke()
                 ctx.setLineDash([])
               }
@@ -1088,7 +1086,7 @@ export function GraphPanel() {
                 
                 // Add subtle border
                 ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
-                ctx.lineWidth = 0.8 / globalScale
+                ctx.lineWidth = 1
                 ctx.stroke()
                 
                 // Draw text with slightly darker color for better contrast
@@ -1105,7 +1103,13 @@ export function GraphPanel() {
             linkLineDash={(link: any) => link.isManual ? [5, 5] : null}
             linkDirectionalParticles={0}
             onNodeClick={handleNodeClick}
-            onNodeHover={null}
+            onNodeHover={(node: any) => {
+              setHoveredNode(node)
+              if (node && graphRef.current) {
+                const screenPos = graphRef.current.graph2ScreenCoords(node.x || 0, node.y || 0)
+                setHoveredNodePos(screenPos)
+              }
+            }}
             cooldownTicks={150}
             dagMode={null}
             d3VelocityDecay={0.3} // Increased decay for more stable layout
@@ -1139,6 +1143,73 @@ export function GraphPanel() {
           </div>
         )}
       </div>
+
+      {/* Beautiful Hover Tooltip */}
+      {hoveredNode && (
+        <div
+          className="absolute z-50 pointer-events-none transition-all duration-100"
+          style={{
+            left: `${hoveredNodePos.x}px`,
+            top: `${hoveredNodePos.y - 80}px`,
+            transform: 'translate(-50%, 100%)'
+          }}
+        >
+          {/* Tooltip Card */}
+          <div className="text-white rounded-lg px-3 py-2.5 backdrop-blur-sm mb-2" style={{
+            backgroundColor: 'rgba(0, 114, 222, 0.95)',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 114, 222, 0.3)',
+            minWidth: '210px',
+            fontFamily: "'Breeze Sans', sans-serif"
+          }}>
+            {/* Title */}
+            <div className="font-semibold text-sm mb-2 leading-tight line-clamp-2">
+              {hoveredNode.name}
+            </div>
+            
+            {/* Stats Grid */}
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="opacity-90">Visits</span>
+                <span className="font-mono font-semibold" style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  padding: '2px 8px',
+                  borderRadius: '4px'
+                }}>
+                  {hoveredNode.visitCount}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <span className="opacity-90">Domain</span>
+                <span className="font-mono text-[10px] truncate max-w-[110px] ml-2" title={hoveredNode.domain}>
+                  {hoveredNode.domain}
+                </span>
+              </div>
+              
+              {hoveredNode.searchQuery && (
+                <div className="flex items-start justify-between gap-1">
+                  <span className="opacity-90 flex-shrink-0">🔍 Query</span>
+                  <span className="text-right truncate max-w-[110px]" title={hoveredNode.searchQuery}>
+                    {hoveredNode.searchQuery}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="mt-2.5 pt-2 border-t border-white border-opacity-20 text-[11px] opacity-75 text-center">
+              Click to open • Drag to move
+            </div>
+          </div>
+          
+          {/* Arrow pointing down */}
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-0 h-0" style={{
+            borderLeft: '8px solid transparent',
+            borderRight: '8px solid transparent',
+            borderTop: '8px solid rgba(0, 114, 222, 0.95)',
+          }} />
+        </div>
+      )}
 
       {/* Explanation Panel - Compact for Sidepanel */}
       {showExplanations && graph && (
