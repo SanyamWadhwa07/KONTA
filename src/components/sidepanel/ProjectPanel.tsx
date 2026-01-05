@@ -534,7 +534,10 @@ function ProjectCard({
     enabled: project.reminder?.enabled || false,
     type: project.reminder?.type || 'daily' as 'daily' | 'once' | 'weekly',
     time: project.reminder?.time || '09:00',
-    date: project.reminder?.date || new Date().toISOString().split('T')[0],
+    date: project.reminder?.date || (() => {
+      const today = new Date()
+      return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0')
+    })(),
     daysOfWeek: project.reminder?.daysOfWeek || [1, 2, 3, 4, 5] // Mon-Fri by default
   })
 
@@ -1134,78 +1137,13 @@ function ProjectCard({
                     <label className="block text-xs font-normal mb-2 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                       Time
                     </label>
-                    <div className="flex gap-2 items-top">
-                      {/* Hours */}
-                      <div className="flex-1 text-center">
-                        <input
-                          type="number"
-                          min="1"
-                          max="12"
-                          value={parseInt(reminderForm.time.split(':')[0]) % 12 === 0 ? 12 : parseInt(reminderForm.time.split(':')[0]) % 12}
-                          onChange={(e) => {
-                            let hours = Math.min(12, Math.max(1, parseInt(e.target.value) || 1))
-                            const isPM = parseInt(reminderForm.time.split(':')[0]) >= 12
-                            const militaryHours = (isPM && hours !== 12 ? hours + 12 : hours === 12 && !isPM ? 0 : hours).toString().padStart(2, '0')
-                            const minutes = reminderForm.time.split(':')[1]
-                            setReminderForm({ ...reminderForm, time: `${militaryHours}:${minutes}` })
-                          }}
-                          className="w-full px-2 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] text-center text-sm font-medium bg-white dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF]"
-                          style={{ fontFamily: "'Breeze Sans'" }}
-                        />
-                        <p className="text-xs mt-1" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>Hours</p>
-                      </div>
-
-                      {/* Separator */}
-                      <span className="text-lg font-normal" style={{ color: '#9A9FA6' }}>:</span>
-
-                      {/* Minutes */}
-                      <div className="flex-1 text-center">
-                        <input
-                          type="number"
-                          min="0"
-                          max="59"
-                          value={reminderForm.time.split(':')[1]}
-                          onChange={(e) => {
-                            const minutes = Math.min(59, Math.max(0, parseInt(e.target.value) || 0)).toString().padStart(2, '0')
-                            const hours = reminderForm.time.split(':')[0]
-                            setReminderForm({ ...reminderForm, time: `${hours}:${minutes}` })
-                          }}
-                          className="w-full px-2 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] text-center text-sm font-medium bg-white dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF]"
-                          style={{ fontFamily: "'Breeze Sans'" }}
-                        />
-                        <p className="text-xs mt-1" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>Minutes</p>
-                      </div>
-
-                      {/* AM/PM Toggle */}
-                      <div className="flex-1 flex flex-col h-10 gap-0">
-                        {['AM', 'PM'].map((period) => {
-                          const isAM = parseInt(reminderForm.time.split(':')[0]) < 12
-                          const isPeriodActive = (period === 'AM' && isAM) || (period === 'PM' && !isAM)
-                          return (
-                            <button
-                              key={period}
-                              onClick={() => {
-                                const [hours, minutes] = reminderForm.time.split(':')
-                                const currentHours = parseInt(hours)
-                                let newHours = currentHours
-                                if (period === 'AM' && currentHours >= 12) {
-                                  newHours = currentHours === 12 ? 0 : currentHours - 12
-                                } else if (period === 'PM' && currentHours < 12) {
-                                  newHours = currentHours === 0 ? 12 : currentHours + 12
-                                }
-                                setReminderForm({ ...reminderForm, time: `${newHours.toString().padStart(2, '0')}:${minutes}` })
-                              }}
-                              className={`flex-1 px-2 rounded text-xs font-medium transition-colors w-full ${isPeriodActive ? 'text-white' : 'bg-gray-100 text-gray-700'}`}
-                              style={{
-                                backgroundColor: isPeriodActive ? '#0074FB' : '#F5F5F5',
-                                fontFamily: "'Breeze Sans'"
-                              }}>
-                              {period}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
+                    <input
+                      type="time"
+                      value={reminderForm.time}
+                      onChange={(e) => setReminderForm({ ...reminderForm, time: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] text-sm font-medium bg-white dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF]"
+                      style={{ fontFamily: "'Breeze Sans'" }}
+                    />
                   </div>
 
                   {/* Date Picker (for once) */}
