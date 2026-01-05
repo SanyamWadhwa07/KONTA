@@ -1,7 +1,7 @@
 {
   "name": "prism-base-app",
   "displayName": "Konta",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Understands what you’re doing. Helps when it matters.",
   "author": "Team Aegis Thapar",
   "scripts": {
