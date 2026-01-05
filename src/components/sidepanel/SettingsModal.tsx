@@ -225,7 +225,7 @@ export function SettingsModal({
             {/* Developer Section */}
             <div className="pb-3 border-b border-[#E5E5E5] dark:border-[#2C2C2E]">
               <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
-                Developer
+                Developer settings
               </h3>
               <div className="flex flex-col gap-2">
                 <button
