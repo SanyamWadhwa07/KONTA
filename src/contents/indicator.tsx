@@ -135,20 +135,37 @@ const Indicator = () => {
     })
   }
 
-  // Load dark mode setting from storage
+  // Load dark mode setting from storage and listen for changes
   useEffect(() => {
-    chrome.storage.local.get(['settings'], (result) => {
-      const darkMode = result.settings?.ui?.darkMode || false
+    // Initial load
+    chrome.storage.local.get(['aegis-settings'], (result) => {
+      const darkMode = result['aegis-settings']?.ui?.darkMode || false
       setIsDarkMode(darkMode)
     })
+
+    // Listen for storage changes
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      if (areaName === 'local' && changes['aegis-settings']) {
+        const newSettings = changes['aegis-settings'].newValue
+        if (newSettings?.ui?.darkMode !== undefined) {
+          setIsDarkMode(newSettings.ui.darkMode)
+          log('[Indicator] Dark mode updated:', newSettings.ui.darkMode)
+        }
+      }
+    }
+
+    chrome.storage.onChanged.addListener(handleStorageChange)
+
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange)
+    }
   }, [])
 
   // Color configuration based on dark mode
   const colors = {
     // Backgrounds
     bg_primary: isDarkMode ? '#1C1C1E' : '#FFFFFF',
-    bg_surface: isDarkMode ? '#2C2C2E' : '#FFFFFF',
-    bg_secondary: isDarkMode ? '#1C1C1E' : '#F5F5F5',
+    bg_surface: isDarkMode ? '#2C2C2E' : '#F5F5F5',
     
     // Borders
     border: isDarkMode ? '#3A3A3C' : '#E5E5E5',
@@ -156,7 +173,7 @@ const Indicator = () => {
     // Text
     text_primary: isDarkMode ? '#FFFFFF' : '#080A0B',
     text_secondary: isDarkMode ? '#9A9FA6' : '#9A9FA6',
-    text_muted: isDarkMode ? '#666' : '#666',
+    text_muted: isDarkMode ? '#9A9FA6' : '#9A9FA6',
     
     // Accent
     accent: isDarkMode ? '#3e91ff' : '#0072de',
