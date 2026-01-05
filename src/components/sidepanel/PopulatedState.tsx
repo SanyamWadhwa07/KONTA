@@ -365,13 +365,18 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     }
   }, [activeTab, timelineView])
 
-  // Reload clusters when switching to clusters view
+  // Reload clusters when switching to clusters view and expand all by default
   useEffect(() => {
     if (activeTab === "sessions" && timelineView === "clusters") {
       sendMessage<{ graph: KnowledgeGraph }>({ type: "REFRESH_GRAPH" })
         .then((res) => {
           if (res?.graph) {
             setClusters(res.graph)
+            // Expand all clusters by default
+            if (res.graph.nodes && res.graph.nodes.length > 0) {
+              const clusterIds = Array.from(new Set(res.graph.nodes.map(n => n.cluster)))
+              setExpandedClusters(clusterIds)
+            }
           }
         })
         .catch((err) => {
@@ -1461,36 +1466,54 @@ function DaySection({
           <span>{dayLabel}</span>
         </div>
         {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
-          <div className="inline-flex rounded-lg overflow-hidden border-2 border-[#0072de] dark:border-[#3e91ff]">
+          <div
+            className="relative inline-flex items-center rounded-full p-0.5"
+            style={{
+              width: 130,
+              border: '1px solid',
+              borderColor: isDarkMode ? '#3A3A3C' : '#E5E5E5',
+              backgroundColor: isDarkMode ? '#111214' : 'transparent',
+              fontFamily: "'Breeze Sans'"
+            }}
+          >
+            {/* Sliding knob */}
+            <div
+              aria-hidden
+              className="absolute top-0 bottom-0 left-0 w-1/2 rounded-full transition-transform duration-200"
+              style={{
+                transform: timelineView === 'clusters' ? 'translateX(100%)' : 'translateX(0)',
+                backgroundColor: isDarkMode ? '#3e91ff' : '#0072de',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+              }}
+            />
+
             <button
               onClick={() => onTimelineViewChange("sessions")}
-              className="px-3 py-1 text-2xs font-medium transition-all"
+              className="relative z-10 flex-1 text-xs py-1 rounded-full transition-colors"
+              aria-pressed={timelineView === 'sessions'}
               style={{
-                backgroundColor: timelineView === "sessions" 
-                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.2)' : '#0072de') 
-                  : (isDarkMode ? '#1C1C1E' : '#F5F5F5'),
-                color: timelineView === "sessions" 
-                  ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
-                  : (isDarkMode ? '#9A9FA6' : '#666666'),
-                fontFamily: "'Breeze Sans'",
-                fontSize: '10px'
-              }}>
+                background: 'transparent',
+                border: '0',
+                color: timelineView === 'sessions' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+                fontFamily: "'Breeze Sans'"
+              }}
+              title="Show sessions"
+            >
               Sessions
             </button>
-            <div className="w-px bg-[#0072de] dark:bg-[#3e91ff]" />
+
             <button
               onClick={() => onTimelineViewChange("clusters")}
-              className="px-3 py-1 text-2xs font-medium transition-all"
+              className="relative z-10 flex-1 text-xs py-1 rounded-full transition-colors"
+              aria-pressed={timelineView === 'clusters'}
               style={{
-                backgroundColor: timelineView === "clusters" 
-                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.2)' : '#0072de') 
-                  : (isDarkMode ? '#1C1C1E' : '#F5F5F5'),
-                color: timelineView === "clusters" 
-                  ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
-                  : (isDarkMode ? '#9A9FA6' : '#666666'),
-                fontFamily: "'Breeze Sans'",
-                fontSize: '10px'
-              }}>
+                background: 'transparent',
+                border: '0',
+                color: timelineView === 'clusters' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+                fontFamily: "'Breeze Sans'"
+              }}
+              title="Show clusters"
+            >
               Clusters
             </button>
           </div>
@@ -1922,6 +1945,7 @@ function ClusterDaySection({
 }: ClusterDaySectionProps) {
   const isDarkMode = document.documentElement.classList.contains('dark')
   const visibleCount = isExpanded ? clusters.length : 3
+  const hasNoClusters = clusters.length === 0
 
   return (
     <div className="flex flex-col gap-1 pb-0 pt-1 p-2">
@@ -1930,40 +1954,64 @@ function ClusterDaySection({
         <div className="text-sm font-normal text-[#0072DF] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
           <span>{dayLabel}</span>
         </div>
-        {isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
-          <div className="inline-flex rounded-lg overflow-hidden border-2 border-[#0072de] dark:border-[#3e91ff]">
-            <button
-              onClick={() => onTimelineViewChange("sessions")}
-              className="px-3 py-1 text-2xs font-medium transition-all"
-              style={{
-                backgroundColor: timelineView === "sessions" 
-                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.2)' : '#0072de') 
-                  : (isDarkMode ? '#1C1C1E' : '#F5F5F5'),
-                color: timelineView === "sessions" 
-                  ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
-                  : (isDarkMode ? '#9A9FA6' : '#666666'),
-                fontFamily: "'Breeze Sans'",
-                fontSize: '10px'
-              }}>
-              Sessions
-            </button>
-            <div className="w-px bg-[#0072de] dark:bg-[#3e91ff]" />
-            <button
-              onClick={() => onTimelineViewChange("clusters")}
-              className="px-3 py-1 text-2xs font-medium transition-all"
-              style={{
-                backgroundColor: timelineView === "clusters" 
-                  ? (isDarkMode ? 'rgba(74, 159, 255, 0.2)' : '#0072de') 
-                  : (isDarkMode ? '#1C1C1E' : '#F5F5F5'),
-                color: timelineView === "clusters" 
-                  ? (isDarkMode ? '#3e91ff' : '#FFFFFF') 
-                  : (isDarkMode ? '#9A9FA6' : '#666666'),
-                fontFamily: "'Breeze Sans'",
-                fontSize: '10px'
-              }}>
-              Clusters
-            </button>
+        {hasNoClusters ? (
+          <div className="text-xs text-[#9A9FA6] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
+            No clusters
           </div>
+        ) : (
+          isFirstDay && !searchQuery && timelineView && onTimelineViewChange && (
+            <div
+              className="relative inline-flex items-center rounded-full p-0.5"
+              style={{
+                width: 130,
+                border: '1px solid',
+                borderColor: isDarkMode ? '#3A3A3C' : '#E5E5E5',
+                backgroundColor: isDarkMode ? '#111214' : 'transparent',
+                fontFamily: "'Breeze Sans'"
+              }}
+            >
+              {/* Sliding knob */}
+              <div
+                aria-hidden
+                className="absolute top-0 bottom-0 left-0 w-1/2 rounded-full transition-transform duration-200"
+                style={{
+                  transform: timelineView === 'clusters' ? 'translateX(100%)' : 'translateX(0)',
+                  backgroundColor: isDarkMode ? '#3e91ff' : '#0072de',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+                }}
+              />
+
+              <button
+                onClick={() => onTimelineViewChange("sessions")}
+                className="relative z-10 flex-1 text-xs py-1 rounded-full transition-colors"
+                aria-pressed={timelineView === 'sessions'}
+                style={{
+                  background: 'transparent',
+                  border: '0',
+                  color: timelineView === 'sessions' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+                  fontFamily: "'Breeze Sans'"
+                }}
+                title="Show sessions"
+              >
+                Sessions
+              </button>
+
+              <button
+                onClick={() => onTimelineViewChange("clusters")}
+                className="relative z-10 flex-1 text-xs py-1 rounded-full transition-colors"
+                aria-pressed={timelineView === 'clusters'}
+                style={{
+                  background: 'transparent',
+                  border: '0',
+                  color: timelineView === 'clusters' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+                  fontFamily: "'Breeze Sans'"
+                }}
+                title="Show clusters"
+              >
+                Clusters
+              </button>
+            </div>
+          )
         )}
       </div>
 
@@ -2059,13 +2107,13 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
 
   return (
     <div
-      className="rounded-xl overflow-hidden cursor-pointer transition-all bg-white dark:bg-[#2C2C2E] border border-[#BCBCBC] dark:border-[#3A3A3C]"
+      className="flex flex-col gap-1.5 p-3 rounded-xl transition-all relative bg-white dark:bg-[#2C2C2E] border border-[#BCBCBC] dark:border-[#3A3A3C] cursor-pointer"
       style={{
-        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+        backgroundColor: isExpanded ? (document.documentElement.classList.contains('dark') ? '#2C2C2E' : '#F5F5F5') : undefined
       }}
       onClick={onToggle}>
       {/* Cluster Header */}
-      <div className="flex items-center justify-between gap-3 p-3">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {/* Cluster Color Indicator */}
           <div 
@@ -2109,7 +2157,7 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
 
       {/* Nodes List */}
       {isExpanded && (
-        <div className="flex flex-col gap-1 px-3 pb-3 pt-1">
+        <div className="flex flex-col gap-1 pt-2">
           {nodes
             .slice()
             .sort((a, b) => b.timestamp - a.timestamp)
@@ -2130,7 +2178,7 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
               return (
                 <div 
                   key={node.id} 
-                  className="flex items-center justify-between gap-3 py-1.5 px-2 rounded hover:bg-white dark:hover:bg-[#1C1C1E] transition-colors cursor-pointer"
+                  className="flex items-center justify-between gap-3 py-1 rounded hover:bg-gray-100 dark:hover:bg-[#3A3A3C] transition-colors cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation()
                     handleNodeClick(node)
