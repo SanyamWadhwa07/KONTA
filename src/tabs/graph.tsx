@@ -354,10 +354,10 @@ export default function GraphFullPage() {
       filteredNodes,
       graphData: {
         nodes: filteredNodes.map(n => {
-          // Use project name in project mode, domain in semantic mode
-          const displayLabel = graphMode === 'projects' && n.projectName 
-            ? n.projectName 
-            : n.domain
+          
+          const displayLabel = n.title.length > 15 
+          ? n.title.substring(0, 15) + '...' 
+          : n.title
           
           return {
             id: n.id,
