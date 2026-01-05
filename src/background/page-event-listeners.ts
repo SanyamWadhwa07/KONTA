@@ -9,6 +9,28 @@ import type { AppSettings } from "~/types/settings"
 import { DEFAULT_SETTINGS } from "~/types/settings"
 import { log, warn } from "~/lib/logger"
 
+// Helper to check if a domain is excluded
+async function isDomainExcluded(url: string): Promise<boolean> {
+  try {
+    const result = await chrome.storage.local.get("aegis-settings")
+    const settings = result["aegis-settings"] as AppSettings | undefined
+    const excludedDomains = settings?.privacy?.excludedDomains ?? []
+    
+    if (excludedDomains.length === 0) return false
+    
+    const urlObj = new URL(url)
+    const domain = urlObj.hostname.toLowerCase().replace(/^www\./, '')
+    
+    return excludedDomains.some(excluded => {
+      const normalizedExcluded = excluded.toLowerCase().replace(/^www\./, '')
+      return domain === normalizedExcluded || domain.endsWith('.' + normalizedExcluded)
+    })
+  } catch (error) {
+    warn("[PageEvent] Failed to check excluded domains:", error)
+    return false
+  }
+}
+
 // Helper to load notification settings
 async function loadNotificationSettings(): Promise<AppSettings["notifications"]> {
   try {
@@ -109,6 +131,13 @@ export const setupPageVisitListener = () => {
 
       ;(async () => {
         try {
+          // Check if domain is excluded before processing
+          const isExcluded = await isDomainExcluded(baseEvent.url)
+          if (isExcluded) {
+            log("[PageEvent] Skipping excluded domain:", baseEvent.url)
+            return
+          }
+
           // Reuse existing embedding for this URL if already computed in past sessions
           const sessions = getSessions()
           const existingWithEmbedding = (() => {

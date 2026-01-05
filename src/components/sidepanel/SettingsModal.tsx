@@ -1,4 +1,5 @@
-import { X } from "lucide-react"
+import { X, ChevronDown, Search } from "lucide-react"
+import { useState } from "react"
 import type { AppSettings } from "~/types/settings"
 
 interface SettingsModalProps {
@@ -45,9 +46,53 @@ export function SettingsModal({
   onImportData,
   onClearAllData,
   onResetAllSettings,
-  onReloadExtension
+  onReloadExtension,
+  newExcludedDomain,
+  onNewExcludedDomainChange,
+  onAddExcludedDomain,
+  onRemoveExcludedDomain
 }: SettingsModalProps) {
   if (!isOpen) return null
+
+  const [domainSearchQuery, setDomainSearchQuery] = useState("")
+  const [excludedDomainsExpanded, setExcludedDomainsExpanded] = useState(false)
+  const [domainError, setDomainError] = useState("")
+
+  // Validate domain format
+  const isValidDomain = (domain: string): boolean => {
+    // Basic domain validation regex
+    const domainRegex = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/
+    return domainRegex.test(domain)
+  }
+
+  const handleAddDomain = () => {
+    const trimmedDomain = newExcludedDomain.trim().toLowerCase()
+      .replace(/^(https?:\/\/)?(www\.)?/, '')
+      .replace(/\/.*$/, '')
+    
+    if (!trimmedDomain) {
+      setDomainError("Please enter a domain")
+      return
+    }
+    
+    if (!isValidDomain(trimmedDomain)) {
+      setDomainError("Please enter a valid domain (e.g., example.com)")
+      return
+    }
+    
+    if (settings.privacy.excludedDomains.includes(trimmedDomain)) {
+      setDomainError("Domain already excluded")
+      return
+    }
+    
+    setDomainError("")
+    onAddExcludedDomain()
+  }
+
+  // Filter domains based on search query
+  const filteredDomains = settings.privacy.excludedDomains.filter(domain =>
+    domain.toLowerCase().includes(domainSearchQuery.toLowerCase())
+  )
 
   const ToggleSwitch = ({ enabled, onChange }: { enabled: boolean; onChange: () => void }) => (
     <button
@@ -169,11 +214,122 @@ export function SettingsModal({
                 Privacy & Data
               </h3>
               <div className="flex flex-col gap-2">
-                {settings.privacy.excludedDomains.length > 0 && (
-                  <div className="px-3 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] text-xs bg-white dark:bg-[#2C2C2E]">
-                    <div className="font-medium mb-1 text-[#080A0B] dark:text-[#FFFFFF]">Excluded: {settings.privacy.excludedDomains.join(', ')}</div>
-                  </div>
-                )}
+                {/* Excluded Domains List - Collapsible */}
+                <div className="rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E] overflow-hidden">
+                  {/* Header - Clickable to toggle */}
+                  <button
+                    onClick={() => setExcludedDomainsExpanded(!excludedDomainsExpanded)}
+                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#3A3A3C] transition-colors">
+                    <div className="flex items-center gap-2">
+                      <ChevronDown 
+                        className={`h-4 w-4 transition-transform text-[#080A0B] dark:text-[#FFFFFF] ${excludedDomainsExpanded ? 'rotate-0' : '-rotate-90'}`}
+                      />
+                      <div className="text-left">
+                        <div className="font-medium text-[#080A0B] dark:text-[#FFFFFF] text-sm" style={{ fontFamily: "'Breeze Sans'" }}>
+                          Excluded Domains
+                        </div>
+                        <div className="text-xs text-[#666666] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
+                          {settings.privacy.excludedDomains.length} domain{settings.privacy.excludedDomains.length !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Collapsible Content */}
+                  {excludedDomainsExpanded && (
+                    <div className="px-3 pb-3 border-t border-[#E5E5E5] dark:border-[#3A3A3C]">
+                      <div className="text-xs text-[#666666] dark:text-[#9A9FA6] mt-3 mb-3" style={{ fontFamily: "'Breeze Sans'" }}>
+                        Sites you don't want Konta to capture (e.g., banks, sensitive websites)
+                      </div>
+                      
+                      {/* Add Domain Input */}
+                      <div className="flex flex-col gap-2 mb-3">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newExcludedDomain}
+                            onChange={(e) => {
+                              onNewExcludedDomainChange(e.target.value)
+                              setDomainError("")
+                            }}
+                            placeholder="example.com"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleAddDomain()
+                              }
+                            }}
+                            className="flex-1 px-2.5 py-1.5 text-xs rounded border border-[#D1D5DB] dark:border-[#3A3A3C] bg-white dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF] outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            style={{ fontFamily: "'Breeze Sans'" }}
+                          />
+                          <button
+                            onClick={handleAddDomain}
+                            disabled={!newExcludedDomain.trim()}
+                            className="px-3 py-1.5 text-xs rounded font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{
+                              backgroundColor: newExcludedDomain.trim() ? '#0072df' : '#9CA3AF',
+                              color: '#FFFFFF',
+                              fontFamily: "'Breeze Sans'"
+                            }}>
+                            Add
+                          </button>
+                        </div>
+                        {domainError && (
+                          <div className="text-xs text-[#dc2626] dark:text-[#FF6B6B]" style={{ fontFamily: "'Breeze Sans'" }}>
+                            {domainError}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Search Input - Only show if there are domains */}
+                      {settings.privacy.excludedDomains.length > 0 && (
+                        <div className="relative mb-3">
+                          <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-[#9A9FA6]" />
+                          <input
+                            type="text"
+                            value={domainSearchQuery}
+                            onChange={(e) => setDomainSearchQuery(e.target.value)}
+                            placeholder="Search domains..."
+                            className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded border border-[#D1D5DB] dark:border-[#3A3A3C] bg-white dark:bg-[#1C1C1E] text-[#080A0B] dark:text-[#FFFFFF] outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            style={{ fontFamily: "'Breeze Sans'" }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Excluded Domains List */}
+                      {settings.privacy.excludedDomains.length > 0 ? (
+                        filteredDomains.length > 0 ? (
+                          <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto">
+                            {filteredDomains.map((domain) => (
+                              <div
+                                key={domain}
+                                className="flex items-center justify-between px-2.5 py-1.5 rounded bg-[#F5F5F5] dark:bg-[#1C1C1E] border border-[#E5E5E5] dark:border-[#3A3A3C]">
+                                <span className="text-xs text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+                                  {domain}
+                                </span>
+                                <button
+                                  onClick={() => onRemoveExcludedDomain(domain)}
+                                  className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                                  title="Remove domain">
+                                  <svg className="w-3.5 h-3.5 text-[#dc2626] dark:text-[#FF6B6B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-center py-2 text-[#9A9FA6] dark:text-[#8E8E93]" style={{ fontFamily: "'Breeze Sans'" }}>
+                            No domains match "{domainSearchQuery}"
+                          </div>
+                        )
+                      ) : (
+                        <div className="text-xs text-center py-2 text-[#9A9FA6] dark:text-[#8E8E93]" style={{ fontFamily: "'Breeze Sans'" }}>
+                          No excluded domains yet
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <button
                   onClick={onExportData}

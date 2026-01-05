@@ -1,13 +1,43 @@
 import type { PlasmoCSConfig } from "plasmo"
 import type { PageEvent } from "~/types/page-event"
+import type { AppSettings } from "~/types/settings"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
   run_at: "document_start"
 }
 
+// Helper to check if current domain is excluded
+const isDomainExcluded = async (): Promise<boolean> => {
+  try {
+    const result = await chrome.storage.local.get("aegis-settings")
+    const settings = result["aegis-settings"] as AppSettings | undefined
+    const excludedDomains = settings?.privacy?.excludedDomains ?? []
+    
+    if (excludedDomains.length === 0) return false
+    
+    const currentDomain = location.hostname.toLowerCase().replace(/^www\./, '')
+    
+    // Check if current domain matches any excluded domain
+    return excludedDomains.some(excluded => {
+      const normalizedExcluded = excluded.toLowerCase().replace(/^www\./, '')
+      return currentDomain === normalizedExcluded || currentDomain.endsWith('.' + normalizedExcluded)
+    })
+  } catch (error) {
+    console.error("[PageCapture] Failed to check excluded domains:", error)
+    return false
+  }
+}
+
 // Capture page visit data and send to background script
-const capturePageVisit = () => {
+const capturePageVisit = async () => {
+  // Check if domain is excluded before capturing
+  const isExcluded = await isDomainExcluded()
+  if (isExcluded) {
+    console.log("[PageCapture] Skipping excluded domain:", location.hostname)
+    return
+  }
+
   const pageEvent: PageEvent = {
     url: location.href,
     title: document.title,
