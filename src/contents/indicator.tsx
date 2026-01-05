@@ -160,7 +160,7 @@ const Indicator = () => {
       
       // Handle PROJECT_SUGGESTION_READY
       if (message.type === "PROJECT_SUGGESTION_READY") {
-        log("💡 Project suggestion detected:", message.payload)
+        log("Project suggestion detected:", message.payload)
         const { projectId, projectName, currentUrl, currentTitle, score } = message.payload
         
         const notification: Notification = {
@@ -247,7 +247,7 @@ const Indicator = () => {
       
       // Handle project reminder notifications
       if (message.type === "show-project-reminder") {
-        log("⏰ Project reminder triggered:", message.payload)
+        log("Project reminder triggered:", message.payload)
         const { projectId, projectName, projectDescription, snoozeCount } = message.payload
         
         const notification: Notification = {
@@ -268,7 +268,7 @@ const Indicator = () => {
       
       // Handle project main site visit notifications
       if (message.type === "PROJECT_MAIN_SITE_VISIT") {
-        log("🏠 Project main site visit detected:", message.payload)
+        log("Project main site visit detected:", message.payload)
         const { projectId, projectName, currentUrl } = message.payload
         
         const notification: Notification = {
@@ -289,14 +289,14 @@ const Indicator = () => {
       
       // Handle COI alert notifications
       if (message.type === "COI_ALERT") {
-        log("⚠️ COI alert triggered:", message.payload)
+        log("COI alert triggered:", message.payload)
         log("[Indicator] COI_ALERT received:", message.payload)
         const { score, threshold, message: alertMessage } = message.payload
         
         const notification: Notification = {
           id: `coi-alert-${Date.now()}`,
           type: 'coi-alert',
-          title: '💡 Time for a Focus Break?',
+          title: 'Time for a Focus Break?',
           message: alertMessage || `You've been switching between tasks frequently. Taking a short break might help you refocus.`,
           timestamp: Date.now(),
           score: Math.round(score * 100),
