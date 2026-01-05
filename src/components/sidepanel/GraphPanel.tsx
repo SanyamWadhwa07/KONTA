@@ -54,6 +54,25 @@ export function GraphPanel() {
   const hasUserInteractedRef = useRef(false)
   const lastGraphTimestampRef = useRef<number>(0)
   const faviconCache = useRef<Map<string, HTMLImageElement>>(new Map())
+  const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'))
+
+  // Monitor dark mode changes
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          setIsDarkMode(document.documentElement.classList.contains('dark'))
+        }
+      })
+    })
+    
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+    
+    return () => observer.disconnect()
+  }, [])
 
   // Load manual links from storage
   useEffect(() => {
@@ -771,6 +790,7 @@ export function GraphPanel() {
           <button
             onClick={() => {
               chrome.tabs.create({ url: chrome.runtime.getURL('tabs/graph.html') })
+              window.close()
             }}
             className="p-1.5 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-[#2C2C2E] text-gray-400 dark:text-gray-400"
             title="Open in full page">
@@ -965,7 +985,12 @@ export function GraphPanel() {
       )}
 
       {/* Graph Container */}
-      <div ref={containerRef} className="relative bg-white dark:bg-[#1C1C1E] overflow-hidden w-full flex-1">
+      <div ref={containerRef} className="relative bg-white dark:bg-[#1C1C1E] overflow-hidden w-full flex-1" style={{
+        backgroundImage: isDarkMode
+          ? 'radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1px, transparent 0)'
+          : 'radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.12) 1px, transparent 0)',
+        backgroundSize: '24px 24px'
+      }}>
         {/* Navigation Controls */}
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
           <button
@@ -1258,7 +1283,7 @@ export function GraphPanel() {
                         <div key={idx} className="pb-1.5 border-b last:border-0 border-gray-100 dark:border-gray-700">
                           <div className="space-y-0.5">
                             <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">🧠 Semantic</span>
+                              <span className="text-gray-600 dark:text-gray-400">🧠 Clusters</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.embedding * 100).toFixed(0)}%
                               </span>

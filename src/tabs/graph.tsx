@@ -799,7 +799,9 @@ export default function GraphFullPage() {
             )}
           </button>
           <button
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
               const newMode = graphMode === 'semantic' ? 'projects' : 'semantic'
               setGraphMode(newMode)
             }}
@@ -811,8 +813,8 @@ export default function GraphFullPage() {
               borderColor: graphMode === 'projects' ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
               backgroundColor: graphMode === 'projects' ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#2C2C2E' : 'transparent')
             }}
-            title="Switch between semantic and project-based clustering">
-            <span>{graphMode === 'semantic' ? 'Semantic' : 'Projects'}</span>
+            title="Switch between cluster and project-based grouping">
+            <span>{graphMode === 'semantic' ? 'Clusters' : 'Projects'}</span>
           </button>
           <button
             onClick={() => {
@@ -981,7 +983,12 @@ export default function GraphFullPage() {
       )}
 
       {/* Graph Container */}
-      <div ref={containerRef} className="flex-1 relative bg-white dark:bg-[#1C1C1E] overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative bg-white dark:bg-[#1C1C1E] overflow-hidden" style={{
+        backgroundImage: isDarkMode
+          ? 'radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.16) 1px, transparent 0)'
+          : 'radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.16) 1px, transparent 0)',
+        backgroundSize: '24px 24px'
+      }}>
         {/* Zoom Controls */}
         <div className="absolute bottom-6 right-6 z-10 flex flex-col gap-2">
           <button
