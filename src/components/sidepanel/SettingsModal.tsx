@@ -179,6 +179,19 @@ export function SettingsModal({
                 <button
                   onClick={() => onUpdateSettings({
                     ...settings,
+                    notifications: { ...settings.notifications, showIndicator: !settings.notifications.showIndicator }
+                  })}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E]">
+                  <div>
+                    <div className="font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Show Notification Indicator</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Display the floating notification hub on web pages</div>
+                  </div>
+                  <ToggleSwitch enabled={settings.notifications.showIndicator} onChange={() => {}} />
+                </button>
+
+                <button
+                  onClick={() => onUpdateSettings({
+                    ...settings,
                     notifications: { ...settings.notifications, projectDetection: !settings.notifications.projectDetection }
                   })}
                   className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E]">

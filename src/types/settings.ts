@@ -18,6 +18,7 @@ export interface AppSettings {
   
   // Notification Settings
   notifications: {
+    showIndicator: boolean
     projectDetection: boolean
     reminders: boolean
     projectSuggestions: boolean
@@ -63,6 +64,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     trackIncognito: false
   },
   notifications: {
+    showIndicator: true,
     projectDetection: true,
     reminders: true,
     projectSuggestions: true,

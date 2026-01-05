@@ -90,7 +90,17 @@ const Indicator = () => {
       }
     })
 
-    chrome.storage.local.get(['konta-position', 'onboarding-complete'], (result) => {
+    chrome.storage.local.get(['konta-position', 'onboarding-complete', 'aegis-settings'], (result) => {
+      // Check if indicator is enabled in settings
+      const settings = result['aegis-settings']
+      const indicatorEnabled = settings?.notifications?.showIndicator ?? true
+      
+      if (!indicatorEnabled) {
+        log("[Indicator] Indicator disabled in settings")
+        setIsVisible(false)
+        return
+      }
+      
       // Check if onboarding is complete
       const onboardingDone = result['onboarding-complete'] === true
       
