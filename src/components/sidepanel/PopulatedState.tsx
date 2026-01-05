@@ -847,7 +847,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       {/* COI Panel - Show when developer setting is enabled */}
       {settings.developer.showCoiPanel && (
         <div className="px-3 pt-2">
-          <CoiPanel sessions={sessions} />
+          <CoiPanel sessions={sessions} isDarkMode={settings.ui.darkMode} />
         </div>
       )}
 

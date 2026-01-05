@@ -21,6 +21,7 @@ import {
 
 interface CoiPanelProps {
   sessions: Session[]
+  isDarkMode?: boolean
 }
 
 function sendMessage<T>(message: any): Promise<T> {
@@ -36,10 +37,19 @@ function sendMessage<T>(message: any): Promise<T> {
   })
 }
 
-export function CoiPanel({ sessions }: CoiPanelProps) {
+export function CoiPanel({ sessions, isDarkMode = false }: CoiPanelProps) {
   const [weights, setWeights] = useState<CoiWeights>(getDefaultWeights())
   const [behavior, setBehavior] = useState<EphemeralBehaviorState | undefined>(undefined)
   const [liveScores, setLiveScores] = useState<{ page?: number; session?: number } | null>(null)
+
+  const colors = {
+    bg: isDarkMode ? "#1C1C1E" : "#FFFFFF",
+    surface: isDarkMode ? "#2C2C2E" : "#F5F5F5",
+    border: isDarkMode ? "#3A3A3C" : "#E5E5E5",
+    textPrimary: isDarkMode ? "#FFFFFF" : "#080A0B",
+    textSecondary: isDarkMode ? "#8E8E93" : "#9A9FA6",
+    accent: isDarkMode ? "#3e91ff" : "#0072de",
+  }
 
   useEffect(() => {
     loadCoiWeights().then(setWeights).catch((err) => {
@@ -123,15 +133,16 @@ export function CoiPanel({ sessions }: CoiPanelProps) {
       <div className="flex flex-col gap-4">
         {entries.map(([key, value]) => (
           <label key={`${scope}-${key}`} className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-sm font-medium text-slate-700">
+            <div className="flex items-center justify-between text-sm font-medium" style={{ color: colors.textPrimary }}>
               <div className="flex items-center gap-1.5">
                 <span>{key}</span>
                 {parameterInfo[key] && (
                   <div className="group relative">
                     <svg 
-                      className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help" 
+                      className="w-3.5 h-3.5 cursor-help" 
                       fill="currentColor" 
                       viewBox="0 0 20 20"
+                      style={{ color: isDarkMode ? "#8E8E93" : "#9A9FA6" }}
                     >
                       <path 
                         fillRule="evenodd" 
@@ -139,9 +150,9 @@ export function CoiPanel({ sessions }: CoiPanelProps) {
                         clipRule="evenodd" 
                       />
                     </svg>
-                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-2 bg-slate-800 text-white text-xs rounded shadow-lg z-50">
+                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-2 text-white text-xs rounded shadow-lg z-50" style={{ backgroundColor: isDarkMode ? "#3A3A3C" : "#333333" }}>
                       {parameterInfo[key]}
-                      <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+                      <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent" style={{ borderTopColor: isDarkMode ? "#3A3A3C" : "#333333" }}></div>
                     </div>
                   </div>
                 )}
@@ -155,7 +166,15 @@ export function CoiPanel({ sessions }: CoiPanelProps) {
               step={0.05}
               value={value}
               onChange={(e) => updateWeight(scope, key, parseFloat(e.target.value))}
-              className="w-full accent-blue-600"
+              style={{
+                appearance: "none",
+                width: "100%",
+                height: "4px",
+                borderRadius: "2px",
+                background: `linear-gradient(to right, ${colors.accent} 0%, ${colors.accent} ${(value / 2) * 100}%, ${colors.border} ${(value / 2) * 100}%, ${colors.border} 100%)`,
+                cursor: "pointer"
+              }}
+              className="accent-blue-600"
             />
           </label>
         ))}
@@ -164,17 +183,17 @@ export function CoiPanel({ sessions }: CoiPanelProps) {
   }
 
   return (
-    <div className="w-full rounded-lg border bg-white p-3 shadow-sm" style={{ borderColor: "#E5E5E5" }}>
+    <div className="w-full rounded-lg border p-3 shadow-sm" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Cognitive Overload Index</p>
+          <p className="text-xs uppercase tracking-wide" style={{ color: colors.textSecondary }}>Cognitive Overload Index</p>
           <div className="flex items-center gap-3 mt-1">
-            <div className="text-sm text-slate-700">Page</div>
-            <div className="text-lg font-semibold" style={{ color: "#0072de" }}>
+            <div className="text-sm" style={{ color: colors.textSecondary }}>Page</div>
+            <div className="text-lg font-semibold" style={{ color: colors.accent }}>
               {formatScore(liveScores?.page ?? pageResult?.score)}
             </div>
-            <div className="text-sm text-slate-700">Session</div>
-            <div className="text-lg font-semibold" style={{ color: "#0072de" }}>
+            <div className="text-sm" style={{ color: colors.textSecondary }}>Session</div>
+            <div className="text-lg font-semibold" style={{ color: colors.accent }}>
               {formatScore(liveScores?.session ?? sessionResult?.score)}
             </div>
           </div>
@@ -182,7 +201,7 @@ export function CoiPanel({ sessions }: CoiPanelProps) {
       </div>
       {/* Live updates listener */}
       <LiveCoiListener setBehavior={setBehavior} setWeights={setWeights} setScores={setLiveScores} />
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs" style={{ color: colors.textSecondary }}>
         <span>Last page: {latestSession?.pages[latestPageIndex]?.title ?? "—"}</span>
         <span>Session pages: {latestSession?.pages.length ?? 0}</span>
       </div>
