@@ -130,23 +130,30 @@ export default function GraphFullPage() {
     setLoading(true)
     try {
       // Execute refresh 5 times before showing the graph
-      for (let i = 0; i < 5; i++) {
-        const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
-        const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
-        if (response?.graph) {
-          log(`[GraphFullPage] Refresh ${i + 1}/5 - Graph data received`)
-          setGraph(response.graph)
-          lastGraphTimestampRef.current = response.graph.lastUpdated
-          hasUserInteractedRef.current = false
-          refreshCountRef.current = i + 1
-          setRefreshCount(i + 1)
-        }
+      // for (let i = 0; i < 5; i++) {
+      //   const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
+      //   const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
+      //   if (response?.graph) {
+      //     log(`[GraphFullPage] Refresh ${i + 1}/5 - Graph data received`)
+      //     setGraph(response.graph)
+      //     lastGraphTimestampRef.current = response.graph.lastUpdated
+      //     hasUserInteractedRef.current = false
+      //     refreshCountRef.current = i + 1
+      //     setRefreshCount(i + 1)
+      //   }
         
-        // Add delay between refreshes (except after the last one)
-        if (i < 4) {
-          await new Promise(resolve => setTimeout(resolve, 300))
-        }
-      }
+      // // Add delay between refreshes (except after the last one)
+      //   if (i < 4) {
+      //     await new Promise(resolve => setTimeout(resolve, 300))
+      //   }
+
+      const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
+      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
+      if (response?.graph) {
+        setGraph(response.graph)
+        lastGraphTimestampRef.current = response.graph.lastUpdated
+        hasUserInteractedRef.current = false
+    }
     } catch (err) {
       console.error("[GraphFullPage] Failed to load graph:", err)
     } finally {
