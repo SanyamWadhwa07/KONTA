@@ -429,7 +429,7 @@ function ProjectsPanel({
           <Folder className="h-12 w-12 opacity-30" style={{ color: '#9A9FA6' }} />
           <div className="text-center">
             <p className="text-sm mb-1 dark:text-[#8E8E93]" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-              No projects found
+              No projects found, create one?
             </p>
           </div>
         </div>
