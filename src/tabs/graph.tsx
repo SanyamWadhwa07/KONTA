@@ -1325,7 +1325,7 @@ export default function GraphFullPage() {
 
       {/* Explanation Panel */}
       {showExplanations && graph && (
-        <div className="absolute top-20 right-6 w-96 max-h-[calc(100vh-7rem)] bg-white dark:bg-[#1C1C1E] rounded-lg shadow-2xl border-2 border-[#E5E5E5] dark:border-[#3A3A3C] overflow-hidden flex flex-col">
+        <div className="absolute z-50 top-20 right-6 w-96 max-h-[calc(100vh-7rem)] bg-white dark:bg-[#1C1C1E] rounded-lg shadow-2xl border-2 border-[#E5E5E5] dark:border-[#3A3A3C] overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E5E5] dark:border-[#3A3A3C] bg-gradient-to-r from-blue-50 to-white dark:from-blue-900/20 dark:to-[#1C1C1E]">
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4 text-blue-600 dark:text-[#3e91ff]" />
@@ -1341,17 +1341,34 @@ export default function GraphFullPage() {
           </div>
           
           <div className="overflow-y-auto p-4 space-y-4 flex-1 text-[#080A0B] dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
-            {Array.from(new Set(graph.nodes.map(n => n.cluster))).map(clusterId => {
-              const clusterNodes = graph.nodes.filter(n => n.cluster === clusterId)
-              if (clusterNodes.length < 2) return null
+            {(() => {
+              const allClusters = Array.from(new Set(graph.nodes.map(n => n.cluster)))
+              const clusterResults = allClusters.map(clusterId => {
+                const clusterNodes = graph.nodes.filter(n => n.cluster === clusterId)
+                if (clusterNodes.length < 2) return null
+                
+                const clusterEdges = graph.edges.filter(e => {
+                  const sourceNode = graph.nodes.find(n => n.id === e.source)
+                  const targetNode = graph.nodes.find(n => n.id === e.target)
+                  return sourceNode?.cluster === clusterId && targetNode?.cluster === clusterId
+                })
+                
+                if (clusterEdges.length === 0) return null
+                
+                return { clusterId, clusterNodes, clusterEdges }
+              }).filter(Boolean)
               
-              const clusterEdges = graph.edges.filter(e => {
-                const sourceNode = graph.nodes.find(n => n.id === e.source)
-                const targetNode = graph.nodes.find(n => n.id === e.target)
-                return sourceNode?.cluster === clusterId && targetNode?.cluster === clusterId
-              })
+              if (clusterResults.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                    <Info className="h-8 w-8 text-gray-400 dark:text-gray-500 mb-3" />
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">No connections available</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Create more links to see connection explanations</p>
+                  </div>
+                )
+              }
               
-              if (clusterEdges.length === 0) return null
+              return clusterResults.map(({ clusterId, clusterNodes, clusterEdges }) => {
               
               const clusterLabel = graphMode === 'projects'
                 ? generateProjectClusterLabel(graph.nodes, clusterId)
@@ -1430,7 +1447,8 @@ export default function GraphFullPage() {
                   </div>
                 </div>
               )
-            })}
+              })
+            })()}
           </div>
         </div>
       )}
