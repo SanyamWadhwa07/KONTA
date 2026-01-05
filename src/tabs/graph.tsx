@@ -1425,7 +1425,7 @@ export default function GraphFullPage() {
                             </div>
                             {breakdown.sameDomain && (
                               <div className="flex justify-between items-center text-blue-600 dark:text-blue-400">
-                                <span>🌐 Same domain boost</span>
+                                <span>Same domain boost</span>
                                 <span className="font-mono font-semibold">+{((breakdown.domainBoost - 1) * 100).toFixed(0)}%</span>
                               </div>
                             )}
