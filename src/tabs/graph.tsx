@@ -428,7 +428,42 @@ export default function GraphFullPage() {
     )
   }
 
-  if (!graph || graph.nodes.length === 0) {
+  if ((!graph && graphMode == "projects") || (graphMode == "projects" && graph.nodes.length === 0)) {
+    return (
+      <div className="flex items-center justify-center w-screen h-screen bg-white dark:bg-[#1C1C1E]">
+        <div className="text-center">
+          <p className="text-lg font-medium mb-2 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+            No projects created yet
+          </p>
+          <p className="text-sm text-[#9A9FA6] dark:text-[#9A9FA6]">
+            Create projects in the projects tab and add links to them and see them visualized here!
+          </p>
+
+          <div className="mt-6">
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setGraphMode('semantic')
+              }}
+              className="mx-auto flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                fontFamily: "'Breeze Sans'",
+                border: '1px solid',
+                borderColor: isDarkMode ? '#3e91ff' : '#0072de',
+                backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF',
+                color: isDarkMode ? '#3e91ff' : '#0072de'
+              }}
+            >
+              Back to Clusters
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!graph && graphMode == "semantic" || graph.nodes.length === 0) {
     return (
       <div className="flex items-center justify-center w-screen h-screen bg-white dark:bg-[#1C1C1E]">
         <div className="text-center">
