@@ -1,8 +1,8 @@
 {
   "name": "prism-base-app",
-  "displayName": "Context Aware Web Agent",
+  "displayName": "Konta",
   "version": "0.0.1",
-  "description": "Context Aware Web Agent",
+  "description": "Understands what you’re doing. Helps when it matters.",
   "author": "Team Aegis Thapar",
   "scripts": {
     "dev": "plasmo dev",
