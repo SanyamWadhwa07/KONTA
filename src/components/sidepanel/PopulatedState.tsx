@@ -1250,20 +1250,42 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               // Clusters View
               <>
                 {!clusters || clusters.nodes?.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
                     <Folder className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
                     <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
                       No clusters yet<br />
                       <span style={{ fontSize: '0.85em', opacity: 0.8 }}>Start browsing to see patterns</span>
                     </p>
+                    <button
+                      onClick={() => setTimelineView("sessions")}
+                      className="px-4 py-2 text-xs rounded-full transition-colors"
+                      style={{
+                        backgroundColor: isDarkMode ? '#3e91ff' : '#0072de',
+                        color: '#FFFFFF',
+                        fontFamily: "'Breeze Sans'",
+                        fontWeight: 500
+                      }}>
+                      Back to Sessions
+                    </button>
                   </div>
                 ) : clustersByDay.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
                     <Folder className="h-8 w-8 opacity-30" style={{ color: '#9A9FA6' }} />
                     <p className="text-sm text-center" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
                       No clusters on this day<br />
                       <span style={{ fontSize: '0.85em', opacity: 0.8 }}>Check another date</span>
                     </p>
+                    <button
+                      onClick={() => setTimelineView("sessions")}
+                      className="px-4 py-2 text-xs rounded-full transition-colors"
+                      style={{
+                        backgroundColor: isDarkMode ? '#3e91ff' : '#0072de',
+                        color: '#FFFFFF',
+                        fontFamily: "'Breeze Sans'",
+                        fontWeight: 500
+                      }}>
+                      Back to Sessions
+                    </button>
                   </div>
                 ) : (
                   clustersByDay.map((dayGroup, dayIndex) => (

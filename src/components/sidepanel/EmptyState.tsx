@@ -126,15 +126,25 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
             </h2>
 
             <p
-              className="text-lg mb-4 text-[#080A0B] dark:text-[#FFFFFF]"
+              className="text-sm mb-4 text-[#080A0B] dark:text-[#FFFFFF]"
               style={{ fontFamily: "'Breeze Sans'" }}>
               Close the sidebar and continue browsing
             </p>
 
             <p
-              className="text-xs leading-relaxed mb-4 text-[#9A9FA6] dark:text-[#9A9FA6]"
+              className="text-xs leading-relaxed mb-4 text-[#666666] dark:text-[#9A9FA6]"
               style={{ fontFamily: "'Breeze Sans'" }}>
               Konta will quietly learn from your browsing context. You can always come back here to view your sessions and projects.
+            </p>
+            <p
+              className="text-xs mb-2 text-[#666666] dark:text-[#9A9FA6]"
+              style={{ fontFamily: "'Breeze Sans'" }}>
+              The first 7 days of your history have already been fetched, feel free to explore!
+            </p>
+            <p
+              className="text-2xs text-[#9A9FA6] dark:text-[#9A9FA6] mt-2"
+              style={{ fontFamily: "'Breeze Sans'" }}>
+              this window will close automatically in {timeRemaining} seconds.
             </p>
           </>
         ) : null}

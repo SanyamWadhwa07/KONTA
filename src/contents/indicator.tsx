@@ -272,6 +272,11 @@ const Indicator = () => {
         setIsVisible(true) // Make sure indicator is visible
         // Auto-expand after 800ms
         setTimeout(() => setNotificationExpanded(true), 800)
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+          setNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+          setMode('normal')
+        }, 5000)
         sendResponse({ received: true })
       }
       
