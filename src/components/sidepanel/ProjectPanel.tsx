@@ -852,6 +852,25 @@ function ProjectCard({
                   onClick={async (e) => {
                     e.stopPropagation()
                     
+                    // Get current window
+                    const currentWindow = await chrome.windows.getCurrent()
+                    
+                    // Find and delete any existing tab group with this project name
+                    const allGroups = await chrome.tabGroups.query({})
+                    const existingGroup = allGroups.find(g => g.title === project.name && g.windowId === currentWindow.id)
+                    
+                    if (existingGroup) {
+                      // Ungroup all tabs in the existing group
+                      const tabs = await chrome.tabs.query({ windowId: currentWindow.id })
+                      const groupTabs = tabs.filter(t => t.groupId === existingGroup.id)
+                      for (const tab of groupTabs) {
+                        if (tab.id) {
+                          await chrome.tabs.ungroup(tab.id)
+                        }
+                      }
+                    }
+                    
+                    // Create fresh new group
                     const tabIds: number[] = []
                     for (const site of project.sites) {
                       const url = site.url.startsWith('http') ? site.url : `https://${site.url}`

@@ -341,62 +341,38 @@ export async function openProjectInTabGroup(projectId: string): Promise<void> {
     // Get current window
     const currentWindow = await chrome.windows.getCurrent()
     
-    // Get all tab groups (including closed ones)
+    // Get all tab groups
     const allGroups = await chrome.tabGroups.query({})
     
+    log(`[ReminderManager] All groups in browser:`, allGroups.map(g => ({ id: g.id, title: g.title, windowId: g.windowId })))
+    log(`[ReminderManager] Looking for group named: "${project.name}" in window: ${currentWindow.id}`)
+    
     // Find existing group with project name in current window
-    let targetGroup = allGroups.find(g => g.title === project.name && g.windowId === currentWindow.id)
+    const existingGroup = allGroups.find(g => g.title === project.name && g.windowId === currentWindow.id)
     
-    // Get all tabs in current window
-    const allTabs = await chrome.tabs.query({ windowId: currentWindow.id })
-    
-    if (targetGroup) {
-      // Group exists - check which sites are already open in this group
-      const groupTabs = allTabs.filter(t => t.groupId === targetGroup!.id)
-      const openUrls = new Set(groupTabs.map(t => t.url).filter(Boolean))
+    if (existingGroup) {
+      log(`[ReminderManager] Found existing group "${project.name}", deleting it...`)
+      // Get all tabs in the existing group and ungroup them
+      const allTabs = await chrome.tabs.query({ windowId: currentWindow.id })
+      const groupTabs = allTabs.filter(t => t.groupId === existingGroup.id)
       
-      log(`[ReminderManager] Found existing group "${project.name}" with ${groupTabs.length} tabs`)
-      
-      // Open missing sites
-      const tabsToAdd: number[] = []
-      for (const site of project.sites) {
-        const siteUrl = site.url.startsWith('http') ? site.url : `https://${site.url}`
-        if (!openUrls.has(site.url) && !openUrls.has(siteUrl)) {
-          const newTab = await chrome.tabs.create({
-            url: siteUrl,
-            active: false,
-            windowId: currentWindow.id
-          })
-          if (newTab.id) {
-            tabsToAdd.push(newTab.id)
-          }
+      for (const tab of groupTabs) {
+        if (tab.id) {
+          await chrome.tabs.ungroup(tab.id)
         }
       }
-      
-      // Add new tabs to existing group
-      if (tabsToAdd.length > 0) {
-        await chrome.tabs.group({
-          groupId: targetGroup.id,
-          tabIds: tabsToAdd
-        })
-        log(`[ReminderManager] Added ${tabsToAdd.length} missing sites to group`)
-      }
-      
-      // Expand and activate the group
-      await chrome.tabGroups.update(targetGroup.id, { collapsed: false })
-      
-      // Activate the first tab in the group
-      const firstTab = allTabs.find(t => t.groupId === targetGroup!.id)
-      if (firstTab?.id) {
-        await chrome.tabs.update(firstTab.id, { active: true })
-      }
-    } else {
+      log(`[ReminderManager] Ungrouped ${groupTabs.length} tabs from old group`)
+    }
+    
+    // Always create fresh new group
+    {
       // Create new group with all project sites
       log(`[ReminderManager] Creating new group "${project.name}" with ${project.sites.length} sites`)
       
       const tabIds: number[] = []
       for (const site of project.sites) {
         const siteUrl = site.url.startsWith('http') ? site.url : `https://${site.url}`
+        log(`[ReminderManager] Creating tab for: ${siteUrl}`)
         const newTab = await chrome.tabs.create({
           url: siteUrl,
           active: false,
@@ -409,6 +385,7 @@ export async function openProjectInTabGroup(projectId: string): Promise<void> {
       
       if (tabIds.length > 0) {
         const groupId = await chrome.tabs.group({ tabIds })
+        log(`[ReminderManager] Created new group with ID: ${groupId}`)
         await chrome.tabGroups.update(groupId, {
           title: project.name,
           color: 'blue',

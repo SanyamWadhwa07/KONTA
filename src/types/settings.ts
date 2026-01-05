@@ -73,9 +73,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   developer: {
     debugMode: false,
     devModeThresholds: false,
-    showCoiPanel: true,
+    showCoiPanel: false,
     showCoiNotifications: true,
-    coiThreshold: 0.55,
+    coiThreshold: 0.75,
     coiNotificationCooldownMinutes: 5,
     showPerformanceMetrics: false
   },

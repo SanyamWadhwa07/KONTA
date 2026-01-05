@@ -396,7 +396,7 @@ export function GraphPanel() {
       <div className="flex flex-col items-center justify-center py-12 gap-4">
         <Search className="h-10 w-10 opacity-20" style={{ color: '#9A9FA6' }} />
         <div className="text-center max-w-xs mx-auto space-y-2">
-          <p className="text-sm font-semibold" style={{ color: '#080A0B', fontFamily: "'Breeze Sans'" }}>
+          <p className="text-sm font-semibold" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
             No pages yet
           </p>
           <p className="text-xs leading-relaxed" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>

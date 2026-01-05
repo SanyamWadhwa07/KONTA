@@ -75,6 +75,7 @@ const Indicator = () => {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [mode, setMode] = useState<'normal' | 'notification'>('normal')
   const [notificationExpanded, setNotificationExpanded] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
 
   // Load saved position and check onboarding status
@@ -122,6 +123,35 @@ const Indicator = () => {
     chrome.storage.local.set({
       'konta-position': { edge, vertical }
     })
+  }
+
+  // Load dark mode setting from storage
+  useEffect(() => {
+    chrome.storage.local.get(['settings'], (result) => {
+      const darkMode = result.settings?.ui?.darkMode || false
+      setIsDarkMode(darkMode)
+    })
+  }, [])
+
+  // Color configuration based on dark mode
+  const colors = {
+    // Backgrounds
+    bg_primary: isDarkMode ? '#1C1C1E' : '#FFFFFF',
+    bg_surface: isDarkMode ? '#2C2C2E' : '#FFFFFF',
+    bg_secondary: isDarkMode ? '#1C1C1E' : '#F5F5F5',
+    
+    // Borders
+    border: isDarkMode ? '#3A3A3C' : '#E5E5E5',
+    
+    // Text
+    text_primary: isDarkMode ? '#FFFFFF' : '#080A0B',
+    text_secondary: isDarkMode ? '#9A9FA6' : '#9A9FA6',
+    text_muted: isDarkMode ? '#666' : '#666',
+    
+    // Accent
+    accent: isDarkMode ? '#3e91ff' : '#0072de',
+    accent_dark: isDarkMode ? '#2a6bcc' : '#0056b3',
+    accent_bg: isDarkMode ? 'rgba(62, 145, 255, 0.15)' : 'rgba(0, 114, 222, 0.1)',
   }
 
   useEffect(() => {
@@ -611,7 +641,7 @@ const Indicator = () => {
         style={{
           width: "48px",
           height: "48px",
-          background: "linear-gradient(135deg, #0072de 0%, #0056b3 100%)",
+          background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accent_dark} 100%)`,
           borderRadius: mode === 'notification' 
             ? (edgePosition === 'right' ? "0 0 0 0" : "0 0 0 0")
             : (edgePosition === 'right' ? "8px 0 0 8px" : "0 8px 8px 0"),
@@ -641,7 +671,7 @@ const Indicator = () => {
         style={{
           width: "14px",
           height: "48px",
-          background: "linear-gradient(135deg, #0072de 0%, #0056b3 100%)",
+          background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accent_dark} 100%)`,
           cursor: isDragging ? 'grabbing' : 'grab',
           display: "flex",
           alignItems: "center",
@@ -703,9 +733,9 @@ const Indicator = () => {
                   width: option.highlight ? '56px' : '48px',
                   height: option.highlight ? '56px' : '48px',
                   background: option.highlight 
-                    ? 'linear-gradient(135deg, #0072de 0%, #0056b3 100%)'
-                    : 'white',
-                  border: option.highlight ? 'none' : '2px solid #E5E5E5',
+                    ? `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accent_dark} 100%)`
+                    : colors.bg_surface,
+                  border: option.highlight ? 'none' : `2px solid ${colors.border}`,
                   borderRadius: '50%',
                   cursor: 'pointer',
                   display: 'flex',
@@ -714,7 +744,7 @@ const Indicator = () => {
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   pointerEvents: 'auto',
-                  color: option.highlight ? 'white' : '#0072de',
+                  color: option.highlight ? 'white' : colors.accent,
                   fontFamily: "'Breeze Sans', sans-serif",
                   zIndex: option.highlight ? 2 : 1
                 }}
@@ -747,8 +777,8 @@ const Indicator = () => {
           {/* Single row with title */}
           <div
             style={{
-              backgroundColor: 'white',
-              border: '1px solid #E5E5E5',
+              backgroundColor: colors.bg_surface,
+              border: `1px solid ${colors.border}`,
               borderRadius: edgePosition === 'right' ? '8px 0 0 0' : '0 8px 0 0',
               padding: '0 16px',
               minWidth: '200px',
@@ -768,14 +798,14 @@ const Indicator = () => {
                 setNotificationExpanded(!notificationExpanded)
               }
             }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#080A0B', flex: 1 }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.text_primary, flex: 1 }}>
               {notifications[0]?.title}
             </div>
             {/* Score badge */}
             {notifications[0]?.score && (
               <div style={{
-                backgroundColor: 'rgba(0, 114, 222, 0.1)',
-                color: '#0072de',
+                backgroundColor: colors.accent_bg,
+                color: colors.accent,
                 padding: '2px 8px',
                 borderRadius: '12px',
                 fontSize: '11px',
@@ -793,7 +823,7 @@ const Indicator = () => {
               }}
               style={{
                 fontSize: '18px',
-                color: '#9A9FA6',
+                color: colors.text_secondary,
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
@@ -813,8 +843,8 @@ const Indicator = () => {
           {notificationExpanded && notifications[0]?.message && (
             <div
               style={{
-                backgroundColor: 'white',
-                border: '1px solid #E5E5E5',
+                backgroundColor: colors.bg_surface,
+                border: `1px solid ${colors.border}`,
                 borderTop: 'none',
                 borderRadius: edgePosition === 'right' ? '0 0 8px 0' : '0 0 0 8px',
                 padding: '12px 16px',
@@ -824,7 +854,7 @@ const Indicator = () => {
                 fontFamily: "'Breeze Sans', sans-serif",
                 animation: 'slideInFromTop 0.2s ease',
                 fontSize: '12px',
-                color: '#666',
+                color: colors.text_muted,
                 lineHeight: 1.4,
                 position: 'absolute',
                 top: '48px',
@@ -841,8 +871,8 @@ const Indicator = () => {
                   marginBottom: '12px',
                   paddingTop: '12px',
                   paddingBottom: '8px',
-                  borderTop: '1px solid #E5E5E5',
-                  borderBottom: '1px solid #E5E5E5'
+                  borderTop: `1px solid ${colors.border}`,
+                  borderBottom: `1px solid ${colors.border}`
                 }}>
                   {(() => {
                     const breakdown = notifications[0].payload.scoreBreakdown
@@ -859,20 +889,20 @@ const Indicator = () => {
                         justifyContent: 'space-between',
                         marginBottom: '6px',
                         fontSize: '11px',
-                        color: '#666'
+                        color: colors.text_muted
                       }}>
                         <span style={{ minWidth: '80px' }}>{item.label}</span>
                         <div style={{
                           flex: 1,
                           height: '4px',
-                          background: 'rgba(0, 114, 222, 0.1)',
+                          background: colors.accent_bg,
                           borderRadius: '2px',
                           margin: '0 8px',
                           overflow: 'hidden'
                         }}>
                           <div style={{
                             height: '100%',
-                            background: '#0072de',
+                            background: colors.accent,
                             borderRadius: '2px',
                             width: `${(item.value / item.max) * 100}%`,
                             transition: 'width 0.3s ease'
@@ -910,7 +940,7 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: '#0072de',
+                      backgroundColor: colors.accent,
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
@@ -923,10 +953,10 @@ const Indicator = () => {
                       transition: 'background-color 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0056b3'
+                      e.currentTarget.style.backgroundColor = colors.accent_dark
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0072de'
+                      e.currentTarget.style.backgroundColor = colors.accent
                     }}>
                     Track Project
                   </button>
@@ -947,9 +977,9 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                      color: '#666',
-                      border: '1px solid #E5E5E5',
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                      color: colors.text_muted,
+                      border: `1px solid ${colors.border}`,
                       borderRadius: '6px',
                       padding: '8px 12px',
                       fontSize: '12px',
@@ -960,10 +990,10 @@ const Indicator = () => {
                       transition: 'background-color 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.08)'
+                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)'
+                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
                     }}>
                     Not Now
                   </button>
@@ -995,7 +1025,7 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: '#10b981',
+                      backgroundColor: colors.accent,
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
@@ -1008,10 +1038,10 @@ const Indicator = () => {
                       transition: 'background-color 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#059669'
+                      e.currentTarget.style.backgroundColor = colors.accent_dark
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#10b981'
+                      e.currentTarget.style.backgroundColor = colors.accent
                     }}>
                     Add to Project
                   </button>
@@ -1035,9 +1065,9 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                      color: '#666',
-                      border: '1px solid #E5E5E5',
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                      color: colors.text_muted,
+                      border: `1px solid ${colors.border}`,
                       borderRadius: '6px',
                       padding: '8px 12px',
                       fontSize: '12px',
@@ -1048,10 +1078,10 @@ const Indicator = () => {
                       transition: 'background-color 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.08)'
+                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)'
+                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
                     }}>
                     Not Now
                   </button>
@@ -1077,7 +1107,7 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: '#0072de',
+                      backgroundColor: colors.accent,
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
@@ -1090,10 +1120,10 @@ const Indicator = () => {
                       transition: 'background-color 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0056b3'
+                      e.currentTarget.style.backgroundColor = colors.accent_dark
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0072de'
+                      e.currentTarget.style.backgroundColor = colors.accent
                     }}>
                     Open All
                   </button>
@@ -1108,9 +1138,9 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                      color: '#666',
-                      border: '1px solid #E5E5E5',
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                      color: colors.text_muted,
+                      border: `1px solid ${colors.border}`,
                       borderRadius: '6px',
                       padding: '8px 12px',
                       fontSize: '12px',
@@ -1150,7 +1180,7 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: '#0072de',
+                      backgroundColor: colors.accent,
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
@@ -1162,10 +1192,10 @@ const Indicator = () => {
                       transition: 'background-color 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0056b3'
+                      e.currentTarget.style.backgroundColor = colors.accent_dark
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0072de'
+                      e.currentTarget.style.backgroundColor = colors.accent
                     }}>
                     Open Project
                   </button>
@@ -1189,10 +1219,10 @@ const Indicator = () => {
                       disabled={notifications[0].payload.snoozeCount >= 3}
                       style={{
                         backgroundColor: notifications[0].payload.snoozeCount >= 3 
-                          ? 'rgba(0, 0, 0, 0.02)' 
-                          : 'rgba(0, 0, 0, 0.05)',
-                        color: notifications[0].payload.snoozeCount >= 3 ? '#ccc' : '#666',
-                        border: '1px solid #E5E5E5',
+                          ? (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)')
+                          : (isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'),
+                        color: notifications[0].payload.snoozeCount >= 3 ? (isDarkMode ? '#555' : '#ccc') : colors.text_muted,
+                        border: `1px solid ${colors.border}`,
                         borderRadius: '6px',
                         padding: '8px 12px',
                         fontSize: '12px',
@@ -1204,7 +1234,7 @@ const Indicator = () => {
                       }}
                       onMouseEnter={(e) => {
                         if (notifications[0].payload.snoozeCount < 3) {
-                          e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.08)'
+                          e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -1274,7 +1304,7 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: '#0072de',
+                      backgroundColor: colors.accent,
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
@@ -1287,10 +1317,10 @@ const Indicator = () => {
                       transition: 'background-color 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0056b3'
+                      e.currentTarget.style.backgroundColor = colors.accent_dark
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0072de'
+                      e.currentTarget.style.backgroundColor = colors.accent
                     }}>
                     Open Project
                   </button>
@@ -1305,9 +1335,9 @@ const Indicator = () => {
                       setMode('normal')
                     }}
                     style={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                      color: '#666',
-                      border: '1px solid #E5E5E5',
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                      color: colors.text_muted,
+                      border: `1px solid ${colors.border}`,
                       borderRadius: '6px',
                       padding: '10px 12px',
                       fontSize: '12px',
@@ -1318,10 +1348,10 @@ const Indicator = () => {
                       transition: 'background-color 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.08)'
+                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)'
+                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
                     }}>
                     Not Now
                   </button>

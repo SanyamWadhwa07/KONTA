@@ -306,7 +306,7 @@ export default function GraphFullPage() {
             No browsing data yet
           </p>
           <p className="text-sm text-[#9A9FA6] dark:text-[#9A9FA6]">
-            Start browsing to see your knowledge graph
+            Refresh the page after some browsing to see your knowledge graph here.
           </p>
         </div>
       </div>
