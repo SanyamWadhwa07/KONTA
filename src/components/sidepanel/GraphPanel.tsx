@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import ForceGraph2D from "react-force-graph-2d"
 import { forceCollide } from "d3-force"
-import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2 } from "lucide-react"
+import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2, Info } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel } from "~/lib/knowledge-graph"
 import { log, warn } from "~/lib/logger"
@@ -843,7 +843,7 @@ export function GraphPanel() {
                 : 'text-gray-400 dark:text-gray-400 border-transparent'
             }`}
             title="Explain connections">
-            <span className="text-sm">📊</span>
+            <Info className="h-4 w-4" />
           </button>
           <button
             onClick={handleRefresh}
@@ -1078,8 +1078,8 @@ export function GraphPanel() {
                 ctx.setLineDash([])
               }
               
-              // Draw labels: always for isolated nodes, or when zoomed in and labels enabled
-              const shouldShowLabel = !isConnected || (showLabels && globalScale > 1.2)
+              // Draw labels: always for isolated nodes, or when significantly zoomed in for connected nodes
+              const shouldShowLabel = !isConnected || (showLabels && globalScale > 2.0)
               if (shouldShowLabel) {
                 ctx.textAlign = 'center'
                 ctx.textBaseline = 'middle'
@@ -1241,7 +1241,7 @@ export function GraphPanel() {
         <div className="absolute top-16 right-2 w-80 max-h-96 bg-white dark:bg-[#1C1C1E] rounded-lg shadow-xl border border-[#E5E5E5] dark:border-[#3A3A3C] overflow-hidden flex flex-col z-50">
           <div className="flex items-center justify-between px-3 py-2 border-b border-[#E5E5E5] dark:border-[#3A3A3C] bg-blue-50 dark:bg-blue-900/20">
             <h3 className="font-semibold text-xs text-[#080A0B] dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
-              📊 Connection Explanations
+              Connection Explanations
             </h3>
             <button 
               onClick={() => setShowExplanations(false)}
@@ -1283,20 +1283,20 @@ export function GraphPanel() {
                         <div key={idx} className="pb-1.5 border-b last:border-0 border-gray-100 dark:border-gray-700">
                           <div className="space-y-0.5">
                             <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">🧠 Clusters</span>
+                              <span className="text-gray-600 dark:text-gray-400">Clusters</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.embedding * 100).toFixed(0)}%
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">🔤 Keywords</span>
+                              <span className="text-gray-600 dark:text-gray-400"> Keywords</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.keyword * 100).toFixed(0)}%
                               </span>
                             </div>
                             {breakdown.sameDomain && (
                               <div className="flex justify-between text-blue-600 dark:text-blue-400">
-                                <span>🌐 Same domain</span>
+                                <span> Same domain</span>
                                 <span className="font-mono font-semibold">+{((breakdown.domainBoost - 1) * 100).toFixed(0)}%</span>
                               </div>
                             )}
