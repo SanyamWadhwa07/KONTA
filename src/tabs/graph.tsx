@@ -1308,19 +1308,19 @@ export default function GraphFullPage() {
                           
                           <div className="mt-2 space-y-0.5 pl-2 border-l-2" style={{ borderColor: clusterColor + '40' }}>
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600 dark:text-gray-400">🧠 Semantic similarity</span>
+                              <span className="text-gray-600 dark:text-gray-400">Semantic similarity</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.embedding * 100).toFixed(0)}%
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600 dark:text-gray-400">🔤 Keyword overlap</span>
+                              <span className="text-gray-600 dark:text-gray-400">Keyword overlap</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.keyword * 100).toFixed(0)}%
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600 dark:text-gray-400">⏰ Time proximity</span>
+                              <span className="text-gray-600 dark:text-gray-400">Time proximity</span>
                               <span className="font-mono font-semibold" style={{ color: clusterColor }}>
                                 {(breakdown.temporal * 100).toFixed(0)}%
                               </span>
