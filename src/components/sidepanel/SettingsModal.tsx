@@ -362,7 +362,7 @@ export function SettingsModal({
                 <div className="text-xs text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Version:</span>
-                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">v0.0.1</span>
+                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">v0.1.0</span>
                   </div>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Sessions:</span>
