@@ -47,6 +47,15 @@ export default function GraphFullPage() {
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'))
   const [refreshCount, setRefreshCount] = useState(0)
   const refreshCountRef = useRef(0)
+  
+  // Track clickable label areas for project mode
+  const clickableLabelAreasRef = useRef<Array<{
+    clusterId: number,
+    projectId: string,
+    projectName: string,
+    bounds: { x: number, y: number, width: number, height: number }
+  }>>([])
+  const [hoveredLabel, setHoveredLabel] = useState<{ clusterId: number, projectName: string, x: number, y: number } | null>(null)
 
   // Load dark mode setting on mount
   useEffect(() => {
@@ -163,15 +172,16 @@ export default function GraphFullPage() {
 
   const handleRefresh = async () => {
     try {
-      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: "REFRESH_GRAPH" })
+      const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'REFRESH_GRAPH'
+      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
       if (response?.graph) {
         setGraph(response.graph)
         lastGraphTimestampRef.current = response.graph.lastUpdated
         
         if (graphRef.current) {
           setTimeout(() => {
-            graphRef.current?.zoomToFit(400, 50)
-          }, 500)
+            graphRef.current?.zoomToFit(400, 150)
+          }, 800)
         }
       }
     } catch (err) {
@@ -285,9 +295,9 @@ export default function GraphFullPage() {
         }, 1000) // Wait for simulation to settle
       } else if (graphRef.current && !hasUserInteractedRef.current) {
         setTimeout(() => {
-          // Zoom to fit with more padding to show all clusters
-          graphRef.current?.zoomToFit(400, 300)
-        }, 500)
+          // Zoom to fit with consistent padding to show all clusters
+          graphRef.current?.zoomToFit(400, 150)
+        }, 800)
       }
     }
   }, [graph])
@@ -377,6 +387,7 @@ export default function GraphFullPage() {
             projectName: n.projectName,
             description: n.description,
             keywords: n.keywords,
+            projectId: n.projectId,
             color: getClusterColor(n.cluster),
             label: displayLabel
           }
@@ -601,6 +612,9 @@ export default function GraphFullPage() {
   const drawClusterBoundaries = (ctx: CanvasRenderingContext2D, globalScale: number) => {
     // Draw at all zoom levels
     
+    // Clear clickable areas for this frame
+    clickableLabelAreasRef.current = []
+    
     // Find connected components within each Louvain cluster
     const getConnectedComponents = (nodes: any[], edges: any[]) => {
       const components: Array<Set<string>> = []
@@ -784,12 +798,38 @@ export default function GraphFullPage() {
       ctx.textBaseline = 'middle'
       const textX = favicon ? centerX + iconSize/2 + iconPadding/2 : centerX
       ctx.fillText(clusterLabel, textX, labelY - fontSize/2)
+      
+      // Store clickable area for project mode labels
+      if (graphMode === 'projects') {
+        // Find a node from this cluster to get projectId
+        const clusterNode = graphData.nodes.find(n => n.cluster === clusterId)
+        if (clusterNode?.projectId) {
+          clickableLabelAreasRef.current.push({
+            clusterId,
+            projectId: clusterNode.projectId,
+            projectName: clusterLabel,
+            bounds: {
+              x: labelRectX,
+              y: labelRectY,
+              width: labelRectW,
+              height: labelRectH
+            }
+          })
+        }
+        
+        // Add hover effect if this label is hovered
+        if (hoveredLabel && hoveredLabel.clusterId === clusterId) {
+          ctx.strokeStyle = color
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+        }
+      }
     })
   }
 
   const handleZoomReset = () => {
     if (graphRef.current) {
-      graphRef.current.zoomToFit(400, 300)
+      graphRef.current.zoomToFit(400, 150)
       hasUserInteractedRef.current = true
     }
   }
@@ -1233,7 +1273,7 @@ export default function GraphFullPage() {
                 }
               }
             }}
-            cooldownTicks={150}
+            cooldownTicks={10000}
             dagMode={null}
             d3VelocityDecay={0.3}
             d3AlphaDecay={0.02}
@@ -1246,7 +1286,7 @@ export default function GraphFullPage() {
             onEngineStop={() => {
               // Only auto-fit on initial load, not after user interactions
               if (graphRef.current && !hasUserInteractedRef.current) {
-                graphRef.current.zoomToFit(400, 50)
+                graphRef.current.zoomToFit(400, 150)
               }
             }}
             onZoom={() => {
@@ -1257,6 +1297,38 @@ export default function GraphFullPage() {
               node.fy = node.y
               hasUserInteractedRef.current = true
             }}
+            onBackgroundClick={(event) => {
+              // Handle label clicks for project mode
+              if (graphMode !== 'projects') return
+              
+              const canvas = event.target as HTMLCanvasElement
+              const rect = canvas.getBoundingClientRect()
+              const x = event.clientX - rect.left
+              const y = event.clientY - rect.top
+              
+              // Convert screen coordinates to graph coordinates
+              if (!graphRef.current) return
+              const graphCoords = graphRef.current.screen2GraphCoords(x, y)
+              
+              // Check if click is within any label bounds
+              for (const labelArea of clickableLabelAreasRef.current) {
+                const { bounds, projectId, projectName } = labelArea
+                if (graphCoords.x >= bounds.x && 
+                    graphCoords.x <= bounds.x + bounds.width &&
+                    graphCoords.y >= bounds.y && 
+                    graphCoords.y <= bounds.y + bounds.height) {
+                  // Open project in tab group
+                  log('[GraphFullPage] Opening project in tab group:', projectName, projectId)
+                  sendMessage({ 
+                    type: 'OPEN_PROJECT_IN_TAB_GROUP', 
+                    payload: { projectId } 
+                  }).catch(err => {
+                    console.error('[GraphFullPage] Failed to open project:', err)
+                  })
+                  return
+                }
+              }
+            }}
           />
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -1266,6 +1338,32 @@ export default function GraphFullPage() {
           </div>
         )}
       </div>
+
+      {/* Project Label Hover Tooltip */}
+      {hoveredLabel && (
+        <div
+          className="absolute z-50 pointer-events-none transition-all duration-100"
+          style={{
+            left: `${hoveredLabel.x}px`,
+            top: `${hoveredLabel.y}px`,
+            transform: 'translate(-50%, -10%)'
+          }}
+        >
+          {/* <div className="px-4 py-2 rounded-lg text-sm font-medium text-white backdrop-blur-sm"
+            style={{
+              backgroundColor: 'rgba(0, 114, 222, 0.95)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 114, 222, 0.3)',
+              fontFamily: "'Breeze Sans'"
+            }}>
+            Click to open!
+          </div> */}
+          {/* <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-0 h-0" style={{
+            borderLeft: '8px solid transparent',
+            borderRight: '8px solid transparent',
+            borderTop: '8px solid rgba(0, 114, 222, 0.95)',
+          }} /> */}
+        </div>
+      )}
 
       {/* Beautiful Hover Tooltip */}
       {hoveredNode && (

@@ -40,7 +40,7 @@ export const config: PlasmoCSConfig = { matches: ["https://example.com/*"] }
 Modify `matches` array to target specific domains.
 
 ### Background Script
-Service workers are stateless and cannot access the DOM. Use `console.log()` to debug—logs appear in Chrome DevTools under the extension's service worker.
+Service workers are stateless and cannot access the DOM. Use `log()` to debug—logs appear in Chrome DevTools under the extension's service worker.
 
 ## Development Workflow
 

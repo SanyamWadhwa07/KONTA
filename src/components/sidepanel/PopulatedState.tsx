@@ -389,12 +389,12 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
   useEffect(() => {
     sendMessage<{ settings: AppSettings | null }>({ type: "GET_SETTINGS" })
       .then((res) => {
-        console.log('[Settings] Loaded settings from storage:', res?.settings)
+        log('[Settings] Loaded settings from storage:', res?.settings)
         if (res?.settings) {
           setSettings(res.settings)
         } else {
           // No settings found, use defaults and save them
-          console.log('[Settings] No settings found, using defaults')
+          log('[Settings] No settings found, using defaults')
           const defaults = { ...DEFAULT_SETTINGS }
           setSettings(defaults)
           sendMessage({ type: "UPDATE_SETTINGS", payload: { settings: defaults } })
@@ -416,7 +416,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
   // Save settings whenever they change
   const updateSettings = useCallback((newSettings: AppSettings) => {
-    console.log('[Settings] Updating settings:', newSettings)
+    log('[Settings] Updating settings:', newSettings)
     setSettings(newSettings)
     sendMessage({ type: "UPDATE_SETTINGS", payload: { settings: newSettings } })
       .catch((err) => {
@@ -426,13 +426,13 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
   // Apply dark mode
   useEffect(() => {
-    console.log('[Dark Mode] settings.ui.darkMode:', settings.ui.darkMode)
+    log('[Dark Mode] settings.ui.darkMode:', settings.ui.darkMode)
     if (settings.ui.darkMode) {
-      console.log('[Dark Mode] Adding dark class')
+      log('[Dark Mode] Adding dark class')
       document.documentElement.classList.add('dark')
       setIsDarkMode(true)
     } else {
-      console.log('[Dark Mode] Removing dark class')
+      log('[Dark Mode] Removing dark class')
       document.documentElement.classList.remove('dark')
       setIsDarkMode(false)
     }

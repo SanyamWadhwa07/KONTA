@@ -1,6 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo"
 import type { PageEvent } from "~/types/page-event"
 import type { AppSettings } from "~/types/settings"
+import { log } from "~lib/logger"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -34,7 +35,7 @@ const capturePageVisit = async () => {
   // Check if domain is excluded before capturing
   const isExcluded = await isDomainExcluded()
   if (isExcluded) {
-    console.log("[PageCapture] Skipping excluded domain:", location.hostname)
+    log("[PageCapture] Skipping excluded domain:", location.hostname)
     return
   }
 

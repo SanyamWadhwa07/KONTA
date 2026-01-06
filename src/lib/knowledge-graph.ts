@@ -671,7 +671,7 @@ export async function buildProjectGraph(
         url: cleanedUrl,
         domain: domain,
         cluster: projectIndex, // All sites in same project share cluster ID
-        visitCount: site.visitCount,
+        visitCount: site.visitCount || 1, // Default to 1 if not set
         projectId: project.id,
         projectName: project.name,
         timestamp: site.addedAt,

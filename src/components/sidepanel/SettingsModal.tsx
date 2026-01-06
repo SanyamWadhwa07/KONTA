@@ -1,6 +1,7 @@
 import { X, ChevronDown, Search } from "lucide-react"
 import { useState } from "react"
 import type { AppSettings } from "~/types/settings"
+import { log } from "~lib/logger"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -152,7 +153,7 @@ export function SettingsModal({
                       ...settings,
                       ui: { ...settings.ui, darkMode: !settings.ui.darkMode }
                     }
-                    console.log('[Settings] Toggling dark mode to:', !settings.ui.darkMode)
+                    log('[Settings] Toggling dark mode to:', !settings.ui.darkMode)
                     onUpdateSettings(newSettings)
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border border-[#E5E5E5] dark:border-[#3A3A3C] flex items-center justify-between bg-white dark:bg-[#2C2C2E] cursor-pointer">

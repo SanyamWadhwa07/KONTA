@@ -120,7 +120,7 @@ let graphNeedsRebuild = true
 
 // Initialize sessions from IndexedDB on startup
 initializeSessions().then(() => {
-  log("Welcome to Konta! we hope you like it :)")
+  console.log("Welcome to Konta! we hope you like it :)")
   log("[Background] Sessions initialized from IndexedDB")
   rebuildGraphIfNeeded()
 })
