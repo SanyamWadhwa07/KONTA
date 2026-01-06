@@ -649,6 +649,13 @@ export async function buildProjectGraph(
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
   
+  // Create URL to visit count map from recentPages
+  const urlVisitCounts = new Map<string, number>()
+  recentPages.forEach(page => {
+    const count = urlVisitCounts.get(page.url) || 0
+    urlVisitCounts.set(page.url, count + 1)
+  })
+  
   projects.forEach((project, projectIndex) => {
     if (!project.sites || project.sites.length === 0) return
     
@@ -665,13 +672,16 @@ export async function buildProjectGraph(
         domain = cleanedUrl.split('/')[0] || 'Unknown'
       }
       
+      // Look up actual visit count from recentPages
+      const actualVisitCount = urlVisitCounts.get(cleanedUrl) || urlVisitCounts.get(site.url) || 1
+      
       const node: GraphNode = {
         id: `${project.id}-site-${siteIndex}`,
         title: site.title,
         url: cleanedUrl,
         domain: domain,
         cluster: projectIndex, // All sites in same project share cluster ID
-        visitCount: site.visitCount || 1, // Default to 1 if not set
+        visitCount: actualVisitCount,
         projectId: project.id,
         projectName: project.name,
         timestamp: site.addedAt,
