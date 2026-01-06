@@ -6,6 +6,15 @@ import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
 import { log, warn } from "~/lib/logger"
 
+interface OnboardingProgress {
+  isModelLoading: boolean
+  modelLoadPercent: number
+  totalPages: number
+  processedPages: number
+  embeddingsGenerated: number
+  isComplete: boolean
+}
+
 // Clean URL to remove chrome-extension prefix if present
 function cleanUrl(url: string): string {
   const chromeExtPattern = /^chrome-extension:\/\/[a-z]{32}\/tabs\//
@@ -49,6 +58,7 @@ export function GraphPanel() {
   const [hoveredNode, setHoveredNode] = useState<any>(null)
   const [hoveredNodePos, setHoveredNodePos] = useState<{x: number, y: number}>({x: 0, y: 0})
   const [graphMode, setGraphMode] = useState<'semantic' | 'projects'>('semantic')
+  const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgress | null>(null)
   const graphRef = useRef<any>()
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 500, height: 400 })
@@ -56,6 +66,7 @@ export function GraphPanel() {
   const lastGraphTimestampRef = useRef<number>(0)
   const faviconCache = useRef<Map<string, HTMLImageElement>>(new Map())
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'))
+  const lastEmbeddingCountRef = useRef(0)
 
   // Monitor dark mode changes
   useEffect(() => {
@@ -75,20 +86,7 @@ export function GraphPanel() {
     return () => observer.disconnect()
   }, [])
 
-  // Load manual links from storage
-  useEffect(() => {
-    chrome.storage.local.get(['manualLinks'], (result) => {
-      if (result.manualLinks) {
-        setManualLinks(result.manualLinks)
-      }
-    })
-  }, [])
-
-  const saveManualLinks = (links: Array<{source: string, target: string}>) => {
-    chrome.storage.local.set({ manualLinks: links })
-    setManualLinks(links)
-  }
-
+  // Define loadGraph before useEffect hooks that depend on it
   const loadGraph = useCallback(async () => {
     setLoading(true)
     try {
@@ -109,6 +107,84 @@ export function GraphPanel() {
       setLoading(false)
     }
   }, [graphMode])
+
+  // Listen for onboarding progress messages
+  useEffect(() => {
+    const handleMessage = (message: any) => {
+      if (message.type === "ONBOARDING_PROGRESS") {
+        setOnboardingProgress(message.progress)
+        
+        // Auto-refresh graph every 25 embeddings
+        if (message.progress.embeddingsGenerated > 0 && 
+            message.progress.embeddingsGenerated % 25 === 0 &&
+            message.progress.embeddingsGenerated !== lastEmbeddingCountRef.current) {
+          log(`[GraphPanel] Refreshing graph at ${message.progress.embeddingsGenerated} embeddings`)
+          lastEmbeddingCountRef.current = message.progress.embeddingsGenerated
+          // Trigger a graph reload
+          setGraph(null) // Force re-fetch
+          setLoading(true)
+        }
+
+        // Clear overlay when complete
+        if (message.progress.isComplete) {
+          setTimeout(() => {
+            setOnboardingProgress(null)
+            setGraph(null) // Force final refresh
+            setLoading(true)
+          }, 2000)
+        }
+      }
+      
+      // Listen for embedding completion to trigger final refresh
+      if (message.type === "EMBEDDINGS_COMPLETE") {
+        log(`[GraphPanel] Embeddings complete! Force reloading graph...`)
+        setOnboardingProgress(null)
+        // Force immediate reload
+        loadGraph()
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
+  }, [loadGraph])
+
+  // Check if embeddings are in progress or just completed on mount
+  useEffect(() => {
+    chrome.storage.local.get(['onboarding-embeddings-in-progress', 'onboarding-embeddings-complete'], (result) => {
+      if (result['onboarding-embeddings-in-progress'] && !result['onboarding-embeddings-complete']) {
+        log("[GraphPanel] Embeddings in progress on mount, showing overlay")
+        // Set initial progress state to trigger overlay
+        setOnboardingProgress({
+          isModelLoading: false,
+          modelLoadPercent: 100,
+          totalPages: 0,
+          processedPages: 0,
+          embeddingsGenerated: 0,
+          isComplete: false,
+        })
+      } else if (result['onboarding-embeddings-complete']) {
+        log("[GraphPanel] Embeddings already complete on mount, loading graph immediately")
+        // If embeddings just completed before we mounted, load graph now
+        loadGraph()
+        // Clear the completion flag so we don't keep reloading
+        chrome.storage.local.remove('onboarding-embeddings-complete')
+      }
+    })
+  }, [loadGraph])
+
+  // Load manual links from storage
+  useEffect(() => {
+    chrome.storage.local.get(['manualLinks'], (result) => {
+      if (result.manualLinks) {
+        setManualLinks(result.manualLinks)
+      }
+    })
+  }, [])
+
+  const saveManualLinks = (links: Array<{source: string, target: string}>) => {
+    chrome.storage.local.set({ manualLinks: links })
+    setManualLinks(links)
+  }
 
   const handleRefresh = async () => {
     try {
@@ -172,6 +248,19 @@ export function GraphPanel() {
     // Only load once on mount, no polling
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // Reload graph when component becomes visible (user switches to this tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        log("[GraphPanel] Tab became visible, reloading graph...")
+        loadGraph()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [loadGraph])
 
   // Reload graph when mode changes
   useEffect(() => {
@@ -180,6 +269,14 @@ export function GraphPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphMode])
+
+  // Reload graph when triggered by onboarding progress
+  useEffect(() => {
+    if (loading && !graph) {
+      loadGraph()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   // Preload favicons when graph updates
   useEffect(() => {
@@ -455,17 +552,34 @@ export function GraphPanel() {
         <Search className="h-10 w-10 opacity-20" style={{ color: '#9A9FA6' }} />
         <div className="text-center max-w-xs mx-auto space-y-2">
           <p className="text-sm font-semibold" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            No pages yet
+            {onboardingProgress && !onboardingProgress.isComplete ? "Building your knowledge graph..." : "No pages yet"}
           </p>
           <p className="text-xs leading-relaxed" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            Browse a few pages to build your knowledge graph. Embeddings are generated locally and may take a moment to appear.
+            {onboardingProgress && !onboardingProgress.isComplete 
+              ? `Processing ${onboardingProgress.embeddingsGenerated}/${onboardingProgress.totalPages} pages from your history. The graph will appear once we have enough data (20+ pages).`
+              : "Browse a few pages to build your knowledge graph. Embeddings are generated locally and may take a moment to appear."
+            }
           </p>
         </div>
-        <div className="text-center max-w-xs mx-auto space-y-2">
-          <p className="text-xs leading-relaxed" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
-            Imported history data is not part of the knowledge graph until you revisit those pages.
-          </p>
-        </div>
+        {!onboardingProgress && (
+          <div className="text-center max-w-xs mx-auto space-y-2">
+            <p className="text-xs leading-relaxed" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+              Imported history data is not part of the knowledge graph until you revisit those pages.
+            </p>
+          </div>
+        )}
+        {onboardingProgress && !onboardingProgress.isComplete && (
+          <div className="w-64">
+            <div className="h-2 bg-[#F0F0F0] dark:bg-[#3A3A3C] rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#0072de] dark:bg-[#3e91ff] transition-all duration-300"
+                style={{ 
+                  width: `${(onboardingProgress.embeddingsGenerated / onboardingProgress.totalPages) * 100}%` 
+                }}
+              />
+            </div>
+          </div>
+        )}
         {/* <button
           onClick={handleRefresh}
           className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
@@ -1118,6 +1232,31 @@ export function GraphPanel() {
             <ZoomOut className="h-5 w-5 text-gray-900 dark:text-white" />
           </button>
         </div>
+
+        {/* Onboarding Progress Banner */}
+        {onboardingProgress && !onboardingProgress.isComplete && filteredNodes.length > 0 && (
+          <div className="absolute top-3 left-3 right-3 z-10 mx-auto max-w-md">
+            <div className="bg-white/95 dark:bg-[#2C2C2E]/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 dark:border-[#3A3A3C] p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-blue-600 dark:bg-[#3e91ff] animate-pulse" />
+                <p className="text-xs font-medium text-gray-900 dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
+                  Building knowledge graph...
+                </p>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2" style={{ fontFamily: "'Breeze Sans'" }}>
+                {onboardingProgress.embeddingsGenerated}/{onboardingProgress.totalPages} pages processed
+              </p>
+              <div className="h-1.5 bg-gray-200 dark:bg-[#3A3A3C] rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-600 dark:bg-[#3e91ff] transition-all duration-300"
+                  style={{ 
+                    width: `${(onboardingProgress.embeddingsGenerated / onboardingProgress.totalPages) * 100}%` 
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {filteredNodes.length > 0 ? (
           <ForceGraph2D

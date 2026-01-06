@@ -1,7 +1,8 @@
 import type { PageEvent } from "~/types/page-event"
 import { processPageEvent } from "./sessionManager"
 import { log } from "~/lib/logger"
-import { generateEmbedding, initializeModel } from "../background/embedding-engine"
+import { OnboardingEncoder, type OnboardingProgress } from "./onboardingEncoder"
+import { loadSessions, saveSessions } from "./sessionStore"
 
 /**
  * Import browser history and convert to sessions
@@ -11,11 +12,24 @@ export async function importBrowserHistory(): Promise<void> {
   const IMPORT_DAYS = 7 // Last 7 days
   const startTime = Date.now() - (IMPORT_DAYS * 24 * 60 * 60 * 1000)
   
+  console.log("[HistoryImport] 🚀 Starting import from last", IMPORT_DAYS, "days")
   log("[HistoryImport] Starting import from last", IMPORT_DAYS, "days")
+  
+  // Broadcast initial "loading" state immediately
+  broadcastOnboardingProgress({
+    isModelLoading: true,
+    modelLoadPercent: 0,
+    totalPages: 0,
+    processedPages: 0,
+    embeddingsGenerated: 0,
+    isComplete: false,
+  })
+  console.log("[HistoryImport] 📢 Broadcasted initial loading state")
   
   try {
     // Query history
     const historyItems = await searchHistory(startTime)
+    console.log("[HistoryImport] 📚 Found", historyItems.length, "history items")
     log("[HistoryImport] Found", historyItems.length, "history items")
     
     if (historyItems.length === 0) {
@@ -31,19 +45,97 @@ export async function importBrowserHistory(): Promise<void> {
     // Reverse to process oldest first (chronological order for sessionization)
     pageEvents.reverse()
     
+    // Check if this is a re-run (history-imported flag set but embeddings incomplete)
+    const storageResult = await chrome.storage.local.get(['history-imported', 'onboarding-embeddings-complete'])
+    const historyAlreadyImported = storageResult['history-imported'] === true
+    const embeddingsAlreadyComplete = storageResult['onboarding-embeddings-complete'] === true
+    
+    console.log("[HistoryImport] 🔍 History already imported:", historyAlreadyImported)
+    console.log("[HistoryImport] 🔍 Embeddings already complete:", embeddingsAlreadyComplete)
+    
+    if (historyAlreadyImported && !embeddingsAlreadyComplete) {
+      console.log("[HistoryImport] ♻️ History imported but embeddings incomplete, checking sessions...")
+      log("[HistoryImport] History imported but embeddings incomplete, checking sessions...")
+      
+      // Load existing sessions to check for missing embeddings
+      const existingSessions = await loadSessions()
+      console.log("[HistoryImport] 🔍 Existing sessions:", existingSessions.length)
+      
+      // Check if embeddings are missing
+      let pagesWithoutEmbeddings = 0
+      for (const session of existingSessions) {
+        for (const page of session.pages) {
+          if (!page.titleEmbedding) {
+            pagesWithoutEmbeddings++
+          }
+        }
+      }
+      
+      console.log(`[HistoryImport] 📊 Pages without embeddings: ${pagesWithoutEmbeddings}`)
+      
+      if (pagesWithoutEmbeddings > 0) {
+        console.log(`[HistoryImport] 🔄 Found ${pagesWithoutEmbeddings} pages without embeddings, generating...`)
+        log(`[HistoryImport] Found ${pagesWithoutEmbeddings} pages without embeddings, generating...`)
+        
+        // Extract page events from existing sessions
+        const existingPageEvents: PageEvent[] = []
+        for (const session of existingSessions) {
+          for (const page of session.pages) {
+            if (!page.titleEmbedding) {
+              existingPageEvents.push({
+                url: page.url,
+                title: page.title,
+                domain: page.domain,
+                timestamp: page.timestamp,
+                openedAt: page.timestamp,
+                visitCount: 1,
+                wasForeground: true
+              })
+            }
+          }
+        }
+        
+        await chrome.storage.local.set({ 
+          'history-imported': true,
+          'onboarding-embeddings-in-progress': true
+        })
+        console.log(`[HistoryImport] 🎯 Starting embedding generation for ${existingPageEvents.length} pages`)
+        
+        // Generate embeddings for existing pages
+        generateEmbeddingsInBackground(existingPageEvents).catch(err => {
+          console.error("[HistoryImport] Embedding generation failed:", err)
+          chrome.storage.local.set({ 'onboarding-embeddings-in-progress': false })
+        })
+      } else {
+        log("[HistoryImport] All pages already have embeddings")
+        await chrome.storage.local.set({ 
+          'history-imported': true,
+          'onboarding-embeddings-complete': true
+        })
+      }
+      return
+    }
+    
     // Process through sessionization algorithm first (don't block on embeddings)
+    console.log("[HistoryImport] 🔨 Processing", pageEvents.length, "page events through sessionization...")
     log("[HistoryImport] Processing page events through sessionization...")
     for (const pageEvent of pageEvents) {
       await processPageEvent(pageEvent)
     }
+    console.log("[HistoryImport] ✅ Sessionization complete")
     
     // Mark as imported immediately so sidepanel can open
-    await chrome.storage.local.set({ 'history-imported': true })
+    await chrome.storage.local.set({ 
+      'history-imported': true,
+      'onboarding-embeddings-in-progress': true
+    })
     log("[HistoryImport] Import complete! Starting background embedding generation...")
     
     // Generate embeddings in background (non-blocking)
     generateEmbeddingsInBackground(pageEvents).catch(err => {
       console.error("[HistoryImport] Embedding generation failed:", err)
+      // Clear in-progress flag on error
+      chrome.storage.local.set({ 'onboarding-embeddings-in-progress': false })
     })
     
   } catch (error) {
@@ -111,60 +203,136 @@ async function convertToPageEvents(
 }
 
 /**
- * Generate embeddings in background without blocking
+ * Generate embeddings in background using onboarding encoder
  * Updates sessions in IndexedDB as embeddings are generated
+ * Broadcasts progress to UI components
  */
 async function generateEmbeddingsInBackground(pageEvents: PageEvent[]): Promise<void> {
-  log("[HistoryImport] Initializing embedding model...")
+  console.log("[HistoryImport] 🤖 Starting onboarding embedding generation for", pageEvents.length, "pages")
+  log("[HistoryImport] Starting onboarding embedding generation...")
   
-  // Initialize model first (download if needed)
-  const model = await initializeModel()
-  if (!model) {
-    log("[HistoryImport] Model initialization failed, skipping embeddings")
-    return
-  }
-  
-  log("[HistoryImport] Generating embeddings for", pageEvents.length, "pages...")
-  
-  const { loadSessions, saveSessions } = await import("./sessionStore")
-  let embeddingsGenerated = 0
-  
-  // Generate embeddings in batches to avoid blocking
-  for (let i = 0; i < pageEvents.length; i++) {
-    const pageEvent = pageEvents[i]
+  // Broadcast initial state
+  console.log("[HistoryImport] 📢 Broadcasting initial embedding state")
+  broadcastOnboardingProgress({
+    isModelLoading: true,
+    modelLoadPercent: 0,
+    totalPages: pageEvents.length,
+    processedPages: 0,
+    embeddingsGenerated: 0,
+    isComplete: false,
+  })
+
+  // Create onboarding encoder with progress callback
+  const encoder = new OnboardingEncoder({
+    batchSize: 10,
+    batchDelay: 50,
+    onProgress: (progress) => {
+      broadcastOnboardingProgress(progress)
+    },
+  })
+
+  try {
+    let lastSaveTime = Date.now()
+    let pendingUpdates = 0
     
-    try {
-      const embedding = await generateEmbedding(pageEvent.title)
-      if (embedding) {
-        // Find and update the page in sessions
-        const sessions = await loadSessions()
+    // Load sessions once at the start
+    let sessions = await loadSessions()
+    console.log("[HistoryImport] 📚 Loaded", sessions.length, "sessions for embedding updates")
+    
+    // Process pages and update sessions
+    await encoder.processPagesInBatches(
+      pageEvents.map((pe) => ({ url: pe.url, title: pe.title, timestamp: pe.timestamp })),
+      async (pageWithEmbedding) => {
+        // Find and update the page in sessions (use cached sessions, don't reload)
         let updated = false
-        
+
         for (const session of sessions) {
-          const page = session.pages.find(p => 
-            p.url === pageEvent.url && p.timestamp === pageEvent.timestamp
+          const page = session.pages.find(
+            (p) => p.url === pageWithEmbedding.url && p.timestamp === pageWithEmbedding.timestamp
           )
-          if (page && !page.titleEmbedding) {
-            page.titleEmbedding = embedding
-            updated = true
-            embeddingsGenerated++
+          if (page) {
+            if (!page.titleEmbedding) {
+              page.titleEmbedding = pageWithEmbedding.embedding
+              updated = true
+              pendingUpdates++
+            }
             break
           }
         }
         
-        if (updated) {
+        if (!updated) {
+          console.log("[HistoryImport] ⚠️ Could not find page to update:", pageWithEmbedding.url.substring(0, 50))
+        }
+
+        // Save in batches (every 25 updates or every 5 seconds)
+        if (updated && (pendingUpdates >= 25 || Date.now() - lastSaveTime > 5000)) {
+          console.log(`[HistoryImport] 💾 Saving batch: ${pendingUpdates} embeddings`)
           await saveSessions(sessions)
+          lastSaveTime = Date.now()
+          pendingUpdates = 0
         }
       }
-    } catch (error) {
-      // Skip failed embeddings, continue with others
+    )
+
+    // Final save for any remaining updates
+    if (pendingUpdates > 0) {
+      console.log(`[HistoryImport] 💾 Final save: ${pendingUpdates} embeddings`)
+      await saveSessions(sessions)
     }
+
+    // Mark embedding generation as complete
+    await chrome.storage.local.set({ 
+      "onboarding-embeddings-complete": true,
+      "onboarding-embeddings-in-progress": false
+    })
     
-    // Log progress every 50 pages
-    if ((i + 1) % 50 === 0) {
-      log(`[HistoryImport] Progress: ${i + 1}/${pageEvents.length} (${embeddingsGenerated} embeddings)`)
-    }
+    console.log("[HistoryImport] ✅ Onboarding embedding generation complete")
+    log("[HistoryImport] ✅ Onboarding embedding generation complete")
+    
+    // Notify sidepanel to refresh graph
+    console.log("[HistoryImport] 📢 Broadcasting completion to refresh graph...")
+    chrome.runtime.sendMessage({
+      type: "EMBEDDINGS_COMPLETE",
+      embeddingsGenerated: pageEvents.length
+    }).catch(() => {
+      console.log("[HistoryImport] No listeners (sidepanel may be closed)")
+    })
+  } catch (error) {
+    console.error("[HistoryImport] Embedding generation failed:", error)
+    
+    // Broadcast error state
+    broadcastOnboardingProgress({
+      isModelLoading: false,
+      modelLoadPercent: 100,
+      totalPages: pageEvents.length,
+      processedPages: pageEvents.length,
+      embeddingsGenerated: 0,
+      isComplete: true,
+    })
+    
+    // Clear in-progress flag on error
+    await chrome.storage.local.set({ "onboarding-embeddings-in-progress": false })
+  } finally {
+    // Always dispose encoder to free memory
+    encoder.dispose()
   }
-  
-  log("[HistoryImport] Embedding generation complete:", embeddingsGenerated, "generated")
+}
+
+/**
+ * Broadcast onboarding progress to all listeners
+ */
+function broadcastOnboardingProgress(progress: OnboardingProgress): void {
+  console.log("[HistoryImport] 📢 Broadcasting progress:", {
+    isModelLoading: progress.isModelLoading,
+    modelLoadPercent: progress.modelLoadPercent,
+    embeddingsGenerated: progress.embeddingsGenerated,
+    totalPages: progress.totalPages,
+    isComplete: progress.isComplete
+  })
+  chrome.runtime.sendMessage({
+    type: "ONBOARDING_PROGRESS",
+    progress,
+  }).catch((err) => {
+    console.log("[HistoryImport] ⚠️ No listeners for progress (sidepanel closed):", err?.message || 'no error')
+  })
 }
