@@ -3,7 +3,7 @@ import ForceGraph2D from "react-force-graph-2d"
 import { forceCollide } from "d3-force"
 import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2, Info } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
-import { getClusterColor, generateClusterLabel } from "~/lib/knowledge-graph"
+import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
 import { log, warn } from "~/lib/logger"
 
 // Clean URL to remove chrome-extension prefix if present
@@ -48,6 +48,7 @@ export function GraphPanel() {
   const [showExplanations, setShowExplanations] = useState(false)
   const [hoveredNode, setHoveredNode] = useState<any>(null)
   const [hoveredNodePos, setHoveredNodePos] = useState<{x: number, y: number}>({x: 0, y: 0})
+  const [graphMode, setGraphMode] = useState<'semantic' | 'projects'>('semantic')
   const graphRef = useRef<any>()
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 500, height: 400 })
@@ -91,7 +92,8 @@ export function GraphPanel() {
   const loadGraph = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: "GET_GRAPH" })
+      const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
+      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
       if (response?.graph) {
         // Only update if graph has actually changed
         if (response.graph.lastUpdated !== lastGraphTimestampRef.current) {
@@ -106,7 +108,7 @@ export function GraphPanel() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [graphMode])
 
   const handleRefresh = async () => {
     try {
@@ -170,6 +172,14 @@ export function GraphPanel() {
     // Only load once on mount, no polling
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Reload graph when mode changes
+  useEffect(() => {
+    if (graph) {
+      loadGraph()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphMode])
 
   // Preload favicons when graph updates
   useEffect(() => {
@@ -693,7 +703,9 @@ export function GraphPanel() {
       ctx.fill()
       
       // Draw cluster label at the top
-      const clusterLabel = generateClusterLabel(graphData.nodes, clusterId)
+      const clusterLabel = graphMode === 'projects'
+        ? generateProjectClusterLabel(graphData.nodes, clusterId)
+        : generateClusterLabel(graphData.nodes, clusterId)
       const centerX = (minX + maxX) / 2
       const labelY = minY - padding - (20 / globalScale)
       
@@ -877,9 +889,9 @@ export function GraphPanel() {
         </div>
       )}
 
-      {/* Always Visible Search Bar */}
-      <div className="px-3 py-2 border-b bg-white dark:bg-[#1C1C1E] border-gray-200 dark:border-[#3A3A3C]">
-        <div className="relative">
+      {/* Always Visible Search Bar with Mode Toggle */}
+      <div className="px-3 py-2 border-b bg-white dark:bg-[#1C1C1E] border-gray-200 dark:border-[#3A3A3C] flex gap-2 items-center">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
@@ -895,6 +907,67 @@ export function GraphPanel() {
               <X className="h-3.5 w-3.5" />
             </button>
           )}
+        </div>
+        
+        {/* Mode Toggle - Clusters/Projects */}
+        <div
+          className="relative inline-flex items-center rounded-full p-0.5 flex-shrink-0"
+          style={{
+            width: 110,
+            border: '1px solid',
+            borderColor: isDarkMode ? '#3A3A3C' : '#E5E5E5',
+            backgroundColor: isDarkMode ? '#111214' : 'transparent',
+            fontFamily: "'Breeze Sans'"
+          }}
+        >
+          {/* Sliding knob */}
+          <div
+            aria-hidden
+            className="absolute top-0 bottom-0 left-0 w-1/2 rounded-full transition-transform duration-200"
+            style={{
+              transform: graphMode === 'projects' ? 'translateX(100%)' : 'translateX(0)',
+              backgroundColor: (isDarkMode ? '#3e91ff' : '#0072de'),
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          />
+
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setGraphMode('semantic')
+            }}
+            className="relative z-10 flex-1 text-xs py-1 rounded-full transition-colors font-medium"
+            aria-pressed={graphMode === 'semantic'}
+            style={{
+              background: 'transparent',
+              border: '0',
+              color: graphMode === 'semantic' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+              fontFamily: "'Breeze Sans'"
+            }}
+            title="Show clusters"
+          >
+            Clusters
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setGraphMode('projects')
+            }}
+            className="relative z-10 flex-1 text-xs py-1 rounded-full transition-colors font-medium"
+            aria-pressed={graphMode === 'projects'}
+            style={{
+              background: 'transparent',
+              border: '0',
+              color: graphMode === 'projects' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+              fontFamily: "'Breeze Sans'"
+            }}
+            title="Show projects"
+          >
+            Projects
+          </button>
         </div>
       </div>
 
@@ -955,7 +1028,9 @@ export function GraphPanel() {
               <div className="flex-1 flex flex-wrap gap-1.5">
                 {clusters.map(clusterId => {
                   const isActive = allClustersSelected || selectedClusters.has(clusterId)
-                  const clusterLabel = generateClusterLabel(graph.nodes, clusterId)
+                  const clusterLabel = graphMode === 'projects'
+                    ? generateProjectClusterLabel(graph.nodes, clusterId)
+                    : generateClusterLabel(graph.nodes, clusterId)
                   const clusterColor = getClusterColor(clusterId)
                   return (
                     <button
@@ -1263,7 +1338,9 @@ export function GraphPanel() {
               
               if (clusterEdges.length === 0) return null
               
-              const clusterLabel = generateClusterLabel(graph.nodes, clusterId)
+              const clusterLabel = graphMode === 'projects'
+                ? generateProjectClusterLabel(graph.nodes, clusterId)
+                : generateClusterLabel(graph.nodes, clusterId)
               const clusterColor = getClusterColor(clusterId)
               
               return (
