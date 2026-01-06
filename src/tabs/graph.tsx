@@ -470,9 +470,20 @@ export default function GraphFullPage() {
           <p className="text-lg font-medium mb-2 text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
             No browsing data yet
           </p>
-          <p className="text-sm text-[#9A9FA6] dark:text-[#9A9FA6]">
+          <p className="text-sm mb-2 text-[#9A9FA6] dark:text-[#9A9FA6]">
             Refresh the page after some browsing to see your knowledge graph here.
           </p>
+          <button
+            onClick={handleRefresh}
+            className="px-4 py-2 text-xs rounded-full transition-colors"
+            style={{
+              backgroundColor: isDarkMode ? '#3e91ff' : '#0072de',
+              color: '#FFFFFF',
+              fontFamily: "'Breeze Sans'",
+              fontWeight: 500
+            }}>
+            Refresh graph
+          </button>
         </div>
       </div>
     )

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import ForceGraph2D from "react-force-graph-2d"
 import { forceCollide } from "d3-force"
-import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2, Info } from "lucide-react"
+import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2, Info, LinkIcon } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
 import { log, warn } from "~/lib/logger"
@@ -351,6 +351,9 @@ export function GraphPanel() {
           cluster: n.cluster,
           visitCount: n.visitCount,
           searchQuery: n.searchQuery,
+          projectName: n.projectName,
+          description: n.description,
+          keywords: n.keywords,
           color: getClusterColor(n.cluster),
           label: displayLabel
         }
@@ -421,6 +424,25 @@ export function GraphPanel() {
         >
           Back to Clusters
         </button>
+      </div>
+    )
+  }
+
+  // Check if we have nodes but no connections (semantic mode only)
+  if (graph && graph.nodes.length > 0 && graph.edges.length === 0 && graphMode === 'semantic') {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4">
+        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+          <LinkIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+        </div>
+        <div className="text-center max-w-xs mx-auto space-y-2">
+          <p className="text-sm font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+            No connections available
+          </p>
+          <p className="text-xs text-[#9A9FA6]">
+            Pages are being analyzed. Connections will appear once semantic similarities are computed.
+          </p>
+        </div>
       </div>
     )
   }
