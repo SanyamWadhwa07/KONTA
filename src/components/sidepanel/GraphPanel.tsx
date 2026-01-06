@@ -394,6 +394,37 @@ export function GraphPanel() {
     )
   }
 
+  if ((!graph && graphMode == "projects") || (graphMode == "projects" && graph?.nodes.length === 0)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4">
+        <p className="text-sm font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+          No projects created yet
+        </p>
+        <p className="text-xs text-[#9A9FA6] dark:text-[#9A9FA6] max-w-xs text-center">
+          Create projects in the projects tab and add links to them and see them visualized here!
+        </p>
+
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setGraphMode('semantic')
+          }}
+          className="mt-3 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+          style={{
+            fontFamily: "'Breeze Sans'",
+            border: '1px solid',
+            borderColor: isDarkMode ? '#3e91ff' : '#0072de',
+            backgroundColor: isDarkMode ? '#2C2C2E' : '#FFFFFF',
+            color: isDarkMode ? '#3e91ff' : '#0072de'
+          }}
+        >
+          Back to Clusters
+        </button>
+      </div>
+    )
+  }
+
   if (!graph || graph.nodes.length === 0) {
     // Check if we have pages but no embeddings yet (still generating)
     // If there are nodes but no edges, embeddings are likely still being generated
