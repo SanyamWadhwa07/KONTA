@@ -106,16 +106,19 @@ function ProjectsPanel({
   const targetPage = useMemo(() => quickAddRequest || currentPage, [quickAddRequest, currentPage])
 
   useEffect(() => {
-    if (projects.length > 0 && (!selectedProjectId || !projects.find((p) => p.id === selectedProjectId))) {
+    if (projects.length > 0 && targetPage) {
+      // Find first project that doesn't have this URL
+      const availableProjects = projects.filter(p => !p.sites?.some(s => cleanUrl(s.url) === cleanUrl(targetPage.url)))
+      if (availableProjects.length > 0) {
+        // If current selected project is not in available list, switch to first available
+        if (!selectedProjectId || !availableProjects.find(p => p.id === selectedProjectId)) {
+          setSelectedProjectId(availableProjects[0].id)
+        }
+      }
+    } else if (projects.length > 0 && (!selectedProjectId || !projects.find((p) => p.id === selectedProjectId))) {
       setSelectedProjectId(projects[0].id)
     }
-  }, [projects, selectedProjectId])
-
-  useEffect(() => {
-    if (quickAddRequest && projects.length > 0) {
-      setSelectedProjectId(projects[0].id)
-    }
-  }, [quickAddRequest, projects])
+  }, [projects, selectedProjectId, targetPage])
 
   useEffect(() => {
     setAddMessage(null)
