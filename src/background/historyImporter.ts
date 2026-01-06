@@ -91,12 +91,18 @@ async function convertToPageEvents(
     try {
       const url = new URL(item.url)
       
+      // Ensure timestamp doesn't exceed current time (prevent future timestamps)
+      // This can happen due to system clock changes, timezone issues, or Chrome's microsecond precision
+      const now = Date.now()
+      const timestamp = item.lastVisitTime || now
+      const safeTimestamp = Math.min(timestamp, now)
+      
       pageEvents.push({
         url: item.url,
         title: item.title || url.hostname,
         domain: url.hostname.replace('www.', ''),
-        timestamp: item.lastVisitTime || Date.now(),
-        openedAt: item.lastVisitTime || Date.now(),
+        timestamp: safeTimestamp,
+        openedAt: safeTimestamp,
         visitCount: item.visitCount || 1,
         wasForeground: true
       })
