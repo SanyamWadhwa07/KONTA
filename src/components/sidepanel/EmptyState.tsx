@@ -2,7 +2,7 @@ import { X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import lottie from "lottie-web"
 import { Button } from "@/components/ui/button"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 interface EmptyStateProps {
   onShowPopulated?: () => void
@@ -31,7 +31,7 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
           animationData: animationData
         })
       } catch (error) {
-        console.error("Failed to load Lottie animation:", error)
+        error("Failed to load Lottie animation:", error)
       }
     }
 

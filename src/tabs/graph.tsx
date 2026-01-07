@@ -5,7 +5,7 @@ import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Info 
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
 import "~/style.css"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 function sendMessage<T>(message: any): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -164,7 +164,7 @@ export default function GraphFullPage() {
         hasUserInteractedRef.current = false
     }
     } catch (err) {
-      console.error("[GraphFullPage] Failed to load graph:", err)
+      error("[GraphFullPage] Failed to load graph:", err)
     } finally {
       setLoading(false)
     }
@@ -185,7 +185,7 @@ export default function GraphFullPage() {
         }
       }
     } catch (err) {
-      console.error("[GraphFullPage] Failed to refresh graph:", err)
+      error("[GraphFullPage] Failed to refresh graph:", err)
     }
   }
 
@@ -1323,7 +1323,7 @@ export default function GraphFullPage() {
                     type: 'OPEN_PROJECT_IN_TAB_GROUP', 
                     payload: { projectId } 
                   }).catch(err => {
-                    console.error('[GraphFullPage] Failed to open project:', err)
+                    error('[GraphFullPage] Failed to open project:', err)
                   })
                   return
                 }

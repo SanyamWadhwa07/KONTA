@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import "./style.css"
 import { WelcomeModal } from "@/components/onboarding/WelcomeModal"
 import { WelcomeBackModal } from "@/components/onboarding/WelcomeBackModal"
+import { log, warn, error} from "~/lib/logger"
 
 function IndexPopup() {
   const [phase, setPhase] = useState<"welcome" | "welcomeback">("welcome")
@@ -12,7 +13,7 @@ function IndexPopup() {
       await chrome.sidePanel.open({ windowId: win.id })
       return true
     } catch (error) {
-      console.error("Error opening side panel:", error)
+      error("Error opening side panel:", error)
       return false
     }
   }

@@ -3,6 +3,7 @@ import type { Session } from "~/types/session"
 import { searchByKeywords } from "~/lib/layer1-keyword-search"
 import { searchSemantic } from "~/lib/layer2-semantic-search"
 import { searchWithML } from "./layer3-ml-ranker"
+import { log, warn, error} from "~/lib/logger"
 
 export type SearchLayer = "ML" | "Semantic" | "Keyword"
 
@@ -39,7 +40,7 @@ export async function executeSearch(query: string, sessions: Session[]): Promise
       return mlResults.map((r) => ({ ...r, layer: "ML" as const }))
     }
   } catch (error) {
-    console.error("ML search failed:", error)
+    error("ML search failed:", error)
   }
 
   // Layer 2: Semantic
@@ -49,7 +50,7 @@ export async function executeSearch(query: string, sessions: Session[]): Promise
       return semanticResults.map((r) => ({ ...r, layer: "Semantic" as const }))
     }
   } catch (error) {
-    console.error("Semantic search failed:", error)
+    error("Semantic search failed:", error)
   }
 
   // Layer 1: Keyword

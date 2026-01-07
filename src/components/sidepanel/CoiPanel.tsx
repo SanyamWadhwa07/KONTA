@@ -18,6 +18,7 @@ import {
   saveCoiWeights,
   normalizeWeights,
 } from "~/lib/coi"
+import { log, warn, error} from "~/lib/logger"
 
 interface CoiPanelProps {
   sessions: Session[]
@@ -53,14 +54,14 @@ export function CoiPanel({ sessions, isDarkMode = false }: CoiPanelProps) {
 
   useEffect(() => {
     loadCoiWeights().then(setWeights).catch((err) => {
-      console.warn("Failed to load COI weights, using defaults", err)
+      warn("Failed to load COI weights, using defaults", err)
     })
   }, [])
 
   useEffect(() => {
     sendMessage<{ state?: EphemeralBehaviorState }>({ type: "GET_BEHAVIOR_STATE" })
       .then((res) => setBehavior(res?.state))
-      .catch((err) => console.warn("Failed to get behavior state", err))
+      .catch((err) => warn("Failed to get behavior state", err))
   }, [])
 
   // Persist weights whenever they change

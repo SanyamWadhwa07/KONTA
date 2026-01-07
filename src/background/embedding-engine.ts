@@ -1,5 +1,5 @@
 import { env, pipeline } from "@xenova/transformers"
-import { log } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 // ================================
 // AGGRESSIVE MV3 FIX
@@ -31,7 +31,7 @@ const originalImport = (globalThis as any).import
 if (originalImport) {
   (globalThis as any).import = async (path: string) => {
     if (path.includes('.jsep.mjs')) {
-      console.warn('Blocked JSEP module load:', path)
+      warn('Blocked JSEP module load:', path)
       throw new Error('JSEP not supported in MV3')
     }
     return originalImport(path)
@@ -74,7 +74,7 @@ export async function initializeModel(): Promise<SimpleEmbeddingPipeline | null>
     log(`✅ Model loaded: ${MODEL_ID}`)
     return embeddingPipeline
   } catch (error) {
-    console.error("❌ Failed to load embedding model:", error)
+    error("❌ Failed to load embedding model:", error)
     embeddingPipeline = null
     loadingPromise = null
     return null
@@ -103,7 +103,7 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
 
     return null
   } catch (error) {
-    console.error(`Embedding generation failed:`, error)
+    error(`Embedding generation failed:`, error)
     return null
   }
 }

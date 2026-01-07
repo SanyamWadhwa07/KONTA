@@ -12,7 +12,7 @@
 //  */
 
 // import type { PlasmoCSConfig } from "plasmo"
-// import { log, warn } from "~/lib/logger"
+// import { log, warn, error} from "~/lib/logger"
 
 // export const config: PlasmoCSConfig = {
 //   matches: ["<all_urls>"],
@@ -70,7 +70,7 @@
 //         document.body.appendChild(successMsg)
 //         setTimeout(() => successMsg.remove(), 3000)
 //       } else {
-//         console.error("❌ Failed to add site:", response?.error)
+//         error("❌ Failed to add site:", response?.error)
 //       }
 //     })
 //   }

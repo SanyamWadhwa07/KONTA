@@ -1,6 +1,6 @@
 import type { PageEvent } from "~/types/page-event"
 import { getSessions } from "./sessionManager"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 // Common utility domains that shouldn't trigger notifications
 const EXCLUDED_DOMAINS = new Set([
@@ -110,7 +110,7 @@ export async function checkAndNotifySimilarPages(currentPage: PageEvent, tabId?:
       },
       () => {
         if (chrome.runtime.lastError) {
-          console.warn("Direct message to sidepanel failed, using storage fallback:", chrome.runtime.lastError.message)
+          warn("Direct message to sidepanel failed, using storage fallback:", chrome.runtime.lastError.message)
         } else {
           log("✅ Notification sent to sidepanel via message")
         }
@@ -127,17 +127,17 @@ export async function checkAndNotifySimilarPages(currentPage: PageEvent, tabId?:
         },
         () => {
           if (chrome.runtime.lastError) {
-            console.warn("Could not send message to indicator hub:", chrome.runtime.lastError.message)
+            warn("Could not send message to indicator hub:", chrome.runtime.lastError.message)
           } else {
             log("✅ Notification sent to indicator hub on tab", tabId)
           }
         }
       )
     } else {
-      console.warn("No tab ID provided, cannot send notification to indicator")
+      warn("No tab ID provided, cannot send notification to indicator")
     }
   } catch (error) {
-    console.error("Failed to send notification:", error)
+    error("Failed to send notification:", error)
   }
 }
 

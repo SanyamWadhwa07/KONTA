@@ -1,5 +1,6 @@
 import type { PageEvent } from "~/types/page-event"
 import { generateEmbedding } from "./embedding-engine"
+import { log, warn, error} from "~/lib/logger"
 
 export type MlMatchResult = {
   pageEvent: PageEvent
@@ -26,7 +27,7 @@ export async function searchWithML(
   try {
     queryEmbedding = await generateEmbedding(query)
   } catch (error) {
-    console.error("Failed to generate query embedding:", error)
+    error("Failed to generate query embedding:", error)
     return null
   }
 

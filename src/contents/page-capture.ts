@@ -1,7 +1,7 @@
 import type { PlasmoCSConfig } from "plasmo"
 import type { PageEvent } from "~/types/page-event"
 import type { AppSettings } from "~/types/settings"
-import { log } from "~lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -25,7 +25,7 @@ const isDomainExcluded = async (): Promise<boolean> => {
       return currentDomain === normalizedExcluded || currentDomain.endsWith('.' + normalizedExcluded)
     })
   } catch (error) {
-    console.error("[PageCapture] Failed to check excluded domains:", error)
+    error("[PageCapture] Failed to check excluded domains:", error)
     return false
   }
 }

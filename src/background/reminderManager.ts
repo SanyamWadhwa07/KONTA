@@ -6,7 +6,7 @@
 import type { Project, ProjectReminder } from "~/types/project"
 import type { AppSettings } from "../types/settings"
 import { DEFAULT_SETTINGS } from "../types/settings"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 const REMINDER_ALARM_PREFIX = "project-reminder-"
 const MAX_SNOOZE_COUNT = 3
@@ -19,7 +19,7 @@ async function loadNotificationSettings(): Promise<AppSettings["notifications"]>
     const settings = result["aegis-settings"] as AppSettings | undefined
     return settings?.notifications ?? DEFAULT_SETTINGS.notifications
   } catch (error) {
-    console.warn("[ReminderManager] Failed to load settings, using defaults:", error)
+    warn("[ReminderManager] Failed to load settings, using defaults:", error)
     return DEFAULT_SETTINGS.notifications
   }
 }
@@ -239,7 +239,7 @@ async function sendReminderNotification(projectId: string, project: Project): Pr
       })
     }
   } catch (err) {
-    console.error("[ReminderManager] Failed to send notification:", err)
+    error("[ReminderManager] Failed to send notification:", err)
   }
 }
 
@@ -334,7 +334,7 @@ export async function openProjectInTabGroup(projectId: string): Promise<void> {
     const project = projects.find(p => p.id === projectId)
     
     if (!project) {
-      console.error(`[ReminderManager] Project not found: ${projectId}`)
+      error(`[ReminderManager] Project not found: ${projectId}`)
       return
     }
     
@@ -397,6 +397,6 @@ export async function openProjectInTabGroup(projectId: string): Promise<void> {
       }
     }
   } catch (err) {
-    console.error("[ReminderManager] Failed to open project in tab group:", err)
+    error("[ReminderManager] Failed to open project in tab group:", err)
   }
 }

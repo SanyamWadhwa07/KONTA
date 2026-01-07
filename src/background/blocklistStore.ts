@@ -1,7 +1,7 @@
 // Blocklist Storage Manager
 
 import type { Blocklist, BlocklistEntry, CategoryStates } from "~/types/focus-mode"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 const BLOCKLIST_KEY = "focus-mode-blocklist"
 
@@ -397,7 +397,7 @@ export async function loadBlocklist(): Promise<Blocklist> {
   return new Promise((resolve) => {
     chrome.storage.local.get([BLOCKLIST_KEY], (result) => {
       if (chrome.runtime.lastError) {
-        console.error("[Blocklist] Error loading:", chrome.runtime.lastError)
+        error("[Blocklist] Error loading:", chrome.runtime.lastError)
         resolve(DEFAULT_BLOCKLIST)
         return
       }
@@ -410,7 +410,7 @@ export function saveBlocklist(blocklist: Blocklist): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.storage.local.set({ [BLOCKLIST_KEY]: blocklist }, () => {
       if (chrome.runtime.lastError) {
-        console.error("[Blocklist] Error saving:", chrome.runtime.lastError)
+        error("[Blocklist] Error saving:", chrome.runtime.lastError)
         reject(chrome.runtime.lastError)
       } else {
         log("[Blocklist] Saved successfully")

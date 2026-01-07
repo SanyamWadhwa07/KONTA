@@ -5,7 +5,7 @@ import { checkSessionChange } from "./ephemeralBehavior"
 import { inferSessionTitle } from "~/lib/session-title-inference"
 import { classifyPageContext, isSameContext } from "~/lib/context-classifier"
 import { learnFromSession } from "./contextLearning"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 // Sessionization thresholds
 const SESSION_GAP_MS = 30 * 60 * 1000 // 30 minutes - inactivity creates new session
@@ -54,7 +54,7 @@ export async function initializeSessions(): Promise<void> {
       checkSessionChange(lastSession.id)
     }
   } catch (error) {
-    console.error("Failed to initialize sessions:", error)
+    error("Failed to initialize sessions:", error)
     sessions = []
     isInitialized = true
   }
@@ -179,7 +179,7 @@ export async function processPageEvent(pageEvent: PageEvent): Promise<void> {
     // Merge single-page sessions after persistence
     sessions = mergeSinglePageSessions(sessions)
   } catch (error) {
-    console.error("Failed to persist sessions:", error)
+    error("Failed to persist sessions:", error)
     // Sessions remain in memory even if persistence fails
   }
 }
@@ -313,7 +313,7 @@ export async function updateSessionLabel(sessionId: string, labelId: string | un
   try {
     await saveSessions(sessions)
   } catch (error) {
-    console.error("Failed to persist session label update:", error)
+    error("Failed to persist session label update:", error)
   }
 }
 
@@ -335,7 +335,7 @@ export async function deletePageFromSession(sessionId: string, pageUrl: string):
   try {
     await saveSessions(sessions)
   } catch (error) {
-    console.error("Failed to persist session after deleting page:", error)
+    error("Failed to persist session after deleting page:", error)
   }
 }
 
@@ -348,6 +348,6 @@ export async function deleteSession(sessionId: string): Promise<void> {
   try {
     await saveSessions(sessions)
   } catch (error) {
-    console.error("Failed to persist session deletion:", error)
+    error("Failed to persist session deletion:", error)
   }
 }

@@ -13,7 +13,7 @@ import { ProjectsPanel } from "./ProjectPanel"
 import type { AppSettings } from "~/types/settings"
 import { DEFAULT_SETTINGS, getSensitivityThreshold } from "~/types/settings"
 import { SettingsModal } from "./SettingsModal"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error } from "~/lib/logger"
 
 // Mock filter data - will be fetched from API
 const MOCK_FILTERS = [
@@ -90,7 +90,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     })
   }, [])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [expandFilters, setExpandFilters] = useState(false)
   const [selectedFilter, setSelectedFilter] = useState<number | null>(null)
@@ -289,8 +289,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           }
         })
         .catch((err) => {
-          console.error("Failed to load sessions:", err)
-          setError("Failed to load sessions")
+          error("Failed to load sessions:", err)
+          setErrorMessage("Failed to load sessions")
         })
     }
 
@@ -301,7 +301,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           setLabels(res?.labels ?? [])
         })
         .catch((err) => {
-          console.error("Failed to load labels:", err)
+          error("Failed to load labels:", err)
         })
     }
 
@@ -314,7 +314,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           }
         })
         .catch((err) => {
-          console.error("Failed to load clusters:", err)
+          error("Failed to load clusters:", err)
         })
     }
 
@@ -327,7 +327,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           setProjects(res?.projects ?? [])
         })
         .catch((err) => {
-          console.error("Failed to load projects:", err)
+          error("Failed to load projects:", err)
         })
     }
 
@@ -380,7 +380,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           }
         })
         .catch((err) => {
-          console.error("Failed to load clusters:", err)
+          error("Failed to load clusters:", err)
         })
     }
   }, [timelineView, activeTab])
@@ -401,7 +401,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         }
       })
       .catch((err) => {
-        console.error("Failed to load settings:", err)
+        error("Failed to load settings:", err)
       })
 
     // Load candidates count
@@ -410,7 +410,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         setCandidatesCount(res?.count || 0)
       })
       .catch((err) => {
-        console.error("Failed to load candidates count:", err)
+        error("Failed to load candidates count:", err)
       })
   }, [])
 
@@ -420,7 +420,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     setSettings(newSettings)
     sendMessage({ type: "UPDATE_SETTINGS", payload: { settings: newSettings } })
       .catch((err) => {
-        console.error("Failed to save settings:", err)
+        error("Failed to save settings:", err)
       })
   }, [])
 
@@ -527,7 +527,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       
       // Validate the date is valid before using it
       if (isNaN(clusterDate.getTime())) {
-        console.warn("Invalid cluster date, using current time", latestTimestamp)
+        warn("Invalid cluster date, using current time", latestTimestamp)
         clusterDate.setTime(Date.now())
       }
       
@@ -586,7 +586,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
     // Set loading state immediately
     setLoading(true)
-    setError(null)
+    setErrorMessage(null)
     
     // Debounce: wait 300ms before searching
     searchTimeoutRef.current = setTimeout(async () => {
@@ -597,8 +597,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         })
         setResults(res?.results ?? [])
       } catch (err) {
-        console.error("Search failed:", err)
-        setError("Search failed")
+        error("Search failed:", err)
+        setErrorMessage("Search failed")
       } finally {
         setLoading(false)
       }
@@ -628,7 +628,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         setShowAddLabelModal(false)
       }
     } catch (err) {
-      console.error("Failed to add label:", err)
+      error("Failed to add label:", err)
     }
   }
 
@@ -647,7 +647,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         setSelectedLabelId(null)
       }
     } catch (err) {
-      console.error("Failed to delete label:", err)
+      error("Failed to delete label:", err)
     }
   }
 
@@ -664,7 +664,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       setExpandedDays([])
       setExpandedSessions([])
     } catch (err) {
-      console.error("Failed to clear sessions:", err)
+      error("Failed to clear sessions:", err)
     }
   }
 
@@ -686,7 +686,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         URL.revokeObjectURL(url)
       }
     } catch (err) {
-      console.error("Failed to export data:", err)
+      error("Failed to export data:", err)
     }
   }
 
@@ -711,7 +711,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
         // Reload everything
         window.location.reload()
       } catch (err) {
-        console.error("Failed to import data:", err)
+        error("Failed to import data:", err)
         alert("Failed to import data. Please check the file format.")
       }
     }
@@ -726,7 +726,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       await sendMessage<{ success: boolean }>({ type: "CLEAR_ALL_PROJECTS" })
       setProjects([])
     } catch (err) {
-      console.error("Failed to clear projects:", err)
+      error("Failed to clear projects:", err)
     }
   }
 
@@ -739,7 +739,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       // Reload to reset state
       window.location.reload()
     } catch (err) {
-      console.error("Failed to clear all data:", err)
+      error("Failed to clear all data:", err)
     }
   }
 
@@ -752,7 +752,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       setSettings(DEFAULT_SETTINGS)
       alert("Settings reset successfully. Extension may need to reload.")
     } catch (err) {
-      console.error("Failed to reset settings:", err)
+      error("Failed to reset settings:", err)
     }
   }
 
@@ -820,7 +820,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       try {
         chrome.tabs.create({ url })
       } catch (e) {
-        console.error("Failed to open tab:", url, e)
+        error("Failed to open tab:", url, e)
       }
     })
   }
@@ -833,11 +833,18 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
         <div className="flex items-center gap-3">
           <img src={chrome.runtime.getURL(isDarkMode ? 'assets/konta_logo_dark.svg' : 'assets/konta_logo.svg')} alt="Konta" className="w-8 h-8" />
-          <h1 
-            className="text-xl font text-[#080A0B] dark:text-[#FFFFFF]"
-            style={{ fontFamily: "'Breeze Sans'" }}>
-            Konta
-          </h1>
+          <div className="flex flex-col justify-center h-8">
+            <h1 
+              className="text-lg font leading-tight text-[#080A0B] dark:text-[#FFFFFF]"
+              style={{ fontFamily: "'Breeze Sans'" }}>
+              Konta
+            </h1>
+            <p 
+              className="text-[9px] italic leading-tight text-[#9A9FA6] dark:text-[#666666]"
+              style={{ fontFamily: "'Breeze Sans'", marginTop: '-2px' }}>
+              helps when it matters
+            </p>
+          </div>
         </div>
         
         {/* Dark Mode Toggle & Settings */}
@@ -988,7 +995,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                     setProjects(response.projects)
                   }
                 } catch (err) {
-                  console.error("Failed to detect projects:", err)
+                  error("Failed to detect projects:", err)
                 }
               }}
               onUpdateProject={async (projectId, updates) => {
@@ -1005,7 +1012,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                     setProjects(response.projects)
                   }
                 } catch (err) {
-                  console.error("Failed to update project:", err)
+                  error("Failed to update project:", err)
                 }
               }}
               onDeleteProject={async (projectId) => {
@@ -1022,7 +1029,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                     setProjects(response.projects)
                   }
                 } catch (err) {
-                  console.error("Failed to delete project:", err)
+                  error("Failed to delete project:", err)
                 }
               }}
               onProjectsUpdate={setProjects}
@@ -1121,9 +1128,9 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           {/* <div className="flex items-center justify-between px-1 text-xs" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
             <span>{pages.length} pages indexed</span>
           </div> */}
-          {error && (
+          {errorMessage && (
             <div className="mt-1 px-2 text-xs" style={{ color: '#b00020', fontFamily: "'Breeze Sans'" }}>
-              {error}
+              {errorMessage}
             </div>
           )}
 
@@ -1254,7 +1261,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
                             return [...updated]
                           })
                         } catch (err) {
-                          console.error("Failed to update session label:", err)
+                          error("Failed to update session label:", err)
                         }
                       }}
                       onDeleteLabel={handleDeleteLabel}
@@ -1631,7 +1638,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
           }
         })
         .catch((err) => {
-          console.error("Failed to get label suggestion:", err)
+          error("Failed to get label suggestion:", err)
         })
     }
   }, [session.id, session.labelId, isDismissed])
@@ -1929,7 +1936,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
                           })
                           setOpenMenuIndex(null)
                         } catch (err) {
-                          console.error("Failed to delete page from session:", err)
+                          error("Failed to delete page from session:", err)
                         }
                       }}
                       className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 dark:hover:bg-red-900 transition-colors flex items-center gap-3 text-[#EF4444] dark:text-[#F87171]"
@@ -2117,11 +2124,11 @@ function ClusterItem({ cluster, isExpanded, onToggle }: ClusterItemProps) {
   
   // Validate dates
   if (isNaN(startDate.getTime())) {
-    console.warn("Invalid start date in cluster", startTime)
+    warn("Invalid start date in cluster", startTime)
     startDate.setTime(Date.now())
   }
   if (isNaN(endDate.getTime())) {
-    console.warn("Invalid end date in cluster", endTime)
+    warn("Invalid end date in cluster", endTime)
     endDate.setTime(Date.now())
   }
   

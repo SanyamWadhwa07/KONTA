@@ -7,7 +7,7 @@ import { checkForProjectSuggestion } from "./projectSuggestions"
 import { loadProjects } from "./projectManager"
 import type { AppSettings } from "~/types/settings"
 import { DEFAULT_SETTINGS } from "~/types/settings"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 // Helper to check if a domain is excluded
 async function isDomainExcluded(url: string): Promise<boolean> {
@@ -327,7 +327,7 @@ export const setupPageVisitListener = () => {
             }
           }
         } catch (error) {
-          console.error("[PageEvent] Failed to process page event:", error)
+          error("[PageEvent] Failed to process page event:", error)
         }
       })()
 

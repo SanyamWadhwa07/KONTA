@@ -1,7 +1,7 @@
 import type { PageEvent } from "~/types/page-event"
 import { processPageEvent } from "./sessionManager"
-import { log } from "~/lib/logger"
 import { generateEmbedding, initializeModel } from "../background/embedding-engine"
+import { log, warn, error} from "~/lib/logger"
 
 /**
  * Import browser history and convert to sessions
@@ -43,11 +43,11 @@ export async function importBrowserHistory(): Promise<void> {
     
     // Generate embeddings in background (non-blocking)
     generateEmbeddingsInBackground(pageEvents).catch(err => {
-      console.error("[HistoryImport] Embedding generation failed:", err)
+      error("[HistoryImport] Embedding generation failed:", err)
     })
     
   } catch (error) {
-    console.error("[HistoryImport] Failed:", error)
+    error("[HistoryImport] Failed:", error)
     // Still mark as imported to avoid retry loops
     await chrome.storage.local.set({ 'history-imported': true })
   }

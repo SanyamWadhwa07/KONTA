@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { ChevronDown, ChevronUp, Plus, Trash2, Download, Upload, Power, PowerOff, Edit2, X, Check } from "lucide-react"
 import type { Blocklist, BlocklistEntry, BlocklistCategory, FocusModeState, CategoryStates } from "~/types/focus-mode"
 import { CATEGORY_INFO } from "~/types/focus-mode"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 function sendMessage<T>(message: any): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -54,7 +54,7 @@ export function FocusPanel() {
         setBlocklist(blocklistResponse.blocklist)
       }
     } catch (err) {
-      console.error("[FocusPanel] Failed to load data:", err)
+      error("[FocusPanel] Failed to load data:", err)
     } finally {
       setLoading(false)
     }
@@ -71,7 +71,7 @@ export function FocusPanel() {
         setFocusState(response.state)
       }
     } catch (err) {
-      console.error("[FocusPanel] Failed to toggle focus mode:", err)
+      error("[FocusPanel] Failed to toggle focus mode:", err)
     }
   }
 
@@ -85,7 +85,7 @@ export function FocusPanel() {
         setFocusState(response.state)
       }
     } catch (err) {
-      console.error("[FocusPanel] Failed to toggle category:", err)
+      error("[FocusPanel] Failed to toggle category:", err)
     }
   }
 
@@ -124,7 +124,7 @@ export function FocusPanel() {
         setNewEntryForm({ pattern: "", reason: "" })
       }
     } catch (err) {
-      console.error("[FocusPanel] Failed to add entry:", err)
+      error("[FocusPanel] Failed to add entry:", err)
     }
   }
 
@@ -139,7 +139,7 @@ export function FocusPanel() {
         setBlocklist(response.blocklist)
       }
     } catch (err) {
-      console.error("[FocusPanel] Failed to delete entry:", err)
+      error("[FocusPanel] Failed to delete entry:", err)
     }
   }
 
@@ -160,7 +160,7 @@ export function FocusPanel() {
         URL.revokeObjectURL(url)
       }
     } catch (err) {
-      console.error("[FocusPanel] Failed to export blocklist:", err)
+      error("[FocusPanel] Failed to export blocklist:", err)
     }
   }
 
@@ -178,7 +178,7 @@ export function FocusPanel() {
         setBlocklist(response.blocklist)
       }
     } catch (err) {
-      console.error("[FocusPanel] Failed to import blocklist:", err)
+      error("[FocusPanel] Failed to import blocklist:", err)
     }
   }
 

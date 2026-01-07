@@ -1,4 +1,5 @@
 import type { Session } from "~/types/session"
+import { log, warn, error} from "~/lib/logger"
 
 const DB_NAME = "aegis-labelled-sessions"
 const DB_VERSION = 1
@@ -17,7 +18,7 @@ function openDatabase(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onerror = () => {
-      console.error("❌ Failed to open labelled sessions IndexedDB:", request.error)
+      error("❌ Failed to open labelled sessions IndexedDB:", request.error)
       reject(request.error)
     }
 
@@ -54,13 +55,13 @@ export async function saveLabelledSession(session: LabelledSession): Promise<voi
       }
 
       request.onerror = () => {
-        console.error("❌ Failed to save labelled session to IndexedDB:", request.error)
+        error("❌ Failed to save labelled session to IndexedDB:", request.error)
         db.close()
         reject(request.error)
       }
     })
   } catch (error) {
-    console.error("❌ Error saving labelled session:", error)
+    error("❌ Error saving labelled session:", error)
     throw error
   }
 }
@@ -84,13 +85,13 @@ export async function getLabelledSessionsByLabelId(labelId: string): Promise<Lab
       }
 
       request.onerror = () => {
-        console.error("❌ Failed to get labelled sessions from IndexedDB:", request.error)
+        error("❌ Failed to get labelled sessions from IndexedDB:", request.error)
         db.close()
         resolve([])
       }
     })
   } catch (error) {
-    console.error("❌ Error loading labelled sessions:", error)
+    error("❌ Error loading labelled sessions:", error)
     return []
   }
 }
@@ -113,13 +114,13 @@ export async function getAllLabelledSessions(): Promise<LabelledSession[]> {
       }
 
       request.onerror = () => {
-        console.error("❌ Failed to get all labelled sessions from IndexedDB:", request.error)
+        error("❌ Failed to get all labelled sessions from IndexedDB:", request.error)
         db.close()
         resolve([])
       }
     })
   } catch (error) {
-    console.error("❌ Error loading all labelled sessions:", error)
+    error("❌ Error loading all labelled sessions:", error)
     return []
   }
 }
@@ -140,13 +141,13 @@ export async function deleteLabelledSession(sessionId: string): Promise<void> {
       }
 
       request.onerror = () => {
-        console.error("❌ Failed to delete labelled session from IndexedDB:", request.error)
+        error("❌ Failed to delete labelled session from IndexedDB:", request.error)
         db.close()
         reject(request.error)
       }
     })
   } catch (error) {
-    console.error("❌ Error deleting labelled session:", error)
+    error("❌ Error deleting labelled session:", error)
     throw error
   }
 }
@@ -168,13 +169,13 @@ export async function getLabelledSessionById(sessionId: string): Promise<Labelle
       }
 
       request.onerror = () => {
-        console.error("❌ Failed to get labelled session from IndexedDB:", request.error)
+        error("❌ Failed to get labelled session from IndexedDB:", request.error)
         db.close()
         resolve(null)
       }
     })
   } catch (error) {
-    console.error("❌ Error loading labelled session:", error)
+    error("❌ Error loading labelled session:", error)
     return null
   }
 }
@@ -195,13 +196,13 @@ export async function updateLabelledSession(session: LabelledSession): Promise<v
       }
 
       request.onerror = () => {
-        console.error("❌ Failed to update labelled session in IndexedDB:", request.error)
+        error("❌ Failed to update labelled session in IndexedDB:", request.error)
         db.close()
         reject(request.error)
       }
     })
   } catch (error) {
-    console.error("❌ Error updating labelled session:", error)
+    error("❌ Error updating labelled session:", error)
     throw error
   }
 }

@@ -1,6 +1,6 @@
 import type { PlasmoCSConfig } from "plasmo"
 import { useEffect, useState } from "react"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -115,8 +115,8 @@ const Indicator = () => {
         setIsVisible(true)
       } else {
         log("⏳ Onboarding not complete, hiding indicator")
-        console.warn("[Indicator] ⚠️ Indicator hidden - onboarding not complete. Run this in console to enable:")
-        console.warn("chrome.storage.local.set({'onboarding-complete': true}, () => location.reload())")
+        warn("[Indicator] ⚠️ Indicator hidden - onboarding not complete. Run this in console to enable:")
+        warn("chrome.storage.local.set({'onboarding-complete': true}, () => location.reload())")
         setOnboardingComplete(false)
         setIsVisible(false)
       }

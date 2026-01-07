@@ -1,4 +1,4 @@
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 // Listen for SIDEPANEL_CLOSED events
 export const setupSidepanelClosedListener = () => {
@@ -36,12 +36,12 @@ export const setupOpenSidepanelListener = () => {
           log("✅ Side panel opened successfully")
           sendResponse({ success: true })
         }).catch((error) => {
-          console.error("❌ Error opening side panel:", error)
+          error("❌ Error opening side panel:", error)
           sendResponse({ success: false, error: error.message })
         })
         return true // Required for async sendResponse
       } else {
-        console.error("❌ No tab windowId found")
+        error("❌ No tab windowId found")
         sendResponse({ success: false, error: "No window ID" })
       }
     }

@@ -64,7 +64,7 @@ import {
   openProjectInTabGroup,
   handleReminderAlarm
 } from "./reminderManager"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error, forceLog} from "~/lib/logger"
 import { DEFAULT_SETTINGS } from "~/types/settings"
 import { saveSessions } from "./sessionStore"
 import { importBrowserHistory } from "./historyImporter"
@@ -120,7 +120,7 @@ let graphNeedsRebuild = true
 
 // Initialize sessions from IndexedDB on startup
 initializeSessions().then(() => {
-  console.log("Welcome to Konta! we hope you like it :)")
+  forceLog("Welcome to Konta! we hope you like it :)")
   log("[Background] Sessions initialized from IndexedDB")
   rebuildGraphIfNeeded()
 })
@@ -139,7 +139,7 @@ initializeFocusMode().then(() => {
 reregisterAllReminders().then(() => {
   log("[Background] Reminder alarms reregistered")
 }).catch((error) => {
-  console.error("[Background] Failed to reregister reminders:", error)
+  error("[Background] Failed to reregister reminders:", error)
 })
 
 // Listen for alarm triggers
@@ -221,7 +221,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const projectGraph = await buildProjectGraph(projects, allPages, 500)
         sendResponse({ graph: projectGraph })
       } catch (error) {
-        console.error("[Background] Error building project graph:", error)
+        error("[Background] Error building project graph:", error)
         sendResponse({ graph: { nodes: [], links: [] } })
       }
     })()
@@ -258,7 +258,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         
         sendResponse({ success: true })
       } catch (error) {
-        console.error("[Background] IMPORT_HISTORY failed:", error)
+        error("[Background] IMPORT_HISTORY failed:", error)
         sendResponse({ success: false, error: error.message })
       }
     })()
@@ -277,7 +277,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ results })
       })
       .catch((error) => {
-        console.error("SEARCH_QUERY failed:", error)
+        error("SEARCH_QUERY failed:", error)
         sendResponse({ results: [] })
       })
 
@@ -296,7 +296,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ labels })
       })
       .catch((error) => {
-        console.error("GET_LABELS failed:", error)
+        error("GET_LABELS failed:", error)
         sendResponse({ labels: [] })
       })
     return true
@@ -354,7 +354,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         broadcastSessionUpdate()
       })
       .catch((error) => {
-        console.error("UPDATE_SESSION_LABEL failed:", error)
+        error("UPDATE_SESSION_LABEL failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -368,7 +368,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         broadcastLabelUpdate()
       })
       .catch((error) => {
-        console.error("ADD_LABEL failed:", error)
+        error("ADD_LABEL failed:", error)
         sendResponse({ error: error.message })
       })
     return true
@@ -382,7 +382,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         broadcastLabelUpdate()
       })
       .catch((error) => {
-        console.error("DELETE_LABEL failed:", error)
+        error("DELETE_LABEL failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -396,7 +396,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         broadcastSessionUpdate()
       })
       .catch((error) => {
-        console.error("DELETE_PAGE_FROM_SESSION failed:", error)
+        error("DELETE_PAGE_FROM_SESSION failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -410,7 +410,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         broadcastSessionUpdate()
       })
       .catch((error) => {
-        console.error("DELETE_SESSION failed:", error)
+        error("DELETE_SESSION failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -422,7 +422,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ projects })
       })
       .catch((error) => {
-        console.error("GET_PROJECTS failed:", error)
+        error("GET_PROJECTS failed:", error)
         sendResponse({ projects: [] })
       })
     return true
@@ -434,7 +434,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const projects = detectProjects(sessions)
       sendResponse({ projects })
     } catch (error) {
-      console.error("DETECT_PROJECTS failed:", error)
+      error("DETECT_PROJECTS failed:", error)
       sendResponse({ projects: [] })
     }
     return true
@@ -462,7 +462,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ project: newProject })
       })
       .catch((error) => {
-        console.error("CREATE_PROJECT failed:", error)
+        error("CREATE_PROJECT failed:", error)
         sendResponse({ error: error.message })
       })
     return true
@@ -493,7 +493,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, project: newProject })
       })
       .catch((error) => {
-        console.error("ADD_PROJECT failed:", error)
+        error("ADD_PROJECT failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -506,7 +506,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("UPDATE_PROJECT failed:", error)
+        error("UPDATE_PROJECT failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -519,7 +519,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("DELETE_PROJECT failed:", error)
+        error("DELETE_PROJECT failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -567,7 +567,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, project })
       })
       .catch((error) => {
-        console.error("ADD_SITE_TO_PROJECT failed:", error)
+        error("ADD_SITE_TO_PROJECT failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -604,7 +604,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("DISMISS_PROJECT_SUGGESTION failed:", error)
+        error("DISMISS_PROJECT_SUGGESTION failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -617,7 +617,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ candidates })
       })
       .catch((error) => {
-        console.error("GET_READY_CANDIDATES failed:", error)
+        error("GET_READY_CANDIDATES failed:", error)
         sendResponse({ candidates: [] })
       })
     return true
@@ -630,7 +630,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("DISMISS_CANDIDATE failed:", error)
+        error("DISMISS_CANDIDATE failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -655,7 +655,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       })
       .catch((error) => {
-        console.error("SNOOZE_CANDIDATE failed:", error)
+        error("SNOOZE_CANDIDATE failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -672,7 +672,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const candidate = candidates.find(c => c.id === candidateId)
         log("[PROMOTE_CANDIDATE] Target candidate found:", !!candidate)
         if (!candidate) {
-          console.error("[PROMOTE_CANDIDATE] Candidate not found:", candidateId)
+          error("[PROMOTE_CANDIDATE] Candidate not found:", candidateId)
           sendResponse({ success: false, error: "Candidate not found" })
           return
         }
@@ -715,7 +715,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, project: newProject })
       })
       .catch((error) => {
-        console.error("PROMOTE_CANDIDATE failed:", error)
+        error("PROMOTE_CANDIDATE failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -729,7 +729,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, candidate })
       })
       .catch((error) => {
-        console.error("CREATE_TEST_CANDIDATE failed:", error)
+        error("CREATE_TEST_CANDIDATE failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -741,7 +741,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("CLEAR_ALL_CANDIDATES failed:", error)
+        error("CLEAR_ALL_CANDIDATES failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -761,7 +761,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (tabs[0]?.id) {
         chrome.sidePanel.open({ tabId: tabs[0].id }, () => {
           if (chrome.runtime.lastError) {
-            console.error("[Background] Failed to open sidepanel:", chrome.runtime.lastError)
+            error("[Background] Failed to open sidepanel:", chrome.runtime.lastError)
             sendResponse({ success: false, error: chrome.runtime.lastError.message })
           } else {
             log("[Background] Sidepanel opened successfully")
@@ -769,7 +769,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         })
       } else {
-        console.error("[Background] No active tab found")
+        error("[Background] No active tab found")
         sendResponse({ success: false, error: "No active tab" })
       }
     })
@@ -793,7 +793,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ state })
       })
       .catch((error) => {
-        console.error("TOGGLE_FOCUS_MODE failed:", error)
+        error("TOGGLE_FOCUS_MODE failed:", error)
         sendResponse({ error: error.message })
       })
     return true
@@ -812,7 +812,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ state })
       })
       .catch((error) => {
-        console.error("TOGGLE_CATEGORY failed:", error)
+        error("TOGGLE_CATEGORY failed:", error)
         sendResponse({ error: error.message })
       })
     return true
@@ -825,7 +825,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ state })
       })
       .catch((error) => {
-        console.error("SET_ENABLED_CATEGORIES failed:", error)
+        error("SET_ENABLED_CATEGORIES failed:", error)
         sendResponse({ error: error.message })
       })
     return true
@@ -839,7 +839,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ blocklist })
       })
       .catch((error) => {
-        console.error("GET_BLOCKLIST failed:", error)
+        error("GET_BLOCKLIST failed:", error)
         sendResponse({ error: error.message })
       })
     return true
@@ -854,7 +854,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, blocklist })
       })
       .catch((error) => {
-        console.error("ADD_BLOCKLIST_ENTRY failed:", error)
+        error("ADD_BLOCKLIST_ENTRY failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -869,7 +869,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, blocklist })
       })
       .catch((error) => {
-        console.error("UPDATE_BLOCKLIST_ENTRY failed:", error)
+        error("UPDATE_BLOCKLIST_ENTRY failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -884,7 +884,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, blocklist })
       })
       .catch((error) => {
-        console.error("DELETE_BLOCKLIST_ENTRY failed:", error)
+        error("DELETE_BLOCKLIST_ENTRY failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -899,7 +899,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, blocklist })
       })
       .catch((error) => {
-        console.error("UPDATE_CATEGORY_STATES failed:", error)
+        error("UPDATE_CATEGORY_STATES failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -914,7 +914,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, blocklist: updatedBlocklist })
       })
       .catch((error) => {
-        console.error("IMPORT_BLOCKLIST failed:", error)
+        error("IMPORT_BLOCKLIST failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -926,7 +926,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ blocklist })
       })
       .catch((error) => {
-        console.error("EXPORT_BLOCKLIST failed:", error)
+        error("EXPORT_BLOCKLIST failed:", error)
         sendResponse({ error: error.message })
       })
     return true
@@ -942,7 +942,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("SET_PROJECT_REMINDER failed:", error)
+        error("SET_PROJECT_REMINDER failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -957,7 +957,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("CANCEL_PROJECT_REMINDER failed:", error)
+        error("CANCEL_PROJECT_REMINDER failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -972,7 +972,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("SNOOZE_REMINDER failed:", error)
+        error("SNOOZE_REMINDER failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -987,7 +987,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("DISMISS_REMINDER failed:", error)
+        error("DISMISS_REMINDER failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -1020,7 +1020,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("DISMISS_SNOOZE failed:", error)
+        error("DISMISS_SNOOZE failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -1035,7 +1035,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true })
       })
       .catch((error) => {
-        console.error("OPEN_PROJECT_IN_TAB_GROUP failed:", error)
+        error("OPEN_PROJECT_IN_TAB_GROUP failed:", error)
         sendResponse({ success: false, error: error.message })
       })
     return true
@@ -1072,7 +1072,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await chrome.storage.local.clear()
         sendResponse({ success: true })
       } catch (error) {
-        console.error("CLEAR_ALL_DATA failed:", error)
+        error("CLEAR_ALL_DATA failed:", error)
         sendResponse({ success: false })
       }
     })()
@@ -1119,7 +1119,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         
         sendResponse({ data: exportData })
       } catch (error) {
-        console.error("EXPORT_ALL_DATA failed:", error)
+        error("EXPORT_ALL_DATA failed:", error)
         sendResponse({ data: null })
       }
     })()
@@ -1147,7 +1147,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         
         sendResponse({ success: true })
       } catch (error) {
-        console.error("IMPORT_DATA failed:", error)
+        error("IMPORT_DATA failed:", error)
         sendResponse({ success: false })
       }
     })()
@@ -1161,7 +1161,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ count: active })
       })
       .catch((error) => {
-        console.error("GET_CANDIDATES_COUNT failed:", error)
+        error("GET_CANDIDATES_COUNT failed:", error)
         sendResponse({ count: 0 })
       })
     return true
@@ -1246,7 +1246,7 @@ async function safelySendToContentScript(
 //     })
 //     log("[COI Alert] ✅ Native notification shown as fallback")
 //   } catch (err) {
-//     console.error("[COI Alert] Failed to show native notification:", err)
+//     error("[COI Alert] Failed to show native notification:", err)
 //   }
 // }
 
@@ -1283,7 +1283,7 @@ async function broadcastCoiUpdate() {
     // Check if COI notifications are enabled and threshold exceeded
     await checkCoiThresholdAndNotify(sessionCoi.score)
   } catch (err) {
-    console.warn("[Background] Failed to broadcast COI update", err)
+    warn("[Background] Failed to broadcast COI update", err)
   }
 }
 
@@ -1384,7 +1384,7 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
       // await showNativeChromeNotification(sessionCoiScore, threshold)
     }
   } catch (err) {
-    console.warn("[Background] Failed to check COI threshold", err)
+    warn("[Background] Failed to check COI threshold", err)
   }
 }
 
@@ -1425,7 +1425,7 @@ function rebuildGraphIfNeeded() {
     
     log("[Background] Graph rebuilt with nodes:", knowledgeGraph.nodes.length, "edges:", knowledgeGraph.edges.length)
   } catch (err) {
-    console.error("[Background] Failed to rebuild knowledge graph:", err)
+    error("[Background] Failed to rebuild knowledge graph:", err)
     knowledgeGraph = { nodes: [], edges: [], lastUpdated: Date.now() }
   }
 }

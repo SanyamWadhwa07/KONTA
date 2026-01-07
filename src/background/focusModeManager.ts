@@ -2,7 +2,7 @@
 
 import type { BlocklistCategory, FocusModeState } from "~/types/focus-mode"
 import { loadBlocklist } from "./blocklistStore"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 const FOCUS_MODE_STATE_KEY = "focus-mode-state"
 const RULE_ID_START = 10000 // Start rule IDs at 10000 to avoid conflicts
@@ -34,7 +34,7 @@ export async function loadFocusModeState(): Promise<FocusModeState> {
   return new Promise((resolve) => {
     chrome.storage.local.get([FOCUS_MODE_STATE_KEY], (result) => {
       if (chrome.runtime.lastError) {
-        console.error(
+        error(
           "[Focus Mode] Error loading state:",
           chrome.runtime.lastError
         )
@@ -59,7 +59,7 @@ async function saveFocusModeState(state: FocusModeState): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.storage.local.set({ [FOCUS_MODE_STATE_KEY]: state }, () => {
       if (chrome.runtime.lastError) {
-        console.error(
+        error(
           "[Focus Mode] Error saving state:",
           chrome.runtime.lastError
         )
@@ -127,7 +127,7 @@ async function sweepBlockedTabs(): Promise<void> {
     
     log(`[Focus Mode] Closed ${closedCount} blocked tabs`)
   } catch (error) {
-    console.error("[Focus Mode] Error sweeping blocked tabs:", error)
+    error("[Focus Mode] Error sweeping blocked tabs:", error)
   }
 }
 
@@ -322,7 +322,7 @@ async function updateBlockingRules(): Promise<void> {
       log(`[Focus Mode] Added ${rulesToAdd.length} blocking rules`)
     }
   } catch (error) {
-    console.error("[Focus Mode] Error updating blocking rules:", error)
+    error("[Focus Mode] Error updating blocking rules:", error)
   }
 }
 

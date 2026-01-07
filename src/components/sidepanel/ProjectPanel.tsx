@@ -2,7 +2,7 @@ import { X, Folder, Edit2, ExternalLink, Bell, BellOff, Trash2, Clock, ChevronDo
 import { useEffect, useMemo, useState } from "react"
 import type { Session } from "~/types/session"
 import type { Project } from "~/types/project"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 const isNewTabUrl = (url?: string) => {
   if (!url) return true
@@ -183,7 +183,7 @@ function ProjectsPanel({
         setNewProjectColor("#0072de")
       }
     } catch (err) {
-      console.error("Failed to create project:", err)
+      error("Failed to create project:", err)
     } finally {
       if (created) {
         // Fallback: ensure card closes even if re-render timing is off
@@ -226,7 +226,7 @@ function ProjectsPanel({
             }
           }
         } catch (refreshErr) {
-          console.error("Failed to refresh projects after adding site:", refreshErr)
+          error("Failed to refresh projects after adding site:", refreshErr)
         }
         
         onCompleteQuickAdd?.()
@@ -668,7 +668,7 @@ function ProjectCard({
         return
       }
     } catch (error) {
-      console.error('Failed to set reminder:', error)
+      error('Failed to set reminder:', error)
       alert('Failed to set reminder. Please try again.')
       return
     }
@@ -890,7 +890,7 @@ function ProjectCard({
                         title: project.name,
                         collapsed: false
                       }).catch((error) => {
-                        console.error('Failed to update tab group:', error)
+                        error('Failed to update tab group:', error)
                       })
                     }
                   }}
@@ -1069,7 +1069,7 @@ function ProjectCard({
               chrome.runtime.sendMessage({
                 type: "DISMISS_SNOOZE",
                 payload: { projectId: project.id }
-              }).catch(err => console.error("Failed to dismiss snooze:", err))
+              }).catch(err => error("Failed to dismiss snooze:", err))
             }}
             className="hover:bg-gray-300 dark:hover:bg-[#4A4A4C] rounded p-0.5 transition-colors flex-shrink-0"
             title="Dismiss snooze">

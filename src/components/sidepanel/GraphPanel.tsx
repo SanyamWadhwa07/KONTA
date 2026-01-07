@@ -4,7 +4,7 @@ import { forceCollide } from "d3-force"
 import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2, Info, LinkIcon } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 // Clean URL to remove chrome-extension prefix if present
 function cleanUrl(url: string): string {
@@ -113,7 +113,7 @@ export function GraphPanel() {
         }
       }
     } catch (err) {
-      console.error("[GraphPanel] Failed to load graph:", err)
+      error("[GraphPanel] Failed to load graph:", err)
     } finally {
       setLoading(false)
     }
@@ -173,7 +173,7 @@ export function GraphPanel() {
         }
       }
     } catch (err) {
-      console.error("[GraphPanel] Failed to refresh graph:", err)
+      error("[GraphPanel] Failed to refresh graph:", err)
     }
   }
 
@@ -1353,7 +1353,7 @@ export function GraphPanel() {
                     type: 'OPEN_PROJECT_IN_TAB_GROUP', 
                     payload: { projectId } 
                   }).catch(err => {
-                    console.error('[GraphPanel] Failed to open project:', err)
+                    error('[GraphPanel] Failed to open project:', err)
                   })
                   return
                 }

@@ -12,7 +12,7 @@
  */
 
 import type { PlasmoCSConfig } from "plasmo"
-import { log, warn } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 export const config: PlasmoCSConfig = {
   matches: ["<all_urls>"],
@@ -241,7 +241,7 @@ function showProjectNotification(
         log("[ProjectNotification] Project promoted successfully!")
         showSuccessMessage("Project tracked successfully!")
       } else {
-        console.error("[ProjectNotification] Failed to promote candidate:", response?.error)
+        error("[ProjectNotification] Failed to promote candidate:", response?.error)
       }
     })
     removeBanner(banner)
@@ -417,7 +417,7 @@ function showProjectSuggestion(
       if (response?.success) {
         showSuccessMessage(`Added to ${projectName}!`)
       } else {
-        console.error("[ProjectSuggestion] Failed to add site:", response?.error)
+        error("[ProjectSuggestion] Failed to add site:", response?.error)
         if (response?.alreadyAdded) {
           showSuccessMessage("Site already in this project")
         }

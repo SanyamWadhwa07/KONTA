@@ -1,4 +1,5 @@
 import type { Session } from "~/types/session"
+import { log, warn, error} from "~/lib/logger"
 
 const DB_NAME = "aegis-sessions"
 const DB_VERSION = 2
@@ -13,7 +14,7 @@ function openDatabase(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onerror = () => {
-      console.error("❌ Failed to open IndexedDB:", request.error)
+      error("❌ Failed to open IndexedDB:", request.error)
       reject(request.error)
     }
 
@@ -48,13 +49,13 @@ export async function loadSessions(): Promise<Session[]> {
       }
 
       request.onerror = () => {
-        console.error("❌ Failed to load sessions from IndexedDB:", request.error)
+        error("❌ Failed to load sessions from IndexedDB:", request.error)
         db.close()
         resolve([])
       }
     })
   } catch (error) {
-    console.error("❌ Error loading sessions:", error)
+    error("❌ Error loading sessions:", error)
     return []
   }
 }
@@ -75,13 +76,13 @@ export async function saveSessions(sessions: Session[]): Promise<void> {
       }
 
       request.onerror = () => {
-        console.error("❌ Failed to save sessions to IndexedDB:", request.error)
+        error("❌ Failed to save sessions to IndexedDB:", request.error)
         db.close()
         reject(request.error)
       }
     })
   } catch (error) {
-    console.error("❌ Error saving sessions:", error)
+    error("❌ Error saving sessions:", error)
     throw error
   }
 }

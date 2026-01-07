@@ -1,5 +1,6 @@
 import type { Session } from "~/types/session"
 import type { PageContext } from "~/lib/context-classifier"
+import { log, warn, error} from "~/lib/logger"
 
 /**
  * Learning system that maps domains to contexts based on user labeling behavior
@@ -39,7 +40,7 @@ export async function loadLearnedAssociations(): Promise<void> {
       })
     }
   } catch (error) {
-    console.error("Failed to load learned associations:", error)
+    error("Failed to load learned associations:", error)
   }
 }
 
@@ -55,7 +56,7 @@ async function saveLearnedAssociations(): Promise<void> {
     })
     await chrome.storage.local.set({ [STORAGE_KEY]: JSON.stringify(data) })
   } catch (error) {
-    console.error("Failed to save learned associations:", error)
+    error("Failed to save learned associations:", error)
   }
 }
 

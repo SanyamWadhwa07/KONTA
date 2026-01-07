@@ -2,6 +2,7 @@ import type { EphemeralBehaviorState } from "~/types/ephemeral-behavior"
 import type { Session } from "~/types/session"
 import type { DerivedPageMetrics, DerivedSessionMetrics } from "~/derived/types"
 import { derivePageMetrics, deriveSessionMetrics } from "~/derived"
+import { log, warn, error} from "~/lib/logger"
 
 export type CoiWeights = {
   page: {
@@ -70,7 +71,7 @@ export async function loadCoiWeights(): Promise<CoiWeights> {
       return normalizeWeights(merged)
     }
   } catch (err) {
-    console.warn("Failed to load COI weights, using defaults", err)
+    warn("Failed to load COI weights, using defaults", err)
   }
   return normalizeWeights(defaults)
 }
@@ -80,7 +81,7 @@ export async function saveCoiWeights(weights: CoiWeights): Promise<void> {
     const normalized = normalizeWeights(weights)
     await chrome.storage.local.set({ [STORAGE_KEY]: normalized })
   } catch (err) {
-    console.warn("Failed to save COI weights", err)
+    warn("Failed to save COI weights", err)
   }
 }
 
