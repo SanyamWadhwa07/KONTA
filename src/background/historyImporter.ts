@@ -3,6 +3,7 @@ import { processPageEvent } from "./sessionManager"
 import { log } from "~/lib/logger"
 import { OnboardingEncoder, type OnboardingProgress } from "./onboardingEncoder"
 import { loadSessions, saveSessions } from "./sessionStore"
+import { resetSessionInitialization, initializeSessions } from "./sessionManager"
 
 /**
  * Import browser history and convert to sessions
@@ -270,6 +271,19 @@ async function generateEmbeddingsInBackground(pageEvents: PageEvent[]): Promise<
           await saveSessions(sessions)
           lastSaveTime = Date.now()
           pendingUpdates = 0
+          
+          // CRITICAL: Force sessionManager to reload sessions after each batch save
+          // This ensures in-memory sessions stay in sync with IndexedDB
+          console.log(`[HistoryImport] 🔄 Forcing sessionManager to reload...`)
+          try {
+            resetSessionInitialization()
+            await initializeSessions()
+            console.log(`[HistoryImport] ✅ SessionManager reloaded successfully`)
+          } catch (err) {
+            console.error("[HistoryImport] ❌ Failed to reload sessions:", err)
+          }
+            // Reload local sessions from IndexedDB to stay in sync with sessionManager
+            sessions = await loadSessions()
         }
       }
     )
@@ -279,6 +293,15 @@ async function generateEmbeddingsInBackground(pageEvents: PageEvent[]): Promise<
       console.log(`[HistoryImport] 💾 Final save: ${pendingUpdates} embeddings`)
       await saveSessions(sessions)
     }
+    
+    // Verify embeddings were saved correctly
+    const verifyEmbeddings = sessions.flatMap(s => s.pages).filter(p => p.titleEmbedding && p.titleEmbedding.length > 0)
+    console.log(`[HistoryImport] ✅ Verified: ${verifyEmbeddings.length} pages have embeddings in memory`)
+    
+    // Double-check by reloading from storage
+    const reloadedSessions = await loadSessions()
+    const reloadedWithEmbeddings = reloadedSessions.flatMap(s => s.pages).filter(p => p.titleEmbedding && p.titleEmbedding.length > 0)
+    console.log(`[HistoryImport] ✅ After reload from storage: ${reloadedWithEmbeddings.length} pages have embeddings`)
 
     // Mark embedding generation as complete
     await chrome.storage.local.set({ 
@@ -289,8 +312,9 @@ async function generateEmbeddingsInBackground(pageEvents: PageEvent[]): Promise<
     console.log("[HistoryImport] ✅ Onboarding embedding generation complete")
     log("[HistoryImport] ✅ Onboarding embedding generation complete")
     
-    // Notify sidepanel to refresh graph
-    console.log("[HistoryImport] 📢 Broadcasting completion to refresh graph...")
+    // Notify background script and sidepanel to refresh graph
+    // The background script message handler will call markGraphForRebuild()
+    console.log("[HistoryImport] � Broadcasting completion to refresh graph...")
     chrome.runtime.sendMessage({
       type: "EMBEDDINGS_COMPLETE",
       embeddingsGenerated: pageEvents.length

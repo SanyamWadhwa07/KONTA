@@ -1,3 +1,27 @@
+/**
+ * Filter nodes by date range: 'today', 'last3', 'last7'.
+ * @param nodes Array of GraphNode (must have timestamp)
+ * @param range 'today' | 'last3' | 'last7' | undefined
+ */
+export function filterNodesByDateRange(nodes: GraphNode[], range?: 'today' | 'last3' | 'last7'): GraphNode[] {
+  if (!range) return nodes;
+  const now = new Date();
+  return nodes.filter(node => {
+    if (!node.timestamp) return false;
+    const nodeDate = new Date(node.timestamp);
+    if (range === 'today') {
+      return nodeDate.toDateString() === now.toDateString();
+    } else if (range === 'last3') {
+      // Difference in days
+      const diff = (now.getTime() - nodeDate.getTime()) / (1000 * 60 * 60 * 24);
+      return diff <= 3;
+    } else if (range === 'last7') {
+      const diff = (now.getTime() - nodeDate.getTime()) / (1000 * 60 * 60 * 24);
+      return diff <= 7;
+    }
+    return true;
+  });
+}
 import type { PageEvent } from "~/types/page-event"
 import type { Project } from "~/types/project"
 import { log, warn } from "~/lib/logger"
@@ -263,7 +287,7 @@ export function buildKnowledgeGraph(
   const pageMap = new Map<string, PageEvent>()
   for (const page of contentPages) {
     const existing = pageMap.get(page.url)
-    if (!existing || page.timestamp > existing.timestamp) {
+      if (!existing || page.timestamp > existing.timestamp) {
       pageMap.set(page.url, page)
     }
   }

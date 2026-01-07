@@ -121,16 +121,15 @@ export function GraphPanel() {
           log(`[GraphPanel] Refreshing graph at ${message.progress.embeddingsGenerated} embeddings`)
           lastEmbeddingCountRef.current = message.progress.embeddingsGenerated
           // Trigger a graph reload
-          setGraph(null) // Force re-fetch
-          setLoading(true)
+          loadGraph()
         }
 
         // Clear overlay when complete
         if (message.progress.isComplete) {
           setTimeout(() => {
             setOnboardingProgress(null)
-            setGraph(null) // Force final refresh
-            setLoading(true)
+            // Force final refresh
+            loadGraph()
           }, 2000)
         }
       }
@@ -140,6 +139,13 @@ export function GraphPanel() {
         log(`[GraphPanel] Embeddings complete! Force reloading graph...`)
         setOnboardingProgress(null)
         // Force immediate reload
+        loadGraph()
+      }
+      
+      // Listen for graph update from background after embeddings
+      if (message.type === "GRAPH_UPDATED") {
+        log(`[GraphPanel] Graph updated with ${message.nodes} nodes, reloading...`)
+        setOnboardingProgress(null)
         loadGraph()
       }
     }
