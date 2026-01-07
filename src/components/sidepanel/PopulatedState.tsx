@@ -839,11 +839,6 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
               style={{ fontFamily: "'Breeze Sans'" }}>
               Konta
             </h1>
-            <p 
-              className="text-[9px] italic leading-tight text-[#9A9FA6] dark:text-[#666666]"
-              style={{ fontFamily: "'Breeze Sans'", marginTop: '-2px' }}>
-              helps when it matters
-            </p>
           </div>
         </div>
         
