@@ -229,6 +229,21 @@ export const setupPageVisitListener = () => {
               return
             }
             
+            // Check if this URL is in the "never show again" blocklist
+            const blocklistData = await new Promise<any>((resolve) => {
+              chrome.storage.local.get(["project-notification-blocklist"], (result) => {
+                resolve(result["project-notification-blocklist"] || [])
+              })
+            })
+            
+            const currentUrl = cleanUrl(baseEvent.url)
+            const isBlocked = blocklistData.some((entry: any) => entry.url === currentUrl)
+            
+            if (isBlocked) {
+              log('[MainSiteNotification] Skipping notification - URL is in blocklist:', currentUrl)
+              return
+            }
+            
             // Check cooldown to prevent notification loops
             const lastShown = recentMainSiteNotifications.get(matchingProject.id)
             
@@ -246,7 +261,7 @@ export const setupPageVisitListener = () => {
                   payload: {
                     projectId: matchingProject.id,
                     projectName: matchingProject.name,
-                    currentUrl: cleanUrl(baseEvent.url)
+                    currentUrl: currentUrl
                   }
                 }).catch((err) => {
                   log("[ProjectMainSite] Could not send notification:", err)

@@ -1046,6 +1046,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (message.type === "NEVER_SHOW_PROJECT_NOTIFICATION") {
+    const { url, projectId } = message.payload
+    log("[NEVER_SHOW_PROJECT_NOTIFICATION] Adding URL to blocklist:", url)
+    
+    chrome.storage.local.get(["project-notification-blocklist"], (result) => {
+      const blocklist = result["project-notification-blocklist"] || []
+      
+      // Add entry with URL and timestamp
+      blocklist.push({
+        url,
+        projectId,
+        blockedAt: Date.now()
+      })
+      
+      chrome.storage.local.set({ "project-notification-blocklist": blocklist }, () => {
+        log("[NEVER_SHOW_PROJECT_NOTIFICATION] Blocklist updated, total entries:", blocklist.length)
+        sendResponse({ success: true })
+      })
+    })
+    return true
+  }
+
   // Settings Handlers
   if (message.type === "GET_SETTINGS") {
     chrome.storage.local.get(["aegis-settings"], (result) => {

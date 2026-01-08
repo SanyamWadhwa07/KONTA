@@ -1319,7 +1319,7 @@ const Indicator = () => {
               
               {/* Action buttons for project main site notifications */}
               {notifications[0].type === 'project-main-site' && (
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
@@ -1344,7 +1344,6 @@ const Indicator = () => {
                       fontSize: '12px',
                       fontWeight: 600,
                       cursor: 'pointer',
-                      flex: 1,
                       fontFamily: "'Breeze Sans', sans-serif",
                       transition: 'background-color 0.2s'
                     }}
@@ -1357,36 +1356,78 @@ const Indicator = () => {
                     Open Project
                   </button>
                   
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      log("⏭️ Not Now clicked")
-                      
-                      // Dismiss notification
-                      setNotifications([])
-                      setMode('normal')
-                    }}
-                    style={{
-                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-                      color: colors.text_muted,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '6px',
-                      padding: '10px 12px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      flex: 1,
-                      fontFamily: "'Breeze Sans', sans-serif",
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
-                    }}>
-                    Not Now
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        log("⏭️ Not Now clicked")
+                        
+                        // Dismiss notification
+                        setNotifications([])
+                        setMode('normal')
+                      }}
+                      style={{
+                        backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                        color: colors.text_muted,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '6px',
+                        padding: '10px 12px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        flex: 1,
+                        fontFamily: "'Breeze Sans', sans-serif",
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
+                      }}>
+                      Not Now
+                    </button>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        log("🚫 Never show again for URL:", notifications[0].payload.currentUrl)
+                        
+                        // Send message to background to add URL to blocklist
+                        chrome.runtime.sendMessage({
+                          type: "NEVER_SHOW_PROJECT_NOTIFICATION",
+                          payload: { 
+                            url: notifications[0].payload.currentUrl,
+                            projectId: notifications[0].payload.projectId
+                          }
+                        })
+                        
+                        // Dismiss notification
+                        setNotifications([])
+                        setMode('normal')
+                      }}
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        color: '#ef4444',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '6px',
+                        padding: '10px 12px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        flex: 1,
+                        fontFamily: "'Breeze Sans', sans-serif",
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'
+                      }}>
+                      Don't Ask Again
+                    </button>
+                  </div>
                 </div>
               )}
               
