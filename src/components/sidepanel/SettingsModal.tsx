@@ -3,6 +3,7 @@ import { useState } from "react"
 import type { AppSettings } from "~/types/settings"
 import { log } from "~lib/logger"
 import { Analytics } from "./Analytics"
+import { PrivacyStatement } from "./PrivacyStatement"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -345,6 +346,9 @@ export function SettingsModal({
                     </div>
                   )}
                 </div>
+
+                {/* Privacy Statement */}
+                <PrivacyStatement />
 
                 <button
                   onClick={onExportData}

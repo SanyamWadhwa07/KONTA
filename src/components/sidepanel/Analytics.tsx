@@ -273,6 +273,7 @@ export function Analytics({
           <span className="text-sm font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
             Detailed Analytics
           </span>
+          <Activity className="w-4 h-4 text-[#0072df] dark:text-[#3e91ff]" />
         </div>
         <ChevronDown 
           className={`w-4 h-4 text-[#9A9FA6] transition-transform ${expanded ? 'rotate-180' : ''}`}
