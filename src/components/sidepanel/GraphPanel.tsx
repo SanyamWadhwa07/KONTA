@@ -54,7 +54,6 @@ export function GraphPanel() {
   const [dimensions, setDimensions] = useState({ width: 500, height: 400 })
   const hasUserInteractedRef = useRef(false)
   const lastGraphTimestampRef = useRef<number>(0)
-  const graphLoadStartRef = useRef<number>(0)
   const faviconCache = useRef<Map<string, HTMLImageElement>>(new Map())
   const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'))
   
@@ -101,7 +100,6 @@ export function GraphPanel() {
 
   const loadGraph = useCallback(async () => {
     setLoading(true)
-    graphLoadStartRef.current = performance.now()
     try {
       const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
       const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
@@ -1316,16 +1314,6 @@ export function GraphPanel() {
               drawClusterBoundaries(ctx, globalScale)
             }}
             onEngineStop={() => {
-              // Record graph render time
-              if (graphLoadStartRef.current > 0) {
-                const renderTime = performance.now() - graphLoadStartRef.current
-                chrome.runtime.sendMessage({
-                  type: "RECORD_GRAPH_RENDER_TIME",
-                  payload: { timeMs: renderTime }
-                }).catch(() => {})
-                graphLoadStartRef.current = 0
-              }
-              
               // Only auto-fit on initial load, not after user interactions
               if (graphRef.current && !hasUserInteractedRef.current) {
                 graphRef.current.zoomToFit(400, 100)

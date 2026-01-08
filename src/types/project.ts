@@ -44,6 +44,13 @@ export type Project = {
   createdAt: number // When project was detected
   autoDetected: boolean // True if auto-detected, false if manually created
   score: number // Confidence score 0-100
+  scoreBreakdown?: {
+    visits: number // 0-40 pts
+    sessions: number // 0-30 pts
+    resources: number // 0-20 pts
+    timeSpan: number // 0-10 pts
+    total: number
+  } // Why this was detected (for auto-detected projects)
   dismissedSuggestions?: Array<{
     url: string // URL that was dismissed
     timestamp: number // When it was dismissed

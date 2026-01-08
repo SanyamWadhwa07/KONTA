@@ -68,7 +68,7 @@ import { log, warn, error, forceLog} from "~/lib/logger"
 import { DEFAULT_SETTINGS } from "~/types/settings"
 import { saveSessions } from "./sessionStore"
 import { importBrowserHistory } from "./historyImporter"
-import { getDetailedAnalytics, recordProjectSuggestionAccepted, recordProjectSuggestionDismissed, recordProjectSuggestionSnoozed, recordCoiScore, recordBreakSuggestion, recordGraphRenderTime } from "./analytics"
+import { getDetailedAnalytics, recordProjectSuggestionAccepted, recordProjectSuggestionDismissed, recordProjectSuggestionSnoozed, recordCoiScore, recordBreakSuggestion } from "./analytics"
 
 // =============================================================================
 // MV3-Safe Content Script Readiness Tracker
@@ -709,7 +709,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sites: initialSites,
           status: 'active',
           autoDetected: true,
-          score: candidate.score
+          score: candidate.score,
+          scoreBreakdown: candidate.scoreBreakdown
         })
 
         // Remove candidate from storage
@@ -1063,13 +1064,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ analytics: null })
       }
     })()
-    return true
-  }
-
-  if (message.type === "RECORD_GRAPH_RENDER_TIME") {
-    const { timeMs } = message.payload
-    recordGraphRenderTime(timeMs)
-    sendResponse({ success: true })
     return true
   }
 

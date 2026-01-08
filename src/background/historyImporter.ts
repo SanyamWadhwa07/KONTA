@@ -39,12 +39,12 @@ export async function importBrowserHistory(): Promise<void> {
     
     // Mark as imported immediately so sidepanel can open
     await chrome.storage.local.set({ 'history-imported': true })
-    log("[HistoryImport] Import complete! Starting background embedding generation...")
+    // log("[HistoryImport] Import complete! Starting background embedding generation...")
     
-    // Generate embeddings in background (non-blocking)
-    generateEmbeddingsInBackground(pageEvents).catch(err => {
-      error("[HistoryImport] Embedding generation failed:", err)
-    })
+    // // Generate embeddings in background (non-blocking)
+    // generateEmbeddingsInBackground(pageEvents).catch(err => {
+    //   error("[HistoryImport] Embedding generation failed:", err)
+    // })
     
   } catch (error) {
     error("[HistoryImport] Failed:", error)

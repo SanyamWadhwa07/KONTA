@@ -1,13 +1,14 @@
 import { getSessions } from "./sessionManager"
 import { loadLabels } from "./labelsStore"
 import { log } from "~lib/logger"
+import type { ProjectCandidate } from "~/types/project-candidate"
 
 interface DetailedAnalytics {
   performance: {
     avgSearchLatency: number
     avgEmbeddingTime: number
-    avgGraphRenderTime: number
     totalSearches: number
+    totalEmbeddings: number
   }
   usage: {
     topDomains: Array<{ domain: string; count: number }>
@@ -20,7 +21,6 @@ interface DetailedAnalytics {
     modelLoaded: boolean
     storageUsedMB: number
     totalStorageMB: number
-    cacheHitRate: number
     indexedPagesCount: number
   }
   coi: {
@@ -30,20 +30,33 @@ interface DetailedAnalytics {
     breaksAccepted: number
   }
   projects: {
-    detectionAccuracy: number
-    avgProjectSize: number
+    autoDetected: Array<{
+      id: string
+      name: string
+      score: number
+      scoreBreakdown?: {
+        visits: number
+        sessions: number
+        resources: number
+        timeSpan: number
+        total: number
+      }
+      createdAt: number
+      siteCount: number
+      sessionCount: number
+      topDomain: string
+    }>
     suggestionsGenerated: number
     suggestionsAccepted: number
+    suggestionsDismissed: number
+    suggestionsSnoozed: number
   }
 }
 
 // Store performance metrics in memory
 const performanceMetrics = {
   searchLatencies: [] as number[],
-  embeddingTimes: [] as number[],
-  graphRenderTimes: [] as number[],
-  cacheHits: 0,
-  cacheMisses: 0
+  embeddingTimes: [] as number[]
 }
 
 const coiMetrics = {
@@ -73,21 +86,6 @@ export function recordEmbeddingTime(timeMs: number) {
   if (performanceMetrics.embeddingTimes.length > 1000) {
     performanceMetrics.embeddingTimes.shift()
   }
-}
-
-export function recordGraphRenderTime(timeMs: number) {
-  performanceMetrics.graphRenderTimes.push(timeMs)
-  if (performanceMetrics.graphRenderTimes.length > 100) {
-    performanceMetrics.graphRenderTimes.shift()
-  }
-}
-
-export function recordCacheHit() {
-  performanceMetrics.cacheHits++
-}
-
-export function recordCacheMiss() {
-  performanceMetrics.cacheMisses++
 }
 
 export function recordCoiScore(score: number) {
@@ -184,9 +182,12 @@ export async function getDetailedAnalytics(): Promise<DetailedAnalytics> {
       .slice(0, 10)
     
     // Get projects data
-    const projectsData = await chrome.storage.local.get("projects")
-    const projects = projectsData.projects || []
+    const projectsData = await chrome.storage.local.get("aegis-projects")
+    const projects = projectsData["aegis-projects"] || []
     const activeProjects = projects.filter((p: any) => !p.archived).length
+    
+    log('[Analytics] Total projects:', projects.length, 'Active:', activeProjects)
+    log('[Analytics] Auto-detected projects:', projects.filter((p: any) => p.autoDetected).length)
     
     // Calculate average project size
     let totalProjectPages = 0
@@ -208,26 +209,38 @@ export async function getDetailedAnalytics(): Promise<DetailedAnalytics> {
     // If embeddingTimes has entries, model was loaded at least once
     const modelLoaded = performanceMetrics.embeddingTimes.length > 0
     
-    // Calculate cache hit rate
-    const totalCacheRequests = performanceMetrics.cacheHits + performanceMetrics.cacheMisses
-    const cacheHitRate = totalCacheRequests > 0 
-      ? performanceMetrics.cacheHits / totalCacheRequests 
-      : 0
-    
-    // Calculate project detection accuracy (accepted / total suggestions)
-    const totalProjectActions = projectMetrics.suggestionsAccepted + 
-                                projectMetrics.suggestionsDismissed + 
-                                projectMetrics.suggestionsSnoozed
-    const detectionAccuracy = totalProjectActions > 0 
-      ? projectMetrics.suggestionsAccepted / totalProjectActions 
-      : 0.5 // Default to 50% if no data yet
+    // Load auto-detected projects with their detection reasoning
+    const autoDetectedProjects = projects.filter((p: any) => p.autoDetected)
+    const projectAnalytics = autoDetectedProjects.map((p: any) => {
+      let topDomain = ''
+      try {
+        if (p.topDomains && p.topDomains[0]) {
+          topDomain = p.topDomains[0]
+        } else if (p.sites && p.sites[0] && p.sites[0].url) {
+          topDomain = new URL(p.sites[0].url).hostname
+        }
+      } catch (err) {
+        log('[Analytics] Failed to parse domain for project:', p.id, err)
+      }
+      
+      return {
+        id: p.id,
+        name: p.name,
+        score: p.score,
+        scoreBreakdown: p.scoreBreakdown,
+        createdAt: p.createdAt || p.startDate,
+        siteCount: (p.sites || []).length,
+        sessionCount: p.sessionIds.length,
+        topDomain
+      }
+    })
     
     return {
       performance: {
         avgSearchLatency: average(performanceMetrics.searchLatencies),
         avgEmbeddingTime: average(performanceMetrics.embeddingTimes),
-        avgGraphRenderTime: average(performanceMetrics.graphRenderTimes),
-        totalSearches: performanceMetrics.searchLatencies.length
+        totalSearches: performanceMetrics.searchLatencies.length,
+        totalEmbeddings: performanceMetrics.embeddingTimes.length
       },
       usage: {
         topDomains,
@@ -240,7 +253,6 @@ export async function getDetailedAnalytics(): Promise<DetailedAnalytics> {
         modelLoaded,
         storageUsedMB,
         totalStorageMB: 50, // Chrome allows ~10MB local storage + unlimited IndexedDB (show 50MB total estimate)
-        cacheHitRate,
         indexedPagesCount: totalPages
       },
       coi: {
@@ -250,10 +262,11 @@ export async function getDetailedAnalytics(): Promise<DetailedAnalytics> {
         breaksAccepted: coiMetrics.breaksAccepted
       },
       projects: {
-        detectionAccuracy,
-        avgProjectSize,
+        autoDetected: projectAnalytics,
         suggestionsGenerated: projectMetrics.suggestionsGenerated,
-        suggestionsAccepted: projectMetrics.suggestionsAccepted
+        suggestionsAccepted: projectMetrics.suggestionsAccepted,
+        suggestionsDismissed: projectMetrics.suggestionsDismissed,
+        suggestionsSnoozed: projectMetrics.suggestionsSnoozed
       }
     }
   } catch (error) {
