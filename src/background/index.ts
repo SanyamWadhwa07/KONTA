@@ -68,6 +68,7 @@ import { log, warn, error, forceLog} from "~/lib/logger"
 import { DEFAULT_SETTINGS } from "~/types/settings"
 import { saveSessions } from "./sessionStore"
 import { importBrowserHistory } from "./historyImporter"
+import { getDetailedAnalytics } from "./analytics"
 
 // =============================================================================
 // MV3-Safe Content Script Readiness Tracker
@@ -1046,6 +1047,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.storage.local.get(["aegis-settings"], (result) => {
       sendResponse({ settings: result["aegis-settings"] || null })
     })
+    return true
+  }
+
+  if (message.type === "GET_DETAILED_ANALYTICS") {
+    ;(async () => {
+      try {
+        const analytics = await getDetailedAnalytics()
+        sendResponse({ analytics })
+      } catch (error) {
+        error("GET_DETAILED_ANALYTICS failed:", error)
+        sendResponse({ analytics: null })
+      }
+    })()
     return true
   }
 

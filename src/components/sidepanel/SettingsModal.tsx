@@ -2,6 +2,7 @@ import { X, ChevronDown, Search } from "lucide-react"
 import { useState } from "react"
 import type { AppSettings } from "~/types/settings"
 import { log } from "~lib/logger"
+import { Analytics } from "./Analytics"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -523,39 +524,18 @@ export function SettingsModal({
               </div>
             </div>
 
-            {/* About Section */}
+            {/* About Section with Analytics */}
             <div className="mb-4">
               <h3 className="text-sm font-normal mb-2 text-[#0072df] dark:text-[#3e91ff]" style={{ fontFamily: "'Breeze Sans'" }}>
                 About
               </h3>
-              <div className="px-3 py-2 rounded-lg border border-[#E5E5E5] dark:border-[#3A3A3C] bg-[#F5F5F5] dark:bg-[#2C2C2E]">
-                <div className="text-xs text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Version:</span>
-                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">v0.1.0</span>
-                  </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Sessions:</span>
-                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{sessionsCount}</span>
-                  </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Labels:</span>
-                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{labelsCount}</span>
-                  </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Pages:</span>
-                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{pagesCount}</span>
-                  </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Projects:</span>
-                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{projectsCount}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#9A9FA6] dark:text-[#8E8E93]">Candidates:</span>
-                    <span className="text-sm text-[#080A0B] dark:text-[#FFFFFF]">{candidatesCount}</span>
-                  </div>
-                </div>
-              </div>
+              <Analytics
+                sessionsCount={sessionsCount}
+                labelsCount={labelsCount}
+                pagesCount={pagesCount}
+                projectsCount={projectsCount}
+                candidatesCount={candidatesCount}
+              />
             </div>
           </div>
 
