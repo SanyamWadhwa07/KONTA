@@ -68,7 +68,7 @@ import { log, warn, error, forceLog} from "~/lib/logger"
 import { DEFAULT_SETTINGS } from "~/types/settings"
 import { saveSessions } from "./sessionStore"
 import { importBrowserHistory } from "./historyImporter"
-import { getDetailedAnalytics } from "./analytics"
+import { getDetailedAnalytics, recordProjectSuggestionAccepted, recordProjectSuggestionDismissed, recordProjectSuggestionSnoozed, recordCoiScore, recordBreakSuggestion, recordGraphRenderTime } from "./analytics"
 
 // =============================================================================
 // MV3-Safe Content Script Readiness Tracker
@@ -628,6 +628,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { candidateId } = message.payload
     dismissCandidate(candidateId)
       .then(() => {
+        recordProjectSuggestionDismissed()
         sendResponse({ success: true })
       })
       .catch((error) => {
@@ -650,6 +651,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           candidate.notificationShown = false
           log(`[Snooze] Candidate snoozed. Will need ${2 * candidate.snoozeCount} more visits`)
           await saveCandidates(candidates)
+          recordProjectSuggestionSnoozed()
           sendResponse({ success: true })
         } else {
           sendResponse({ success: false, error: "Candidate not found" })
@@ -713,6 +715,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Remove candidate from storage
         await promoteCandidateToProject(candidateId)
 
+        recordProjectSuggestionAccepted()
         sendResponse({ success: true, project: newProject })
       })
       .catch((error) => {
@@ -1063,6 +1066,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (message.type === "RECORD_GRAPH_RENDER_TIME") {
+    const { timeMs } = message.payload
+    recordGraphRenderTime(timeMs)
+    sendResponse({ success: true })
+    return true
+  }
+
   if (message.type === "UPDATE_SETTINGS") {
     const { settings } = message.payload
     chrome.storage.local.set({ "aegis-settings": settings }, () => {
@@ -1276,6 +1286,9 @@ async function broadcastCoiUpdate() {
     const pageIndex = Math.max(0, latest.pages.length - 1)
     const pageCoi = computePageCoi(latest, pageIndex, behavior, weights)
 
+    // Record COI score for analytics
+    recordCoiScore(sessionCoi.score)
+
     const message = {
       type: "COI_UPDATE",
       payload: {
@@ -1331,6 +1344,9 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
     }
 
     log(`[COI Alert] 🚨 Threshold exceeded! Score: ${sessionCoiScore.toFixed(2)}, Threshold: ${threshold}`)
+    
+    // Record break suggestion for analytics
+    recordBreakSuggestion()
     
     // Update last alert timestamp
     lastCoiAlertTimestamp = now

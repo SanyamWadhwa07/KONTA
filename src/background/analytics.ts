@@ -195,12 +195,17 @@ export async function getDetailedAnalytics(): Promise<DetailedAnalytics> {
     }
     const avgProjectSize = projects.length > 0 ? totalProjectPages / projects.length : 0
     
-    // Get storage usage estimate
+    // Get storage usage estimate (includes chrome.storage.local + IndexedDB approximation)
     const allStorageData = await chrome.storage.local.get(null)
     const storageJSON = JSON.stringify(allStorageData)
-    const storageUsedMB = new Blob([storageJSON]).size / (1024 * 1024)
+    const chromeStorageMB = new Blob([storageJSON]).size / (1024 * 1024)
     
-    // Check if model is loaded (simplified check)
+    // Estimate IndexedDB size (sessions data)
+    const sessionsDataSize = new Blob([JSON.stringify(sessions)]).size / (1024 * 1024)
+    const storageUsedMB = chromeStorageMB + sessionsDataSize
+    
+    // Check if model is loaded by checking if embedding generation has ever succeeded
+    // If embeddingTimes has entries, model was loaded at least once
     const modelLoaded = performanceMetrics.embeddingTimes.length > 0
     
     // Calculate cache hit rate
@@ -215,7 +220,7 @@ export async function getDetailedAnalytics(): Promise<DetailedAnalytics> {
                                 projectMetrics.suggestionsSnoozed
     const detectionAccuracy = totalProjectActions > 0 
       ? projectMetrics.suggestionsAccepted / totalProjectActions 
-      : 0
+      : 0.5 // Default to 50% if no data yet
     
     return {
       performance: {
@@ -234,7 +239,7 @@ export async function getDetailedAnalytics(): Promise<DetailedAnalytics> {
       system: {
         modelLoaded,
         storageUsedMB,
-        totalStorageMB: 10, // Chrome extension storage limit (approximate)
+        totalStorageMB: 50, // Chrome allows ~10MB local storage + unlimited IndexedDB (show 50MB total estimate)
         cacheHitRate,
         indexedPagesCount: totalPages
       },

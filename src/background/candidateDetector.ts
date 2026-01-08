@@ -9,6 +9,7 @@ import type { ProjectCandidate, CANDIDATE_THRESHOLDS } from "~/types/project-can
 import { extractResourceIdentifier, type ResourceIdentifier } from "~/lib/resource-extractor"
 import { loadProjects } from "./projectManager"
 import { log } from "~/lib/logger"
+import { recordProjectSuggestion, recordProjectSuggestionAccepted, recordProjectSuggestionDismissed, recordProjectSuggestionSnoozed } from "./analytics"
 
 
 // Dev mode flag - set to true to use lower thresholds for faster testing

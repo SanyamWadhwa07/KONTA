@@ -1,5 +1,6 @@
 import { env, pipeline } from "@xenova/transformers"
 import { log, warn, error} from "~/lib/logger"
+import { recordEmbeddingTime } from "./analytics"
 
 // ================================
 // AGGRESSIVE MV3 FIX
@@ -87,11 +88,14 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
   const model = await initializeModel()
   if (!model) return null
 
+  const startTime = performance.now()
   try {
     const output: any = await model(text, {
       pooling: "mean",
       normalize: true,
     })
+
+    recordEmbeddingTime(performance.now() - startTime)
 
     if (output?.data) {
       return Array.from(output.data as Iterable<number>)

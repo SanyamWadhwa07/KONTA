@@ -4,6 +4,7 @@ import { searchByKeywords } from "~/lib/layer1-keyword-search"
 import { searchSemantic } from "~/lib/layer2-semantic-search"
 import { searchWithML } from "./layer3-ml-ranker"
 import { log, warn, error} from "~/lib/logger"
+import { recordSearchLatency } from "./analytics"
 
 export type SearchLayer = "ML" | "Semantic" | "Keyword"
 
@@ -29,15 +30,20 @@ function flattenPages(sessions: Session[]): PageEvent[] {
 }
 
 export async function executeSearch(query: string, sessions: Session[]): Promise<SearchResult[]> {
+  const startTime = performance.now()
   const pages = flattenPages(sessions)
   const trimmedQuery = query.trim()
   if (!trimmedQuery) return []
+
+  let results: SearchResult[] = []
 
   // Layer 3: ML
   try {
     const mlResults = await searchWithML(trimmedQuery, pages)
     if (mlResults && mlResults.length > 0) {
-      return mlResults.map((r) => ({ ...r, layer: "ML" as const }))
+      results = mlResults.map((r) => ({ ...r, layer: "ML" as const }))
+      recordSearchLatency(performance.now() - startTime)
+      return results
     }
   } catch (error) {
     error("ML search failed:", error)
@@ -47,7 +53,9 @@ export async function executeSearch(query: string, sessions: Session[]): Promise
   try {
     const semanticResults = searchSemantic(trimmedQuery, pages)
     if (semanticResults.length > 0) {
-      return semanticResults.map((r) => ({ ...r, layer: "Semantic" as const }))
+      results = semanticResults.map((r) => ({ ...r, layer: "Semantic" as const }))
+      recordSearchLatency(performance.now() - startTime)
+      return results
     }
   } catch (error) {
     error("Semantic search failed:", error)
@@ -55,5 +63,7 @@ export async function executeSearch(query: string, sessions: Session[]): Promise
 
   // Layer 1: Keyword
   const keywordResults = searchByKeywords(trimmedQuery, pages)
-  return keywordResults.map((r) => ({ ...r, layer: "Keyword" as const }))
+  results = keywordResults.map((r) => ({ ...r, layer: "Keyword" as const }))
+  recordSearchLatency(performance.now() - startTime)
+  return results
 }

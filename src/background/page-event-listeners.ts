@@ -3,6 +3,7 @@ import { getBehaviorState } from "./ephemeralBehavior"
 import { generateEmbedding } from "./embedding-engine"
 import { markGraphForRebuild, broadcastSessionUpdate } from "./index"
 import { checkPageForCandidate, markCandidateNotified } from "./candidateDetector"
+import { recordProjectSuggestion } from "./analytics"
 import { checkForProjectSuggestion } from "./projectSuggestions"
 import { loadProjects } from "./projectManager"
 import type { AppSettings } from "~/types/settings"
@@ -267,6 +268,9 @@ export const setupPageVisitListener = () => {
             const candidate = await checkPageForCandidate(baseEvent, currentSessionId, allSessions)
             if (candidate) {
               log("[ProjectDetection] Candidate ready to notify:", candidate)
+              
+              // Record project suggestion for analytics
+              recordProjectSuggestion()
               
               // Mark as notified FIRST (to prevent returning same candidate repeatedly)
               await markCandidateNotified(candidate.id, currentSessionId)
