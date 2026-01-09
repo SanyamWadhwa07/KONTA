@@ -5,7 +5,7 @@ import { checkSessionChange } from "./ephemeralBehavior"
 import { inferSessionTitle } from "~/lib/session-title-inference"
 import { classifyPageContext, isSameContext } from "~/lib/context-classifier"
 import { learnFromSession } from "./contextLearning"
-import { log, warn, error} from "~/lib/logger"
+import { log, warn, error, forceLog} from "~/lib/logger"
 
 // Sessionization thresholds
 const SESSION_GAP_MS = 30 * 60 * 1000 // 30 minutes - inactivity creates new session
@@ -145,6 +145,20 @@ function shouldStartNewSession(
 export async function processPageEvent(pageEvent: PageEvent): Promise<void> {
   const lastSession = getLastSession()
 
+  // DEBUG: Log session timestamp info for first 5 events
+  if (sessions.length === 0 || (sessions.length === 1 && sessions[0].pages.length < 5)) {
+    const eventDate = new Date(pageEvent.timestamp)
+    forceLog(`[SessionManager] 📅 PROCESSING PAGE EVENT:`, {
+      url: pageEvent.url,
+      title: pageEvent.title,
+      timestamp: pageEvent.timestamp,
+      asDate: eventDate.toLocaleString(),
+      asISO: eventDate.toISOString(),
+      openedAt: pageEvent.openedAt,
+      openedAtDate: new Date(pageEvent.openedAt).toLocaleString()
+    })
+  }
+
   if (!lastSession) {
     // Create first session
     const newSession = {
@@ -154,11 +168,36 @@ export async function processPageEvent(pageEvent: PageEvent): Promise<void> {
       pages: [pageEvent],
       inferredTitle: "" // Will be set after pages are added
     }
+    log(`[SessionManager] 🆕 CREATED FIRST SESSION:`, {
+      startTime: newSession.startTime,
+      startTimeDate: new Date(newSession.startTime).toLocaleString(),
+      startTimeISO: new Date(newSession.startTime).toISOString()
+    })
     sessions.push(newSession)
     checkSessionChange(newSession.id)
   } else {
     // Check if we need to create a new session using hybrid criteria
-    if (shouldStartNewSession(lastSession, pageEvent)) {
+    const shouldCreateNew = shouldStartNewSession(lastSession, pageEvent)
+    
+    // DEBUG: Log session decision for pages with different dates
+    const lastSessionDate = new Date(lastSession.endTime)
+    const pageEventDate = new Date(pageEvent.timestamp)
+    const daysDiff = Math.abs(lastSessionDate.getDate() - pageEventDate.getDate())
+    
+    if (daysDiff > 0) {
+      forceLog(`[SessionManager] 📦 SESSION DECISION:`, {
+        shouldCreateNew,
+        lastSessionEndTime: lastSession.endTime,
+        lastSessionDate: lastSessionDate.toLocaleString(),
+        pageEventTime: pageEvent.timestamp,
+        pageEventDate: pageEventDate.toLocaleString(),
+        daysDifference: daysDiff,
+        timeDiff: pageEvent.timestamp - lastSession.endTime,
+        url: pageEvent.url
+      })
+    }
+    
+    if (shouldCreateNew) {
       // Create new session
       const newSession = {
         id: generateSessionId(),
@@ -206,6 +245,27 @@ export async function processPageEvent(pageEvent: PageEvent): Promise<void> {
       inferredTitle: s.inferredTitle || inferSessionTitle(s)
     }))
     await saveSessions(sessions)
+    
+    // DEBUG: Log session structure periodically
+    if (sessions.length > 0 && sessions.length % 10 === 0) {
+      const lastSession = sessions[sessions.length - 1]
+      forceLog(`[SessionManager] 📦 SESSION STRUCTURE (${sessions.length} total):`, {
+        sessionId: lastSession.id,
+        startTime: lastSession.startTime,
+        startDate: new Date(lastSession.startTime).toLocaleString(),
+        endTime: lastSession.endTime,
+        endDate: new Date(lastSession.endTime).toLocaleString(),
+        pageCount: lastSession.pages.length,
+        firstPageDate: new Date(lastSession.pages[0].timestamp).toLocaleString(),
+        lastPageDate: new Date(lastSession.pages[lastSession.pages.length - 1].timestamp).toLocaleString(),
+        pages: lastSession.pages.map(p => ({
+          title: p.title,
+          timestamp: p.timestamp,
+          date: new Date(p.timestamp).toLocaleString()
+        }))
+      })
+    }
+    
     // Merge single-page sessions after persistence
     sessions = mergeSinglePageSessions(sessions)
   } catch (error) {

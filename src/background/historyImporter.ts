@@ -1,9 +1,10 @@
 import type { PageEvent } from "~/types/page-event"
+import type { Session } from "~/types/session"
 import { processPageEvent } from "./sessionManager"
 import { OnboardingEncoder, type OnboardingProgress } from "./onboardingEncoder"
 import { loadSessions, saveSessions } from "./sessionStore"
 import { resetSessionInitialization, initializeSessions } from "./sessionManager"
-import { log, warn, error} from "~/lib/logger"
+import { log, warn, error, forceLog} from "~/lib/logger"
 
 /**
  * Import browser history and convert to sessions
@@ -120,9 +121,49 @@ export async function importBrowserHistory(): Promise<void> {
     // Process through sessionization algorithm first (don't block on embeddings)
     log("[HistoryImport] 🔨 Processing", pageEvents.length, "page events through sessionization...")
     log("[HistoryImport] Processing page events through sessionization...")
+    
+    // CRITICAL FIX: Don't use live processPageEvent during history import
+    // It appends to the LAST session, but we're processing OLD history
+    // Build sessions chronologically from scratch instead
+    const historicalSessions: Session[] = []
+    
     for (const pageEvent of pageEvents) {
-      await processPageEvent(pageEvent)
+      const lastSession = historicalSessions[historicalSessions.length - 1]
+      
+      if (!lastSession) {
+        // First session
+        historicalSessions.push({
+          id: `session-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          startTime: pageEvent.timestamp,
+          endTime: pageEvent.timestamp,
+          pages: [pageEvent],
+          inferredTitle: ""
+        })
+      } else {
+        // Check if we need a new session (30 min gap)
+        const timeSinceLastPage = pageEvent.timestamp - lastSession.endTime
+        const shouldCreateNew = timeSinceLastPage > 30 * 60 * 1000 // 30 minutes
+        
+        if (shouldCreateNew) {
+          historicalSessions.push({
+            id: `session-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+            startTime: pageEvent.timestamp,
+            endTime: pageEvent.timestamp,
+            pages: [pageEvent],
+            inferredTitle: ""
+          })
+        } else {
+          // Add to existing session
+          lastSession.pages.push(pageEvent)
+          lastSession.endTime = pageEvent.timestamp
+        }
+      }
     }
+    
+    log("[HistoryImport] ✅ Created", historicalSessions.length, "historical sessions")
+    
+    // Save historical sessions to storage
+    await saveSessions(historicalSessions)
     log("[HistoryImport] ✅ Sessionization complete")
     
     // Mark as imported immediately so sidepanel can open
@@ -184,18 +225,16 @@ async function convertToPageEvents(
     try {
       const url = new URL(item.url)
       
-      // Ensure timestamp doesn't exceed current time (prevent future timestamps)
-      // This can happen due to system clock changes, timezone issues, or Chrome's microsecond precision
-      const now = Date.now()
-      const timestamp = item.lastVisitTime || now
-      const safeTimestamp = Math.min(timestamp, now)
+      // Use the historical timestamp from Chrome - don't modify it
+      // Chrome's history API returns milliseconds since epoch, which is what we need
+      const timestamp = item.lastVisitTime || Date.now()
       
       pageEvents.push({
         url: item.url,
         title: item.title || url.hostname,
         domain: url.hostname.replace('www.', ''),
-        timestamp: safeTimestamp,
-        openedAt: safeTimestamp,
+        timestamp: timestamp,
+        openedAt: timestamp,
         visitCount: item.visitCount || 1,
         wasForeground: true
       })
@@ -267,9 +306,6 @@ async function generateEmbeddingsInBackground(pageEvents: PageEvent[]): Promise<
           }
         }
         
-        if (!updated) {
-          log("[HistoryImport] ⚠️ Could not find page to update:", pageWithEmbedding.url.substring(0, 50))
-        }
 
         // Save in batches (every 25 updates or every 5 seconds)
         if (updated && (pendingUpdates >= 25 || Date.now() - lastSaveTime > 5000)) {

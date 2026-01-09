@@ -338,7 +338,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
       }
-      // Add a longer delay to ensure sessionManager state is fully updated before rebuilding the graph
+      // Add delay to ensure sessionManager state is fully updated before rebuilding the graph
       await new Promise(r => setTimeout(r, 500))
       log("[Background] 🔨 Marking graph for rebuild...")
       graphNeedsRebuild = true

@@ -152,12 +152,9 @@ export function GraphPanel() {
       if (message.type === "GRAPH_UPDATED") {
         log(`[GraphPanel] Graph updated with ${message.nodes} nodes, reloading now...`)
         setOnboardingProgress(null)
-        // Add small delay to ensure background has fully updated
-        setTimeout(() => {
-          // Force next load to bypass stale timestamp cache
-          lastGraphTimestampRef.current = 0
-          loadGraph()
-        }, 100)
+        // Force next load to bypass stale timestamp cache
+        lastGraphTimestampRef.current = 0
+        loadGraph()
       }
     }
 
@@ -179,15 +176,55 @@ export function GraphPanel() {
           embeddingsGenerated: 0,
           isComplete: false,
         })
-      } else if (result['onboarding-embeddings-complete']) {
-        log("[GraphPanel] Embeddings already complete on mount, loading graph immediately")
-        // If embeddings just completed before we mounted, load graph now
-        loadGraph()
-        // Clear the completion flag so we don't keep reloading
+      }
+      
+      // Always clear the completion flag if present
+      if (result['onboarding-embeddings-complete']) {
         chrome.storage.local.remove('onboarding-embeddings-complete')
       }
     })
-  }, [loadGraph])
+  }, [])
+
+  // Get top domain for a cluster
+  const getClusterTopDomain = (nodes: any[], clusterId: number): string | null => {
+    const clusterNodes = nodes.filter(n => n.cluster === clusterId)
+    if (clusterNodes.length === 0) return null
+    
+    const domainCounts = new Map<string, number>()
+    for (const node of clusterNodes) {
+      const count = domainCounts.get(node.domain) || 0
+      domainCounts.set(node.domain, count + node.visitCount)
+    }
+    
+    const topDomain = Array.from(domainCounts.entries())
+      .sort((a, b) => b[1] - a[1])[0]
+    
+    return topDomain ? topDomain[0] : null
+  }
+
+  // Load favicon for domain
+  const loadFavicon = (domain: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      if (faviconCache.current.has(domain)) {
+        resolve(faviconCache.current.get(domain)!)
+        return
+      }
+
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      
+      img.onload = () => {
+        faviconCache.current.set(domain, img)
+        resolve(img)
+      }
+      
+      img.onerror = () => {
+        reject(new Error(`Failed to load favicon for ${domain}`))
+      }
+      
+      img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
+    })
+  }
 
   // Load manual links from storage
   useEffect(() => {
@@ -427,7 +464,10 @@ export function GraphPanel() {
       let cutoff: number
       
       if (timeFilter === "today") {
-        cutoff = now - 24 * 60 * 60 * 1000
+        // Use start of today (midnight local time) instead of last 24 hours
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        cutoff = today.getTime()
       } else if (timeFilter === "last3") {
         cutoff = now - 3 * 24 * 60 * 60 * 1000
       } else if (timeFilter === "last7") {
@@ -514,6 +554,43 @@ export function GraphPanel() {
 
     return { clusters, filteredNodes, graphData }
   }, [graph, searchQuery, timeFilter, selectedClusters, minSimilarity, manualLinks])
+
+  // Show loading overlay if embeddings are in progress
+  if (onboardingProgress && !onboardingProgress.isComplete) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4 h-full">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin">
+            <RotateCw className="h-8 w-8" style={{ color: '#0072de' }} />
+          </div>
+        </div>
+        <div className="text-center max-w-sm px-4">
+          <p className="text-sm mb-2" style={{ color: isDarkMode ? '#FFFFFF' : '#080A0B', fontFamily: "'Breeze Sans'", fontWeight: 600 }}>
+            Building your knowledge graph
+          </p>
+          <p className="text-xs leading-relaxed mb-4" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+            Processing {onboardingProgress.embeddingsGenerated}/{onboardingProgress.totalPages} pages from your history. The graph will appear once embedding generation is complete.
+          </p>
+          <div className="w-64 mx-auto">
+            <div className="h-2 bg-[#F0F0F0] dark:bg-[#3A3A3C] rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#0072de] dark:bg-[#3e91ff] transition-all duration-300"
+                style={{ 
+                  width: `${(onboardingProgress.embeddingsGenerated / onboardingProgress.totalPages) * 100}%` 
+                }}
+              />
+            </div>
+            <p className="text-xs mt-2" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+              {Math.round((onboardingProgress.embeddingsGenerated / onboardingProgress.totalPages) * 100)}% complete
+            </p>
+          </div>
+        </div>
+        <p className="text-xs text-center max-w-xs px-4" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
+          This tab will refresh automatically when complete. Feel free to continue browsing!
+        </p>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -715,66 +792,6 @@ export function GraphPanel() {
       graphRef.current.zoomToFit(400, 100)
       hasUserInteractedRef.current = true
     }
-  }
-
-  // Get top domain for a cluster
-  const getClusterTopDomain = (nodes: any[], clusterId: number): string | null => {
-    const clusterNodes = nodes.filter(n => n.cluster === clusterId)
-    if (clusterNodes.length === 0) return null
-    
-    const domainCounts = new Map<string, number>()
-    for (const node of clusterNodes) {
-      const count = domainCounts.get(node.domain) || 0
-      domainCounts.set(node.domain, count + node.visitCount)
-    }
-    
-    const topDomain = Array.from(domainCounts.entries())
-      .sort((a, b) => b[1] - a[1])[0]
-    
-    return topDomain ? topDomain[0] : null
-  }
-
-  // Load favicon for domain
-  const loadFavicon = (domain: string): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      if (faviconCache.current.has(domain)) {
-        resolve(faviconCache.current.get(domain)!)
-        return
-      }
-
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      
-      // Try Google's favicon service first
-      img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
-      
-      img.onload = () => {
-        faviconCache.current.set(domain, img)
-        resolve(img)
-      }
-      
-      img.onerror = () => {
-        // Create a placeholder circle with first letter
-        const canvas = document.createElement('canvas')
-        canvas.width = 16
-        canvas.height = 16
-        const ctx = canvas.getContext('2d')!
-        ctx.fillStyle = '#e5e7eb'
-        ctx.fillRect(0, 0, 16, 16)
-        ctx.fillStyle = '#6b7280'
-        ctx.font = '10px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(domain[0].toUpperCase(), 8, 8)
-        
-        const placeholderImg = new Image()
-        placeholderImg.src = canvas.toDataURL()
-        placeholderImg.onload = () => {
-          faviconCache.current.set(domain, placeholderImg)
-          resolve(placeholderImg)
-        }
-      }
-    })
   }
 
   // Draw cluster boundaries for clusters with 2+ nodes

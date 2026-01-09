@@ -13,7 +13,7 @@ import { ProjectsPanel } from "./ProjectPanel"
 import type { AppSettings } from "~/types/settings"
 import { DEFAULT_SETTINGS, getSensitivityThreshold } from "~/types/settings"
 import { SettingsModal } from "./SettingsModal"
-import { log, warn, error } from "~/lib/logger"
+import { log, warn, error, forceLog } from "~/lib/logger"
 
 // Mock filter data - will be fetched from API
 const MOCK_FILTERS = [
@@ -118,6 +118,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
   const [canScrollLabelsLeft, setCanScrollLabelsLeft] = useState(false)
   const [canScrollLabelsRight, setCanScrollLabelsRight] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [isHistoryImporting, setIsHistoryImporting] = useState(false)
 
   const fetchCurrentTab = () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -273,6 +274,28 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       fetchCurrentTab()
     }
   }, [activeTab])
+
+  useEffect(() => {
+    // Check if history import is in progress on mount
+    chrome.storage.local.get(['onboarding-embeddings-in-progress'], (result) => {
+      if (result['onboarding-embeddings-in-progress']) {
+        setIsHistoryImporting(true)
+      }
+    })
+
+    // Listen for onboarding progress messages
+    const handleMessage = (message: any) => {
+      if (message.type === "ONBOARDING_PROGRESS") {
+        setIsHistoryImporting(!message.progress.isComplete)
+      }
+      if (message.type === "EMBEDDINGS_COMPLETE" || message.type === "GRAPH_UPDATED") {
+        setIsHistoryImporting(false)
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
+  }, [])
 
   useEffect(() => {
     // Initial load of sessions
@@ -458,7 +481,26 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
     filteredSessions.forEach((session) => {
       const sessionDate = new Date(session.startTime)
       const sessionDay = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate())
-      const dateKey = sessionDay.toISOString().split('T')[0] // YYYY-MM-DD
+      // Use local date format (YYYY-MM-DD) instead of UTC to avoid timezone issues
+      const dateKey = `${sessionDay.getFullYear()}-${String(sessionDay.getMonth() + 1).padStart(2, '0')}-${String(sessionDay.getDate()).padStart(2, '0')}`
+
+      // DEBUG: Log first few sessions to see grouping
+      if (grouped.size < 3) {
+        forceLog('[PopulatedState] 📅 GROUPING SESSION:', {
+          sessionId: session.id,
+          startTime: session.startTime,
+          startDate: new Date(session.startTime).toLocaleString(),
+          endTime: session.endTime,
+          endDate: new Date(session.endTime).toLocaleString(),
+          dateKey,
+          pageCount: session.pages.length,
+          pages: session.pages.slice(0, 3).map(p => ({
+            title: p.title,
+            timestamp: p.timestamp,
+            date: new Date(p.timestamp).toLocaleString()
+          }))
+        })
+      }
 
       if (!grouped.has(dateKey)) {
         // Generate label: "Today - Monday, December 30" or "Yesterday - Sunday, December 29" or "Monday, December 28"
@@ -532,7 +574,8 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
       }
       
       const clusterDay = new Date(clusterDate.getFullYear(), clusterDate.getMonth(), clusterDate.getDate())
-      const dateKey = clusterDay.toISOString().split('T')[0]
+      // Use local date format (YYYY-MM-DD) instead of UTC to avoid timezone issues
+      const dateKey = `${clusterDay.getFullYear()}-${String(clusterDay.getMonth() + 1).padStart(2, '0')}-${String(clusterDay.getDate()).padStart(2, '0')}`
 
       if (!grouped.has(dateKey)) {
         let label = ''
@@ -1203,6 +1246,18 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
           </div>
         ) : (
           <div className="flex flex-col p-0.5">
+            {/* Loading state during history import */}
+            {isHistoryImporting && (
+              <div className="mx-2 mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent" />
+                  <p className="text-sm text-blue-700 dark:text-blue-300" style={{ fontFamily: "'Breeze Sans'" }}>
+                    Importing and analyzing your browsing history...
+                  </p>
+                </div>
+              </div>
+            )}
+            
             {timelineView === "sessions" ? (
               // Sessions View
               <>
