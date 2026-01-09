@@ -460,18 +460,25 @@ export function GraphPanel() {
     // Apply time filter
     let timeFilteredNodes = graph.nodes
     if (timeFilter !== "all") {
-      const now = Date.now()
       let cutoff: number
       
       if (timeFilter === "today") {
-        // Use start of today (midnight local time) instead of last 24 hours
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        cutoff = today.getTime()
+        // Start of today (midnight)
+        const startOfToday = new Date()
+        startOfToday.setHours(0, 0, 0, 0)
+        cutoff = startOfToday.getTime()
       } else if (timeFilter === "last3") {
-        cutoff = now - 3 * 24 * 60 * 60 * 1000
+        // Start of 3 days ago (midnight)
+        const startOf3DaysAgo = new Date()
+        startOf3DaysAgo.setDate(startOf3DaysAgo.getDate() - 2)
+        startOf3DaysAgo.setHours(0, 0, 0, 0)
+        cutoff = startOf3DaysAgo.getTime()
       } else if (timeFilter === "last7") {
-        cutoff = now - 7 * 24 * 60 * 60 * 1000
+        // Start of 7 days ago (midnight)
+        const startOf7DaysAgo = new Date()
+        startOf7DaysAgo.setDate(startOf7DaysAgo.getDate() - 6)
+        startOf7DaysAgo.setHours(0, 0, 0, 0)
+        cutoff = startOf7DaysAgo.getTime()
       } else {
         cutoff = 0
       }

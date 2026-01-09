@@ -13,7 +13,7 @@ import { ProjectsPanel } from "./ProjectPanel"
 import type { AppSettings } from "~/types/settings"
 import { DEFAULT_SETTINGS, getSensitivityThreshold } from "~/types/settings"
 import { SettingsModal } from "./SettingsModal"
-import { log, warn, error, forceLog } from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 // Mock filter data - will be fetched from API
 const MOCK_FILTERS = [
@@ -486,7 +486,7 @@ export function PopulatedState({ onShowEmpty, initialTab }: PopulatedStateProps)
 
       // DEBUG: Log first few sessions to see grouping
       if (grouped.size < 3) {
-        forceLog('[PopulatedState] 📅 GROUPING SESSION:', {
+        log('[PopulatedState] 📅 GROUPING SESSION:', {
           sessionId: session.id,
           startTime: session.startTime,
           startDate: new Date(session.startTime).toLocaleString(),

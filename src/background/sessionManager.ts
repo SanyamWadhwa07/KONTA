@@ -5,12 +5,12 @@ import { checkSessionChange } from "./ephemeralBehavior"
 import { inferSessionTitle } from "~/lib/session-title-inference"
 import { classifyPageContext, isSameContext } from "~/lib/context-classifier"
 import { learnFromSession } from "./contextLearning"
-import { log, warn, error, forceLog} from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 // Sessionization thresholds
 const SESSION_GAP_MS = 30 * 60 * 1000 // 30 minutes - inactivity creates new session
 const MAX_SESSION_DURATION_MS = 2 * 60 * 60 * 1000 // 2 hours - force split after this duration
-const CONTEXT_SWITCH_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes - context change with short gap
+const CONTEXT_SWITCH_THRESHOLD_MS = 15 * 1000 // 15 seconds - aggressive context change detection
 
 let sessions: Session[] = []
 let isInitialized = false
@@ -108,7 +108,8 @@ function getLastSession(): Session | undefined {
  * Determine if a new session should be started based on hybrid criteria:
  * 1. Time gap exceeds 30 minutes (inactivity)
  * 2. Session duration exceeds 2 hours (force split for manageability)
- * 3. Context switch detected (different activity type after 5+ minute gap)
+ * 3. Context switch detected (different activity type after 15+ seconds)
+ * 4. Previous session is from history import (always create new session for live browsing)
  */
 function shouldStartNewSession(
   lastSession: Session,
@@ -127,7 +128,12 @@ function shouldStartNewSession(
     return true
   }
 
-  // Criterion 3: Context switch with moderate gap (5+ minutes)
+  // Criterion 3: Always create new session after imported history (live browsing starts fresh)
+  if (lastSession.isImported) {
+    return true
+  }
+
+  // Criterion 4: Aggressive context switch detection (15+ seconds with obvious context change)
   if (timeSinceLastEvent > CONTEXT_SWITCH_THRESHOLD_MS) {
     const lastPage = lastSession.pages[lastSession.pages.length - 1]
     if (lastPage && !isSameContext(lastPage, newPageEvent)) {
@@ -148,7 +154,7 @@ export async function processPageEvent(pageEvent: PageEvent): Promise<void> {
   // DEBUG: Log session timestamp info for first 5 events
   if (sessions.length === 0 || (sessions.length === 1 && sessions[0].pages.length < 5)) {
     const eventDate = new Date(pageEvent.timestamp)
-    forceLog(`[SessionManager] 📅 PROCESSING PAGE EVENT:`, {
+    log(`[SessionManager] 📅 PROCESSING PAGE EVENT:`, {
       url: pageEvent.url,
       title: pageEvent.title,
       timestamp: pageEvent.timestamp,
@@ -185,7 +191,7 @@ export async function processPageEvent(pageEvent: PageEvent): Promise<void> {
     const daysDiff = Math.abs(lastSessionDate.getDate() - pageEventDate.getDate())
     
     if (daysDiff > 0) {
-      forceLog(`[SessionManager] 📦 SESSION DECISION:`, {
+      log(`[SessionManager] 📦 SESSION DECISION:`, {
         shouldCreateNew,
         lastSessionEndTime: lastSession.endTime,
         lastSessionDate: lastSessionDate.toLocaleString(),
@@ -249,7 +255,7 @@ export async function processPageEvent(pageEvent: PageEvent): Promise<void> {
     // DEBUG: Log session structure periodically
     if (sessions.length > 0 && sessions.length % 10 === 0) {
       const lastSession = sessions[sessions.length - 1]
-      forceLog(`[SessionManager] 📦 SESSION STRUCTURE (${sessions.length} total):`, {
+      log(`[SessionManager] 📦 SESSION STRUCTURE (${sessions.length} total):`, {
         sessionId: lastSession.id,
         startTime: lastSession.startTime,
         startDate: new Date(lastSession.startTime).toLocaleString(),

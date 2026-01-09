@@ -8,4 +8,5 @@ export type Session = {
   inferredTitle?: string
   labelId?: string // Optional label ID from user's label list
   projectId?: string // Optional project ID this session belongs to
+  isImported?: boolean // Mark sessions imported from browser history (vs live browsing)
 }

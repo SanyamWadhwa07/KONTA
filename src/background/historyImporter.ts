@@ -4,7 +4,7 @@ import { processPageEvent } from "./sessionManager"
 import { OnboardingEncoder, type OnboardingProgress } from "./onboardingEncoder"
 import { loadSessions, saveSessions } from "./sessionStore"
 import { resetSessionInitialization, initializeSessions } from "./sessionManager"
-import { log, warn, error, forceLog} from "~/lib/logger"
+import { log, warn, error} from "~/lib/logger"
 
 /**
  * Import browser history and convert to sessions
@@ -131,13 +131,14 @@ export async function importBrowserHistory(): Promise<void> {
       const lastSession = historicalSessions[historicalSessions.length - 1]
       
       if (!lastSession) {
-        // First session
+        // First session - mark as imported
         historicalSessions.push({
           id: `session-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           startTime: pageEvent.timestamp,
           endTime: pageEvent.timestamp,
           pages: [pageEvent],
-          inferredTitle: ""
+          inferredTitle: "",
+          isImported: true
         })
       } else {
         // Check if we need a new session (30 min gap)
@@ -150,7 +151,8 @@ export async function importBrowserHistory(): Promise<void> {
             startTime: pageEvent.timestamp,
             endTime: pageEvent.timestamp,
             pages: [pageEvent],
-            inferredTitle: ""
+            inferredTitle: "",
+            isImported: true
           })
         } else {
           // Add to existing session
