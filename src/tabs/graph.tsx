@@ -1324,7 +1324,7 @@ export default function GraphFullPage() {
           style={{
             left: `${hoveredNodePos.x}px`,
             top: `${hoveredNodePos.y}px`,
-            transform: 'translate(-50%, -10%)'
+            transform: 'translate(-50%, 40%)'
           }}
         >
           {/* Tooltip Card */}
