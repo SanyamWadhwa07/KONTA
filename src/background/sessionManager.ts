@@ -14,6 +14,7 @@ const CONTEXT_SWITCH_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes - context change 
 
 let sessions: Session[] = []
 let isInitialized = false
+let initializationPromise: Promise<void> | null = null // Lock to prevent concurrent loads
 
 /**
  * Backfill missing inferred titles for sessions loaded from storage
@@ -34,30 +35,59 @@ function backfillInferredTitles(sessions: Session[]): Session[] {
  * Initialize sessions from persistent storage
  */
 export async function initializeSessions(): Promise<void> {
+  // If already initialized, return immediately
   if (isInitialized) return
-  try {
-    sessions = await loadSessions()
-    
-    // Re-sessionize all existing sessions with new hybrid logic
-    // This ensures old sessions stored with 30-min gap only are now split intelligently
-    sessions = reSessionizeAll(sessions)
-    
-    // Backfill missing inferred titles for existing sessions
-    sessions = backfillInferredTitles(sessions)
-    // Merge single-page sessions after loading
-    sessions = mergeSinglePageSessions(sessions)
-    isInitialized = true
-    
-    // Initialize ephemeral tracking for last session if exists
-    const lastSession = getLastSession()
-    if (lastSession) {
-      checkSessionChange(lastSession.id)
-    }
-  } catch (error) {
-    error("Failed to initialize sessions:", error)
-    sessions = []
-    isInitialized = true
+  
+  // If initialization is in progress, wait for it to complete
+  if (initializationPromise) {
+    console.log("[SessionManager] Initialization already in progress, waiting...")
+    return initializationPromise
   }
+  
+  // Create new initialization promise
+  initializationPromise = (async () => {
+    try {
+      console.log("[SessionManager] Loading sessions from IndexedDB...")
+      sessions = await loadSessions()
+      
+      // DON'T re-sessionize on every load - it destroys the session structure and loses embeddings
+      // History import already uses processPageEvent() which applies the same sessionization logic
+      // Re-sessionizing here causes embeddings to become orphaned on reload
+      // sessions = reSessionizeAll(sessions)  // REMOVED - this was destroying embeddings!
+      
+      // Backfill missing inferred titles for existing sessions
+      sessions = backfillInferredTitles(sessions)
+      // Merge single-page sessions after loading
+      sessions = mergeSinglePageSessions(sessions)
+      isInitialized = true
+      
+      // Log embedding stats
+      const totalPages = sessions.flatMap(s => s.pages).length
+      const pagesWithEmbeddings = sessions.flatMap(s => s.pages).filter(p => p.titleEmbedding && p.titleEmbedding.length > 0).length
+      console.log(`[SessionManager] Loaded ${sessions.length} sessions, ${totalPages} pages, ${pagesWithEmbeddings} with embeddings`)
+      
+      // Initialize ephemeral tracking for last session if exists
+      const lastSession = getLastSession()
+      if (lastSession) {
+        checkSessionChange(lastSession.id)
+      }
+    } catch (error) {
+      console.error("[SessionManager] Failed to initialize sessions:", error)
+      sessions = []
+      isInitialized = true
+    } finally {
+      initializationPromise = null // Clear lock
+    }
+  })()
+  
+  return initializationPromise
+}
+
+/**
+ * Force re-initialization (useful after embeddings are generated)
+ */
+export function resetSessionInitialization(): void {
+  isInitialized = false
 }
 
 /**

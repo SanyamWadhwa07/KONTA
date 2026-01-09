@@ -4,7 +4,16 @@ import { forceCollide } from "d3-force"
 import { Search, X, ChevronDown, RotateCw, Sliders, ZoomIn, ZoomOut, Link, Maximize2, Info, LinkIcon } from "lucide-react"
 import type { KnowledgeGraph, GraphNode } from "~/lib/knowledge-graph"
 import { getClusterColor, generateClusterLabel, generateProjectClusterLabel } from "~/lib/knowledge-graph"
-import { log, warn, error} from "~/lib/logger"
+import { log, warn, error } from "~/lib/logger"
+
+interface OnboardingProgress {
+  isModelLoading: boolean
+  modelLoadPercent: number
+  totalPages: number
+  processedPages: number
+  embeddingsGenerated: number
+  isComplete: boolean
+}
 
 // Clean URL to remove chrome-extension prefix if present
 function cleanUrl(url: string): string {
@@ -39,8 +48,9 @@ export function GraphPanel() {
   const [minSimilarity, setMinSimilarity] = useState(0.50)
   const [selectedClusters, setSelectedClusters] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
-  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "week">("all")
+  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "last3" | "last7">("last3")
   const [showFilters, setShowFilters] = useState(false)
+  const [showAllClusters, setShowAllClusters] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
   const [manualLinkMode, setManualLinkMode] = useState(false)
   const [selectedNodesForLink, setSelectedNodesForLink] = useState<string[]>([])
@@ -49,6 +59,7 @@ export function GraphPanel() {
   const [hoveredNode, setHoveredNode] = useState<any>(null)
   const [hoveredNodePos, setHoveredNodePos] = useState<{x: number, y: number}>({x: 0, y: 0})
   const [graphMode, setGraphMode] = useState<'semantic' | 'projects'>('semantic')
+  const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgress | null>(null)
   const graphRef = useRef<any>()
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 500, height: 400 })
@@ -65,6 +76,7 @@ export function GraphPanel() {
     bounds: { x: number, y: number, width: number, height: number }
   }>>([])
   const [hoveredLabel, setHoveredLabel] = useState<{ clusterId: number, projectName: string, x: number, y: number } | null>(null)
+  const lastEmbeddingCountRef = useRef(0)
 
   // Monitor dark mode changes
   useEffect(() => {
@@ -84,6 +96,99 @@ export function GraphPanel() {
     return () => observer.disconnect()
   }, [])
 
+  // Define loadGraph before useEffect hooks that depend on it
+  const loadGraph = useCallback(async () => {
+    setLoading(true)
+    try {
+      const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
+      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
+      if (response?.graph) {
+        // Only update if graph has actually changed OR if it has nodes when previous was empty
+        const hasNodes = response.graph.nodes.length > 0
+        const previouslyEmpty = !graph || graph.nodes.length === 0
+        const shouldUpdate = response.graph.lastUpdated !== lastGraphTimestampRef.current || (hasNodes && previouslyEmpty)
+        
+        if (shouldUpdate) {
+          log("[GraphPanel] Graph data changed, updating UI. Nodes:", response.graph.nodes.length)
+          setGraph(response.graph)
+          lastGraphTimestampRef.current = response.graph.lastUpdated
+          hasUserInteractedRef.current = false // Reset on new graph load
+        } else {
+          log("[GraphPanel] Graph unchanged, skipping update")
+        }
+      }
+    } catch (err) {
+      error("[GraphPanel] Failed to load graph:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [graphMode, graph])
+
+  // Listen for onboarding progress messages
+  useEffect(() => {
+    const handleMessage = (message: any) => {
+      if (message.type === "ONBOARDING_PROGRESS") {
+        setOnboardingProgress(message.progress)
+        
+        // DON'T reload during embedding generation - wait for completion
+        // This prevents UI jank and ensures we only show final graph
+
+        // Clear overlay when complete
+        if (message.progress.isComplete) {
+          log(`[GraphPanel] Onboarding complete, clearing overlay`)
+          setOnboardingProgress(null)
+          // Don't reload here - wait for GRAPH_UPDATED from background
+        }
+      }
+      
+      // Listen for embedding completion - DON'T reload yet, wait for GRAPH_UPDATED
+      if (message.type === "EMBEDDINGS_COMPLETE") {
+        log(`[GraphPanel] Embeddings complete! Waiting for background to rebuild graph...`)
+        setOnboardingProgress(null)
+        // Don't call loadGraph() immediately - background needs time to rebuild
+      }
+      
+      // Listen for graph update from background after embeddings
+      if (message.type === "GRAPH_UPDATED") {
+        log(`[GraphPanel] Graph updated with ${message.nodes} nodes, reloading now...`)
+        setOnboardingProgress(null)
+        // Add small delay to ensure background has fully updated
+        setTimeout(() => {
+          // Force next load to bypass stale timestamp cache
+          lastGraphTimestampRef.current = 0
+          loadGraph()
+        }, 100)
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
+  }, [loadGraph])
+
+  // Check if embeddings are in progress or just completed on mount
+  useEffect(() => {
+    chrome.storage.local.get(['onboarding-embeddings-in-progress', 'onboarding-embeddings-complete'], (result) => {
+      if (result['onboarding-embeddings-in-progress'] && !result['onboarding-embeddings-complete']) {
+        log("[GraphPanel] Embeddings in progress on mount, showing overlay")
+        // Set initial progress state to trigger overlay
+        setOnboardingProgress({
+          isModelLoading: false,
+          modelLoadPercent: 100,
+          totalPages: 0,
+          processedPages: 0,
+          embeddingsGenerated: 0,
+          isComplete: false,
+        })
+      } else if (result['onboarding-embeddings-complete']) {
+        log("[GraphPanel] Embeddings already complete on mount, loading graph immediately")
+        // If embeddings just completed before we mounted, load graph now
+        loadGraph()
+        // Clear the completion flag so we don't keep reloading
+        chrome.storage.local.remove('onboarding-embeddings-complete')
+      }
+    })
+  }, [loadGraph])
+
   // Load manual links from storage
   useEffect(() => {
     chrome.storage.local.get(['manualLinks'], (result) => {
@@ -97,27 +202,6 @@ export function GraphPanel() {
     chrome.storage.local.set({ manualLinks: links })
     setManualLinks(links)
   }
-
-  const loadGraph = useCallback(async () => {
-    setLoading(true)
-    try {
-      const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
-      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
-      if (response?.graph) {
-        // Only update if graph has actually changed
-        if (response.graph.lastUpdated !== lastGraphTimestampRef.current) {
-          log("[GraphPanel] Graph data changed, updating UI")
-          setGraph(response.graph)
-          lastGraphTimestampRef.current = response.graph.lastUpdated
-          hasUserInteractedRef.current = false // Reset on new graph load
-        }
-      }
-    } catch (err) {
-      error("[GraphPanel] Failed to load graph:", err)
-    } finally {
-      setLoading(false)
-    }
-  }, [graphMode])
 
   const handleRefresh = async () => {
     try {
@@ -182,6 +266,19 @@ export function GraphPanel() {
     // Only load once on mount, no polling
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // Reload graph when component becomes visible (user switches to this tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        log("[GraphPanel] Tab became visible, reloading graph...")
+        loadGraph()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [loadGraph])
 
   // Reload graph when mode changes
   useEffect(() => {
@@ -190,6 +287,14 @@ export function GraphPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphMode])
+
+  // Reload graph when triggered by onboarding progress
+  useEffect(() => {
+    if (loading && !graph) {
+      loadGraph()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   // Preload favicons when graph updates
   useEffect(() => {
@@ -239,33 +344,40 @@ export function GraphPanel() {
 
       // Configure forces for a more compact layout
       if (graphRef.current) {
-        // Use collision force for strict spacing without long-range repulsion
-        // This keeps nodes apart (min distance) but allows clusters to be close
+        const nodeCount = graphData.nodes.length
+        const isLargeGraph = nodeCount > 150
+        
+        // Use collision force for strict spacing
         graphRef.current.d3Force('collide', forceCollide((node: any) => {
           const baseSize = 6
           const sizeFactor = Math.log((node.visitCount || 0) + 1) * 4
           const size = Math.max(baseSize, Math.min(baseSize + sizeFactor, 24))
-          return size * 1.5 + 4 // Radius + padding
+          return size * 1.5 + 4
         }).strength(0.7))
 
-        // Reduce charge (repulsion) significantly so clusters can merge
-        // Only keep enough to prevent total collapse
-        graphRef.current.d3Force('charge').strength(-60).distanceMax(200)
+        // Adjust repulsion based on graph size
+        const chargeStrength = isLargeGraph ? -50 : -60
+        graphRef.current.d3Force('charge').strength(chargeStrength).distanceMax(200)
         
         // Adjust link distance
         graphRef.current.d3Force('link').distance(55)
         
-        // Stronger centering to pull clusters together
+        // Stronger centering
         graphRef.current.d3Force('center').strength(0.6)
 
-        // Add "breathing" force for idle animation
+        // Add breathing animation (throttled for large graphs)
         const breathingForce = () => {
           let nodes: any[] = []
+          let frameCount = 0
+          const skipFrames = isLargeGraph ? 3 : 0 // Only apply every 4th frame for large graphs
           
           const force = () => {
+            if (isLargeGraph) {
+              frameCount++
+              if (frameCount % (skipFrames + 1) !== 0) return
+            }
+            
             nodes.forEach((node: any) => {
-              // Add random velocity for organic movement
-              // Increased magnitude to make it visible
               if (node.vx !== undefined && node.vy !== undefined) {
                 node.vx += (Math.random() - 0.5) * 0.3
                 node.vy += (Math.random() - 0.5) * 0.3
@@ -279,10 +391,9 @@ export function GraphPanel() {
           
           return force
         }
-
         graphRef.current.d3Force('alive', breathingForce())
         
-        // Restart simulation to ensure new forces take effect
+        // Restart simulation
         graphRef.current.d3ReheatSimulation()
       }
       
@@ -307,19 +418,26 @@ export function GraphPanel() {
       }
     }
 
-    const clusters = Array.from(new Set(graph.nodes.map(n => n.cluster)))
     const allClustersSelected = selectedClusters.size === 0
 
     // Apply time filter
     let timeFilteredNodes = graph.nodes
     if (timeFilter !== "all") {
       const now = Date.now()
-      const cutoff = timeFilter === "today" 
-        ? now - 24 * 60 * 60 * 1000 
-        : now - 7 * 24 * 60 * 60 * 1000
+      let cutoff: number
+      
+      if (timeFilter === "today") {
+        cutoff = now - 24 * 60 * 60 * 1000
+      } else if (timeFilter === "last3") {
+        cutoff = now - 3 * 24 * 60 * 60 * 1000
+      } else if (timeFilter === "last7") {
+        cutoff = now - 7 * 24 * 60 * 60 * 1000
+      } else {
+        cutoff = 0
+      }
       
       timeFilteredNodes = graph.nodes.filter(n => {
-        return (graph.lastUpdated - (n.visitCount * 1000)) >= cutoff
+        return n.timestamp && n.timestamp >= cutoff
       })
     }
 
@@ -336,6 +454,10 @@ export function GraphPanel() {
       if (allClustersSelected) return true
       return selectedClusters.has(n.cluster)
     })
+
+    // Compute clusters from filtered nodes (after time/search filtering, before cluster selection)
+    // This ensures we only show clusters that have nodes matching current filters
+    const clusters = Array.from(new Set(searchFilteredNodes.map(n => n.cluster)))
 
     // Create set of filtered node IDs
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
@@ -488,17 +610,34 @@ export function GraphPanel() {
         <Search className="h-10 w-10 opacity-20" style={{ color: '#9A9FA6' }} />
         <div className="text-center max-w-xs mx-auto space-y-2">
           <p className="text-sm font-semibold" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            No pages yet
+            {onboardingProgress && !onboardingProgress.isComplete ? "Building your knowledge graph..." : "No pages yet"}
           </p>
           <p className="text-xs leading-relaxed" style={{ color: '#9A9FA6', fontFamily: "'Breeze Sans'" }}>
-            Browse a few pages to build your knowledge graph. Embeddings are generated locally and may take a moment to appear.
+            {onboardingProgress && !onboardingProgress.isComplete 
+              ? `Processing ${onboardingProgress.embeddingsGenerated}/${onboardingProgress.totalPages} pages from your history. The graph will appear once we have enough data (20+ pages).`
+              : "Browse a few pages to build your knowledge graph. Embeddings are generated locally and may take a moment to appear."
+            }
           </p>
         </div>
-        <div className="text-center max-w-xs mx-auto space-y-2">
-          <p className="text-xs leading-relaxed" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
-            Imported history data is not part of the knowledge graph until you revisit those pages.
-          </p>
-        </div>
+        {!onboardingProgress && (
+          <div className="text-center max-w-xs mx-auto space-y-2">
+            <p className="text-xs leading-relaxed" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
+              Imported history data is not part of the knowledge graph until you revisit those pages.
+            </p>
+          </div>
+        )}
+        {onboardingProgress && !onboardingProgress.isComplete && (
+          <div className="w-64">
+            <div className="h-2 bg-[#F0F0F0] dark:bg-[#3A3A3C] rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#0072de] dark:bg-[#3e91ff] transition-all duration-300"
+                style={{ 
+                  width: `${(onboardingProgress.embeddingsGenerated / onboardingProgress.totalPages) * 100}%` 
+                }}
+              />
+            </div>
+          </div>
+        )}
         {/* <button
           onClick={handleRefresh}
           className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
@@ -875,10 +1014,8 @@ export function GraphPanel() {
     setSelectedClusters(new Set())
   }
 
-  // Count active filters
+  // Count active advanced filters (exclude time filter as it's always visible)
   const activeFilterCount = 
-    (searchQuery.trim() ? 1 : 0) +
-    (timeFilter !== "all" ? 1 : 0) +
     (selectedClusters.size > 0 ? 1 : 0) +
     (minSimilarity !== 0.50 ? 1 : 0)
 
@@ -910,22 +1047,6 @@ export function GraphPanel() {
             }`}
             title="Toggle node labels">
             <span className="text-xs font-bold">Aa</span>
-          </button>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`relative p-1.5 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-[#2C2C2E] border ${
-              showFilters
-                ? 'text-blue-600 dark:text-[#3e91ff] border-blue-600 dark:border-[#3e91ff] bg-blue-50 dark:bg-blue-900/20'
-                : 'text-gray-400 dark:text-gray-400 border-transparent'
-            }`}
-            title="Filters">
-            <Sliders className="h-4 w-4" />
-            {activeFilterCount > 0 && (
-              <span 
-                className="absolute -top-1 -right-1 flex items-center justify-center w-3.5 h-3.5 text-[9px] font-bold rounded-full bg-blue-600 text-white">
-                {activeFilterCount}
-              </span>
-            )}
           </button>
           <button
             onClick={() => {
@@ -982,21 +1103,20 @@ export function GraphPanel() {
         </div>
       )}
 
-      {/* Always Visible Search Bar with Mode Toggle */}
+      {/* Search Bar with Mode Toggle */}
       <div className="px-3 py-2 border-b bg-white dark:bg-[#1C1C1E] border-gray-200 dark:border-[#3A3A3C] flex gap-2 items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#9A9FA6]" />
           <input
             type="text"
-            placeholder="Search pages..."
+            placeholder="Search nodes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-[#3e91ff] border border-gray-200 dark:border-[#3A3A3C] bg-white dark:bg-[#2C2C2E] text-gray-900 dark:text-white font-sans placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            className="w-full pl-8 pr-8 py-1.5 text-xs rounded-md focus:outline-none focus:ring-1 bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]"
+            style={{ border: '1px solid', fontFamily: "'Breeze Sans'" }}
           />
           {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70 text-gray-400 dark:text-gray-500">
+            <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9A9FA6] hover:text-[#080A0B] dark:hover:text-[#FFFFFF]">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -1013,7 +1133,6 @@ export function GraphPanel() {
             fontFamily: "'Breeze Sans'"
           }}
         >
-          {/* Sliding knob */}
           <div
             aria-hidden
             className="absolute top-0 bottom-0 left-0 w-1/2 rounded-full transition-transform duration-200"
@@ -1023,7 +1142,6 @@ export function GraphPanel() {
               boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
             }}
           />
-
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -1042,7 +1160,6 @@ export function GraphPanel() {
           >
             Clusters
           </button>
-
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -1064,88 +1181,139 @@ export function GraphPanel() {
         </div>
       </div>
 
-      {/* Collapsible Filters Section */}
+      {/* Always Visible Time Filters */}
+      <div className="px-3 py-2 border-b bg-white dark:bg-[#1C1C1E] border-gray-200 dark:border-[#3A3A3C]">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-1">
+            {[{ value: 'today', label: 'Today' }, { value: 'last3', label: 'Last 3 Days' }, { value: 'last7', label: '7 Days' }, { value: 'all', label: 'All Time' }].map(option => (
+              <button
+                key={option.value}
+                onClick={() => setTimeFilter(option.value as any)}
+                className="px-2 py-1 text-[10px] rounded transition-colors"
+                style={{
+                  fontFamily: "'Breeze Sans'",
+                  backgroundColor: timeFilter === option.value ? (isDarkMode ? '#3e91ff' : '#0072de') : 'transparent',
+                  color: timeFilter === option.value ? 'white' : (isDarkMode ? '#9A9FA6' : '#666666'),
+                  border: '1px solid',
+                  borderColor: timeFilter === option.value ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5')
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors"
+            style={{
+              fontFamily: "'Breeze Sans'",
+              border: '1px solid',
+              borderColor: showFilters ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: showFilters ? (isDarkMode ? '#2C2C2E' : '#FFFFFF') : 'transparent',
+              color: showFilters ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#9A9FA6' : '#666666')
+            }}
+          >
+            <Sliders className="h-3 w-3" />
+            <span>Advanced</span>
+            {activeFilterCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-[9px] rounded-full font-medium" style={{
+                backgroundColor: isDarkMode ? '#3e91ff' : '#0072de',
+                color: 'white'
+              }}>
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Collapsible Advanced Filters */}
       {showFilters && (
         <div className="px-3 py-3 border-b bg-gray-50/50 dark:bg-[#1C1C1E] flex flex-col gap-3 border-gray-200 dark:border-[#3A3A3C]">
-          {/* Time Filter Chips */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-900 dark:text-white font-sans">
-              Time:
-            </span>
-            <div className="flex gap-1.5">
-              {(["all", "today", "week"] as const).map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setTimeFilter(filter)}
-                  className={`px-3 py-1 text-xs font-medium rounded-full transition-all font-sans border ${
-                    timeFilter === filter
-                      ? 'bg-black dark:bg-[#3e91ff] text-white border-black dark:border-[#3e91ff]'
-                      : 'bg-white dark:bg-[#2C2C2E] text-black dark:text-white border-black dark:border-[#3A3A3C]'
-                  }`}>
-                  {filter === "all" ? "All Time" : filter === "today" ? "Today" : "This Week"}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Similarity Slider */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium whitespace-nowrap text-gray-900 dark:text-white font-sans">
-              Similarity:
-            </span>
-            <div className="flex-1 flex items-center gap-2">
-              <input
-                type="range"
-                min={0.2}
-                max={0.6}
-                step={0.05}
-                value={minSimilarity}
-                onChange={(e) => setMinSimilarity(parseFloat(e.target.value))}
-                className="flex-1 h-1 rounded-lg appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, #0072de 0%, #0072de ${((minSimilarity - 0.2) / 0.4) * 100}%, #E5E5E5 ${((minSimilarity - 0.2) / 0.4) * 100}%, #E5E5E5 100%)`
-                }}
-              />
-              <span className="text-xs font-mono w-10 text-right text-gray-900 dark:text-white">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-medium text-[#666666] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
+                Min Similarity
+              </label>
+              <span className="text-[10px] font-mono text-[#666666] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
                 {minSimilarity.toFixed(2)}
               </span>
             </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={minSimilarity}
+              onChange={(e) => setMinSimilarity(parseFloat(e.target.value))}
+              className="w-full h-1 rounded-lg appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, ${isDarkMode ? '#3e91ff' : '#0072de'} 0%, ${isDarkMode ? '#3e91ff' : '#0072de'} ${minSimilarity * 100}%, ${isDarkMode ? '#3A3A3C' : '#E5E5E5'} ${minSimilarity * 100}%, ${isDarkMode ? '#3A3A3C' : '#E5E5E5'} 100%)`
+              }}
+            />
           </div>
 
-          {/* Cluster Filter Chips */}
+          {/* Cluster Filter with Show More/Less */}
           {clusters.length > 0 && (
-            <div className="flex items-start gap-2">
-              <span className="text-xs font-medium pt-1 whitespace-nowrap text-gray-900 dark:text-white font-sans">
-                Clusters:
-              </span>
-              <div className="flex-1 flex flex-wrap gap-1.5">
-                {clusters.map(clusterId => {
-                  const isActive = allClustersSelected || selectedClusters.has(clusterId)
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-medium text-[#666666] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
+                  Clusters ({selectedClusters.size > 0 ? selectedClusters.size : 'All'})
+                </label>
+                <div className="flex items-center gap-2">
+                  {clusters.length > 6 && (
+                    <button
+                      onClick={() => setShowAllClusters(!showAllClusters)}
+                      className="text-[10px] text-[#0072de] dark:text-[#3e91ff] hover:underline"
+                      style={{ fontFamily: "'Breeze Sans'" }}
+                    >
+                      {showAllClusters ? 'Show Less' : `Show All (${clusters.length})`}
+                    </button>
+                  )}
+                  {selectedClusters.size > 0 && (
+                    <button
+                      onClick={clearClusterFilter}
+                      className="text-[10px] text-[#0072de] dark:text-[#3e91ff] hover:underline"
+                      style={{ fontFamily: "'Breeze Sans'" }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div 
+                className="flex flex-wrap gap-1 transition-all"
+                style={{
+                  maxHeight: showAllClusters ? '200px' : 'auto',
+                  overflowY: showAllClusters ? 'auto' : 'visible'
+                }}
+              >
+                {(showAllClusters ? clusters : clusters.slice(0, 6)).map(clusterId => {
+                  const isSelected = selectedClusters.has(clusterId)
                   const clusterLabel = graphMode === 'projects'
-                    ? generateProjectClusterLabel(graph.nodes, clusterId)
-                    : generateClusterLabel(graph.nodes, clusterId)
+                    ? generateProjectClusterLabel(graph!.nodes, clusterId)
+                    : generateClusterLabel(graph!.nodes, clusterId)
                   const clusterColor = getClusterColor(clusterId)
+                  
                   return (
                     <button
                       key={clusterId}
                       onClick={() => toggleCluster(clusterId)}
-                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all font-sans"
+                      className="px-2 py-1 text-[10px] rounded transition-all"
                       style={{
-                        backgroundColor: isActive ? clusterColor : '#FFFFFF',
-                        color: isActive ? '#FFFFFF' : '#080A0B',
-                        border: `1px solid ${isActive ? clusterColor : '#E5E5E5'}`,
-                      }}>
+                        fontFamily: "'Breeze Sans'",
+                        backgroundColor: isSelected ? clusterColor : clusterColor + '15',
+                        color: isSelected ? '#FFFFFF' : clusterColor,
+                        border: '1px solid',
+                        borderColor: clusterColor
+                      }}
+                    >
                       {clusterLabel}
                     </button>
                   )
                 })}
-                {!allClustersSelected && (
-                  <button
-                    onClick={clearClusterFilter}
-                    className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-blue-600 dark:text-[#3e91ff] font-sans">
-                    Clear
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -1180,6 +1348,31 @@ export function GraphPanel() {
             <ZoomOut className="h-5 w-5 text-gray-900 dark:text-white" />
           </button>
         </div>
+
+        {/* Onboarding Progress Banner */}
+        {onboardingProgress && !onboardingProgress.isComplete && filteredNodes.length > 0 && (
+          <div className="absolute top-3 left-3 right-3 z-10 mx-auto max-w-md">
+            <div className="bg-white/95 dark:bg-[#2C2C2E]/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 dark:border-[#3A3A3C] p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-blue-600 dark:bg-[#3e91ff] animate-pulse" />
+                <p className="text-xs font-medium text-gray-900 dark:text-white" style={{ fontFamily: "'Breeze Sans'" }}>
+                  Building knowledge graph...
+                </p>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2" style={{ fontFamily: "'Breeze Sans'" }}>
+                {onboardingProgress.embeddingsGenerated}/{onboardingProgress.totalPages} pages processed
+              </p>
+              <div className="h-1.5 bg-gray-200 dark:bg-[#3A3A3C] rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-600 dark:bg-[#3e91ff] transition-all duration-300"
+                  style={{ 
+                    width: `${(onboardingProgress.embeddingsGenerated / onboardingProgress.totalPages) * 100}%` 
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {filteredNodes.length > 0 ? (
           <ForceGraph2D

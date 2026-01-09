@@ -6,7 +6,7 @@ import {
   setupOpenSidepanelListener
 } from "./sidepanel-listeners"
 import { setupConsentListener } from "./consent-listener"
-import { getSessions, initializeSessions, updateSessionLabel, deletePageFromSession, deleteSession } from "./sessionManager"
+import { getSessions, initializeSessions, resetSessionInitialization, updateSessionLabel, deletePageFromSession, deleteSession } from "./sessionManager"
 import { executeSearch } from "./search-coordinator"
 import { loadLabels, addLabel, deleteLabel, getLabelById } from "./labelsStore"
 import { loadLearnedAssociations, learnFromSession, predictLabelForSession } from "./contextLearning"
@@ -173,6 +173,8 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 
 // Listen for GET_SESSIONS requests
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("[Background] 📨 Received message:", message.type, "from:", sender.tab?.id || "extension")
+  
   // Handle content script ready signal
   if (message.type === "CONTENT_SCRIPT_READY") {
     const tabId = sender.tab?.id
@@ -185,9 +187,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "GET_SESSIONS") {
-    const sessions = getSessions()
-    sendResponse({ sessions })
-    return true
+    (async () => {
+      let sessions = getSessions()
+      console.log("[Background] GET_SESSIONS - Sessions in memory:", sessions.length)
+      
+      // If sessions are empty, reload from IndexedDB
+      if (sessions.length === 0) {
+        console.log("[Background] Sessions empty, reloading from IndexedDB...")
+        try {
+          await initializeSessions()
+          sessions = getSessions()
+          console.log("[Background] Reloaded", sessions.length, "sessions")
+        } catch (err) {
+          console.error("[Background] Failed to reload sessions:", err)
+        }
+      }
+      
+      sendResponse({ sessions })
+    })()
+    return true // Keep channel open for async response
   }
 
   if (message.type === "LISTEN_FOR_SESSIONS") {
@@ -202,7 +220,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "GET_GRAPH") {
+    // Force session reload if empty (service worker may have restarted)
+    const currentSessions = getSessions()
+    console.log("[Background] GET_GRAPH - Current sessions in memory:", currentSessions.length)
+    
+    // Count embeddings in current sessions
+    let totalPages = 0
+    let pagesWithEmbeddings = 0
+    for (const session of currentSessions) {
+      totalPages += session.pages.length
+      pagesWithEmbeddings += session.pages.filter(p => p.titleEmbedding && p.titleEmbedding.length > 0).length
+    }
+    console.log("[Background] GET_GRAPH - Pages:", totalPages, "| With embeddings:", pagesWithEmbeddings)
+    
+    if (currentSessions.length === 0) {
+      console.log("[Background] Sessions empty, reloading from IndexedDB...")
+      initializeSessions().then(() => {
+        const reloadedSessions = getSessions()
+        console.log("[Background] Reloaded", reloadedSessions.length, "sessions")
+        
+        // Count total pages
+        let totalPages = 0
+        let pagesWithEmbeddings = 0
+        for (const session of reloadedSessions) {
+          totalPages += session.pages.length
+          pagesWithEmbeddings += session.pages.filter(p => p.titleEmbedding && p.titleEmbedding.length > 0).length
+        }
+        console.log("[Background] Total pages:", totalPages, "| With embeddings:", pagesWithEmbeddings)
+        
+        graphNeedsRebuild = true
+        rebuildGraphIfNeeded()
+        console.log("[Background] Graph built after reload, sending response")
+        sendResponse({ graph: knowledgeGraph })
+      }).catch((err) => {
+        console.error("[Background] Failed to reload sessions for graph:", err)
+        sendResponse({ graph: { nodes: [], edges: [], lastUpdated: Date.now() } })
+      })
+      return true // Keep message channel open for async sendResponse
+    }
+    
+    // Force rebuild if graph is null or has no nodes (embeddings may have just completed)
+    if (!knowledgeGraph || knowledgeGraph.nodes.length === 0) {
+      console.log("[Background] Graph empty, forcing rebuild...")
+      graphNeedsRebuild = true
+    }
+    
     rebuildGraphIfNeeded()
+    console.log("[Background] Sending graph with nodes:", knowledgeGraph?.nodes?.length || 0)
     sendResponse({ graph: knowledgeGraph })
     return true
   }
@@ -234,6 +298,64 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     rebuildGraphIfNeeded()
     sendResponse({ graph: knowledgeGraph })
     return true
+  }
+
+  if (message.type === "EMBEDDINGS_COMPLETE") {
+    ;(async () => {
+      console.log("[Background] ⚡ EMBEDDINGS_COMPLETE received, rebuilding graph...")
+      console.log("[Background] Message payload:", message)
+      
+      // Force reload sessions from storage to pick up new embeddings
+      console.log("[Background] 🔄 Resetting session initialization...")
+      resetSessionInitialization()
+      await initializeSessions()
+      
+      const reloadedSessions = getSessions()
+      console.log("[Background] 📚 Reloaded", reloadedSessions.length, "sessions after embeddings complete")
+      
+      // Count embeddings
+      let totalPages = 0
+      let pagesWithEmbeddings = 0
+      for (const session of reloadedSessions) {
+        totalPages += session.pages.length
+        pagesWithEmbeddings += session.pages.filter(p => p.titleEmbedding && p.titleEmbedding.length > 0).length
+      }
+      console.log("[Background] 📊 Total pages:", totalPages, "| With embeddings:", pagesWithEmbeddings)
+      
+      if (pagesWithEmbeddings === 0) {
+        console.error("[Background] ❌ NO EMBEDDINGS FOUND AFTER RELOAD! Checking first session...")
+        if (reloadedSessions.length > 0) {
+          const firstSession = reloadedSessions[0]
+          console.log("[Background] First session:", firstSession.id, "Pages:", firstSession.pages.length)
+          if (firstSession.pages.length > 0) {
+            const firstPage = firstSession.pages[0]
+            console.log("[Background] First page:", {
+              title: firstPage.title,
+              url: firstPage.url,
+              hasEmbedding: !!firstPage.titleEmbedding,
+              embeddingLength: firstPage.titleEmbedding?.length || 0
+            })
+          }
+        }
+      }
+      // Add a longer delay to ensure sessionManager state is fully updated before rebuilding the graph
+      await new Promise(r => setTimeout(r, 500))
+      console.log("[Background] 🔨 Marking graph for rebuild...")
+      graphNeedsRebuild = true
+      rebuildGraphIfNeeded()
+      console.log("[Background] ✅ Graph rebuilt with", knowledgeGraph?.nodes?.length || 0, "nodes")
+      
+      // Broadcast to sidepanel that graph is ready
+      chrome.runtime.sendMessage({
+        type: "GRAPH_UPDATED",
+        nodes: knowledgeGraph?.nodes?.length || 0
+      }).catch(() => {
+        console.log("[Background] No sidepanel listeners")
+      })
+      
+      sendResponse({ success: true })
+    })()
+    return true // Keep channel open for async response
   }
 
   if (message.type === "IMPORT_HISTORY") {
@@ -288,6 +410,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_BEHAVIOR_STATE") {
     const state = getBehaviorState()
     sendResponse({ state })
+    return true
+  }
+
+  if (message.type === "GET_ONBOARDING_PROGRESS") {
+    // Return current onboarding progress state
+    chrome.storage.local.get(["onboarding-embeddings-complete"])
+      .then((result) => {
+        const isComplete = result["onboarding-embeddings-complete"] === true
+        sendResponse({ 
+          isComplete,
+          // Progress is sent via ONBOARDING_PROGRESS broadcasts
+        })
+      })
+      .catch(() => {
+        sendResponse({ isComplete: false })
+      })
     return true
   }
 
@@ -1459,7 +1597,21 @@ function rebuildGraphIfNeeded() {
       allPages.push(...session.pages)
     }
 
-    log("[Background] Rebuilding knowledge graph from pages:", allPages.length)
+    // Count pages with embeddings
+    const pagesWithEmbeddings = allPages.filter(p => p.titleEmbedding && p.titleEmbedding.length > 0)
+    const pagesWithoutEmbeddings = allPages.filter(p => !p.titleEmbedding || p.titleEmbedding.length === 0)
+    
+    console.log("[Background] 📊 Graph rebuild stats:")
+    console.log("  Total pages:", allPages.length)
+    console.log("  Pages WITH embeddings:", pagesWithEmbeddings.length)
+    console.log("  Pages WITHOUT embeddings:", pagesWithoutEmbeddings.length)
+    
+    if (pagesWithoutEmbeddings.length > 0) {
+      console.log("  Sample pages without embeddings:")
+      pagesWithoutEmbeddings.slice(0, 3).forEach(p => {
+        console.log("    -", p.title.substring(0, 50), "@", p.domain)
+      })
+    }
     
     knowledgeGraph = buildKnowledgeGraph(allPages, {
       similarityThreshold: 0.35,
@@ -1467,9 +1619,12 @@ function rebuildGraphIfNeeded() {
       maxNodes: 500
     })
     
+    // CRITICAL: Always update timestamp so GraphPanel recognizes the new graph
+    knowledgeGraph.lastUpdated = Date.now()
+    
     graphNeedsRebuild = false
     
-    log("[Background] Graph rebuilt with nodes:", knowledgeGraph.nodes.length, "edges:", knowledgeGraph.edges.length)
+    console.log("[Background] ✅ Graph rebuilt with", knowledgeGraph.nodes.length, "nodes and", knowledgeGraph.edges.length, "edges")
   } catch (err) {
     error("[Background] Failed to rebuild knowledge graph:", err)
     knowledgeGraph = { nodes: [], edges: [], lastUpdated: Date.now() }
@@ -1478,6 +1633,17 @@ function rebuildGraphIfNeeded() {
 
 // Mark graph for rebuild when new page visits occur
 export function markGraphForRebuild() {
+  graphNeedsRebuild = true
+}
+
+/**
+ * Force reload sessions from IndexedDB (for use during embedding generation)
+ */
+export async function forceReloadSessions(): Promise<void> {
+  console.log("[Background] 🔄 forceReloadSessions() called - Reloading sessions from IndexedDB...")
+  resetSessionInitialization()
+  await initializeSessions()
+  console.log("[Background] ✅ Sessions reloaded, marking graph for rebuild")
   graphNeedsRebuild = true
 }
 
