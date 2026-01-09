@@ -40,14 +40,14 @@ export async function initializeSessions(): Promise<void> {
   
   // If initialization is in progress, wait for it to complete
   if (initializationPromise) {
-    console.log("[SessionManager] Initialization already in progress, waiting...")
+    log("[SessionManager] Initialization already in progress, waiting...")
     return initializationPromise
   }
   
   // Create new initialization promise
   initializationPromise = (async () => {
     try {
-      console.log("[SessionManager] Loading sessions from IndexedDB...")
+      log("[SessionManager] Loading sessions from IndexedDB...")
       sessions = await loadSessions()
       
       // DON'T re-sessionize on every load - it destroys the session structure and loses embeddings
@@ -64,7 +64,7 @@ export async function initializeSessions(): Promise<void> {
       // Log embedding stats
       const totalPages = sessions.flatMap(s => s.pages).length
       const pagesWithEmbeddings = sessions.flatMap(s => s.pages).filter(p => p.titleEmbedding && p.titleEmbedding.length > 0).length
-      console.log(`[SessionManager] Loaded ${sessions.length} sessions, ${totalPages} pages, ${pagesWithEmbeddings} with embeddings`)
+      log(`[SessionManager] Loaded ${sessions.length} sessions, ${totalPages} pages, ${pagesWithEmbeddings} with embeddings`)
       
       // Initialize ephemeral tracking for last session if exists
       const lastSession = getLastSession()
@@ -72,7 +72,7 @@ export async function initializeSessions(): Promise<void> {
         checkSessionChange(lastSession.id)
       }
     } catch (error) {
-      console.error("[SessionManager] Failed to initialize sessions:", error)
+      error("[SessionManager] Failed to initialize sessions:", error)
       sessions = []
       isInitialized = true
     } finally {

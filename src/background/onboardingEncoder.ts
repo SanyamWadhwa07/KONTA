@@ -1,5 +1,5 @@
 import { env, pipeline } from "@xenova/transformers"
-import { log } from "~/lib/logger"
+import { log, warn, error } from "~/lib/logger"
 
 // ================================
 // ONBOARDING-SPECIFIC ENCODER
@@ -65,18 +65,18 @@ export class OnboardingEncoder {
    */
   async initialize(): Promise<boolean> {
     if (this.isDisposed) {
-      console.log("[OnboardingEncoder] ❌ Cannot initialize: encoder is disposed")
+      log("[OnboardingEncoder] ❌ Cannot initialize: encoder is disposed")
       log("[OnboardingEncoder] Cannot initialize: encoder is disposed")
       return false
     }
 
     if (this.pipeline) {
-      console.log("[OnboardingEncoder] ✅ Model already initialized")
+      log("[OnboardingEncoder] ✅ Model already initialized")
       return true
     }
 
     try {
-      console.log("[OnboardingEncoder] 🔄 Initializing model...")
+      log("[OnboardingEncoder] 🔄 Initializing model...")
       log("[OnboardingEncoder] 🔄 Initializing model...")
 
       // Notify model loading started
@@ -130,7 +130,7 @@ export class OnboardingEncoder {
 
       return true
     } catch (error) {
-      console.error("[OnboardingEncoder] ❌ Failed to load model:", error)
+      error("[OnboardingEncoder] ❌ Failed to load model:", error)
       this.pipeline = null
       return false
     }
@@ -181,7 +181,7 @@ export class OnboardingEncoder {
 
       return null
     } catch (error) {
-      console.error("[OnboardingEncoder] Embedding generation failed:", error)
+      error("[OnboardingEncoder] Embedding generation failed:", error)
       return null
     }
   }
@@ -212,7 +212,7 @@ export class OnboardingEncoder {
     let processedPages = 0
     let embeddingsGenerated = 0
 
-    console.log(`[OnboardingEncoder] 🚀 Starting batch processing: ${totalPages} pages, batch size: ${this.config.batchSize}`)
+    log(`[OnboardingEncoder] 🚀 Starting batch processing: ${totalPages} pages, batch size: ${this.config.batchSize}`)
     log(`[OnboardingEncoder] Starting batch processing: ${totalPages} pages, batch size: ${this.config.batchSize}`)
 
     // Process in batches
@@ -256,7 +256,7 @@ export class OnboardingEncoder {
       }
 
       // Log progress every batch
-      console.log(
+      log(
         `[OnboardingEncoder] ✅ Batch complete: ${processedPages}/${totalPages} (${embeddingsGenerated} embeddings)`
       )
       log(

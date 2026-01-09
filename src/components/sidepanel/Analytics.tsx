@@ -1,5 +1,6 @@
 import { ChevronDown, Activity, Clock, Database, TrendingUp, Zap, Brain, Target } from "lucide-react"
 import { useState, useEffect } from "react"
+import { log, error, warn } from "~/lib/logger"
 
 interface AnalyticsData {
   // Basic counts (already shown in modal)
@@ -110,7 +111,7 @@ export function Analytics({
         setAnalytics(response.analytics)
       }
     } catch (error) {
-      console.error("Failed to load analytics:", error)
+      error("Failed to load analytics:", error)
     } finally {
       setLoading(false)
     }
