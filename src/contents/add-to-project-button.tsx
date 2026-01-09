@@ -259,7 +259,8 @@
 //         }
 //       `}</style>
 
-// // DISABLED: Component removed for legacy code cleanup
-// // See comment at top of file for migration details
+// DISABLED: Component removed for legacy code cleanup
+// See comment at top of file for migration details
 
-// export default null
+// Empty component export to prevent build errors
+export default () => null
