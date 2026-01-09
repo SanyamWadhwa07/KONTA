@@ -334,33 +334,40 @@ export function GraphPanel() {
 
       // Configure forces for a more compact layout
       if (graphRef.current) {
-        // Use collision force for strict spacing without long-range repulsion
-        // This keeps nodes apart (min distance) but allows clusters to be close
+        const nodeCount = graphData.nodes.length
+        const isLargeGraph = nodeCount > 150
+        
+        // Use collision force for strict spacing
         graphRef.current.d3Force('collide', forceCollide((node: any) => {
           const baseSize = 6
           const sizeFactor = Math.log((node.visitCount || 0) + 1) * 4
           const size = Math.max(baseSize, Math.min(baseSize + sizeFactor, 24))
-          return size * 1.5 + 4 // Radius + padding
+          return size * 1.5 + 4
         }).strength(0.7))
 
-        // Reduce charge (repulsion) significantly so clusters can merge
-        // Only keep enough to prevent total collapse
-        graphRef.current.d3Force('charge').strength(-60).distanceMax(200)
+        // Adjust repulsion based on graph size
+        const chargeStrength = isLargeGraph ? -50 : -60
+        graphRef.current.d3Force('charge').strength(chargeStrength).distanceMax(200)
         
         // Adjust link distance
         graphRef.current.d3Force('link').distance(55)
         
-        // Stronger centering to pull clusters together
+        // Stronger centering
         graphRef.current.d3Force('center').strength(0.6)
 
-        // Add "breathing" force for idle animation
+        // Add breathing animation (throttled for large graphs)
         const breathingForce = () => {
           let nodes: any[] = []
+          let frameCount = 0
+          const skipFrames = isLargeGraph ? 3 : 0 // Only apply every 4th frame for large graphs
           
           const force = () => {
+            if (isLargeGraph) {
+              frameCount++
+              if (frameCount % (skipFrames + 1) !== 0) return
+            }
+            
             nodes.forEach((node: any) => {
-              // Add random velocity for organic movement
-              // Increased magnitude to make it visible
               if (node.vx !== undefined && node.vy !== undefined) {
                 node.vx += (Math.random() - 0.5) * 0.3
                 node.vy += (Math.random() - 0.5) * 0.3
@@ -374,10 +381,9 @@ export function GraphPanel() {
           
           return force
         }
-
         graphRef.current.d3Force('alive', breathingForce())
         
-        // Restart simulation to ensure new forces take effect
+        // Restart simulation
         graphRef.current.d3ReheatSimulation()
       }
       
