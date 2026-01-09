@@ -247,17 +247,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         console.log("[Background] Total pages:", totalPages, "| With embeddings:", pagesWithEmbeddings)
         
+        graphNeedsRebuild = true
         rebuildGraphIfNeeded()
-        console.log("[Background] Graph built, sending response")
-        // Send message back since we can't use sendResponse in async
-        chrome.runtime.sendMessage({
-          type: "GRAPH_READY",
-          graph: knowledgeGraph
-        }).catch(() => {})
+        console.log("[Background] Graph built after reload, sending response")
+        sendResponse({ graph: knowledgeGraph })
+      }).catch((err) => {
+        console.error("[Background] Failed to reload sessions for graph:", err)
+        sendResponse({ graph: { nodes: [], edges: [], lastUpdated: Date.now() } })
       })
-      // Return empty graph while loading
-      sendResponse({ graph: { nodes: [], edges: [], lastUpdated: Date.now() } })
-      return true
+      return true // Keep message channel open for async sendResponse
+    }
+    
+    // Force rebuild if graph is null or has no nodes (embeddings may have just completed)
+    if (!knowledgeGraph || knowledgeGraph.nodes.length === 0) {
+      console.log("[Background] Graph empty, forcing rebuild...")
+      graphNeedsRebuild = true
     }
     
     rebuildGraphIfNeeded()
@@ -1568,6 +1572,9 @@ function rebuildGraphIfNeeded() {
       maxEdgesPerNode: 8,
       maxNodes: 500
     })
+    
+    // CRITICAL: Always update timestamp so GraphPanel recognizes the new graph
+    knowledgeGraph.lastUpdated = Date.now()
     
     graphNeedsRebuild = false
     

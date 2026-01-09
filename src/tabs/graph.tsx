@@ -26,7 +26,7 @@ export default function GraphFullPage() {
   const [minSimilarity, setMinSimilarity] = useState(0.50)
   const [selectedClusters, setSelectedClusters] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
-  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "week">("all")
+  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "last3" | "last7">("last3")
   const [showFilters, setShowFilters] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
   const [manualLinkMode, setManualLinkMode] = useState(false)
@@ -308,10 +308,9 @@ export default function GraphFullPage() {
   }, [])
 
   // Compute graph data before early returns to avoid hook order issues
-  const clusters = graph ? Array.from(new Set(graph.nodes.map(n => n.cluster))) : []
   const allClustersSelected = selectedClusters.size === 0
 
-  const { graphData, filteredNodes } = useMemo(() => {
+  const { graphData, filteredNodes, clusters } = useMemo(() => {
     if (!graph) {
       return { graphData: { nodes: [], links: [] }, filteredNodes: [] }
     }
@@ -319,12 +318,20 @@ export default function GraphFullPage() {
     let timeFilteredNodes = graph.nodes
     if (timeFilter !== "all") {
       const now = Date.now()
-      const cutoff = timeFilter === "today" 
-        ? now - 24 * 60 * 60 * 1000 
-        : now - 7 * 24 * 60 * 60 * 1000
+      let cutoff: number
+      
+      if (timeFilter === "today") {
+        cutoff = now - 24 * 60 * 60 * 1000
+      } else if (timeFilter === "last3") {
+        cutoff = now - 3 * 24 * 60 * 60 * 1000
+      } else if (timeFilter === "last7") {
+        cutoff = now - 7 * 24 * 60 * 60 * 1000
+      } else {
+        cutoff = 0
+      }
       
       timeFilteredNodes = graph.nodes.filter(n => {
-        return (graph.lastUpdated - (n.visitCount * 1000)) >= cutoff
+        return n.timestamp && n.timestamp >= cutoff
       })
     }
 
@@ -339,6 +346,10 @@ export default function GraphFullPage() {
       if (allClustersSelected) return true
       return selectedClusters.has(n.cluster)
     })
+
+    // Compute clusters from filtered nodes (after time/search filtering, before cluster selection)
+    // This ensures we only show clusters that have nodes matching current filters
+    const clusters = Array.from(new Set(searchFilteredNodes.map(n => n.cluster)))
 
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
 
@@ -359,6 +370,7 @@ export default function GraphFullPage() {
 
     return {
       filteredNodes,
+      clusters,
       graphData: {
         nodes: filteredNodes.map(n => {
           
@@ -818,8 +830,6 @@ export default function GraphFullPage() {
   }
 
   const activeFilterCount = 
-    (timeFilter !== "all" ? 1 : 0) +
-    (searchQuery.trim() ? 1 : 0) +
     (minSimilarity !== 0.50 ? 1 : 0) +
     (!allClustersSelected ? 1 : 0)
 
@@ -848,20 +858,6 @@ export default function GraphFullPage() {
             }}
             title="Toggle node labels">
             <span>Labels</span>
-          </button>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF] hover:bg-gray-50 dark:hover:bg-[#3A3A3C]"
-            style={{ fontFamily: "'Breeze Sans'", border: '1px solid' }}>
-            <Sliders className="h-3.5 w-3.5" />
-            <span>Filters</span>
-            {activeFilterCount > 0 && (
-              <span 
-                className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-[#0072de] dark:bg-[#3e91ff]"
-                style={{ color: 'white' }}>
-                {activeFilterCount}
-              </span>
-            )}
           </button>
           <button
             onClick={() => {
@@ -927,162 +923,221 @@ export default function GraphFullPage() {
       )}
 
       {/* Search Bar */}
-      <div className="px-6 py-3 border-b gap-2 flex justify-between bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
-        <div className="relative flex w-full">
+      <div className="px-6 py-3 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9A9FA6]" />
           <input
             type="text"
             placeholder="Search nodes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 pl-10 pr-10 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]"
+            className="w-full pl-10 pr-10 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]"
             style={{ 
               border: '1px solid', 
               fontFamily: "'Breeze Sans'"
             }}
           />
           {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-[#3A3A3C] rounded">
-              <X className="h-3.5 w-3.5 text-[#9A9FA6]" />
+            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9A9FA6] hover:text-[#080A0B] dark:hover:text-[#FFFFFF]">
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
-        <div
-          className="relative inline-flex items-center rounded-full p-1"
-          style={{
-            width: 160,
-            border: '1px solid',
-            borderColor: isDarkMode ? '#3A3A3C' : '#E5E5E5',
-            backgroundColor: isDarkMode ? '#111214' : 'transparent',
-            fontFamily: "'Breeze Sans'"
-          }}
-        >
-          {/* Sliding knob */}
-          <div
-            aria-hidden
-            className="absolute top-0 bottom-0 left-0 w-1/2 rounded-full transition-transform duration-200"
-            style={{
-              transform: graphMode === 'projects' ? 'translateX(100%)' : 'translateX(0)',
-              backgroundColor: (isDarkMode ? '#3e91ff' : '#0072de'),
-              boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
-            }}
-          />
+      </div>
 
+      {/* Always Visible Time Filters */}
+      <div className="px-6 py-3 border-b bg-white dark:bg-[#1C1C1E] border-[#E5E5E5] dark:border-[#3A3A3C]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              {[{ value: 'today', label: 'Today' }, { value: 'last3', label: 'Last 3 Days' }, { value: 'last7', label: '7 Days' }, { value: 'all', label: 'All Time' }].map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => setTimeFilter(option.value as any)}
+                  className="px-3 py-1.5 text-sm rounded-lg transition-colors"
+                  style={{
+                    fontFamily: "'Breeze Sans'",
+                    backgroundColor: timeFilter === option.value ? (isDarkMode ? '#3e91ff' : '#0072de') : 'transparent',
+                    color: timeFilter === option.value ? 'white' : (isDarkMode ? '#9A9FA6' : '#666666'),
+                    border: '1px solid',
+                    borderColor: timeFilter === option.value ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5')
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            
+            <div
+              className="relative inline-flex items-center rounded-full p-1 ml-4"
+              style={{
+                width: 160,
+                border: '1px solid',
+                borderColor: isDarkMode ? '#3A3A3C' : '#E5E5E5',
+                backgroundColor: isDarkMode ? '#111214' : 'transparent',
+                fontFamily: "'Breeze Sans'"
+              }}
+            >
+              <div
+                aria-hidden
+                className="absolute top-0 bottom-0 left-0 w-1/2 rounded-full transition-transform duration-200"
+                style={{
+                  transform: graphMode === 'projects' ? 'translateX(100%)' : 'translateX(0)',
+                  backgroundColor: (isDarkMode ? '#3e91ff' : '#0072de'),
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+                }}
+              />
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setGraphMode('semantic')
+                }}
+                className="relative z-10 flex-1 text-xs py-1.5 rounded-full transition-colors"
+                aria-pressed={graphMode === 'semantic'}
+                style={{
+                  background: 'transparent',
+                  border: '0',
+                  color: graphMode === 'semantic' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+                }}
+                title="Show clusters"
+              >
+                Clusters
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setGraphMode('projects')
+                }}
+                className="relative z-10 flex-1 text-xs py-1.5 rounded-full transition-colors"
+                aria-pressed={graphMode === 'projects'}
+                style={{
+                  background: 'transparent',
+                  border: '0',
+                  color: graphMode === 'projects' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+                }}
+                title="Show projects"
+              >
+                Projects
+              </button>
+            </div>
+          </div>
+          
           <button
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setGraphMode('semantic')
-            }}
-            className="relative z-10 flex-1 text-xs py-1.5 rounded-full transition-colors"
-            aria-pressed={graphMode === 'semantic'}
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors"
             style={{
-              background: 'transparent',
-              border: '0',
-              color: graphMode === 'semantic' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
+              fontFamily: "'Breeze Sans'",
+              border: '1px solid',
+              borderColor: showFilters ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#3A3A3C' : '#E5E5E5'),
+              backgroundColor: showFilters ? (isDarkMode ? '#2C2C2E' : '#FFFFFF') : 'transparent',
+              color: showFilters ? (isDarkMode ? '#3e91ff' : '#0072de') : (isDarkMode ? '#9A9FA6' : '#666666')
             }}
-            title="Show clusters"
           >
-            Clusters
-          </button>
-
-          <button
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setGraphMode('projects')
-            }}
-            className="relative z-10 flex-1 text-xs py-1.5 rounded-full transition-colors"
-            aria-pressed={graphMode === 'projects'}
-            style={{
-              background: 'transparent',
-              border: '0',
-              color: graphMode === 'projects' ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
-            }}
-            title="Show projects"
-          >
-            Projects
+            <Sliders className="h-4 w-4" />
+            <span>Advanced Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full font-medium" style={{
+                backgroundColor: isDarkMode ? '#3e91ff' : '#0072de',
+                color: 'white'
+              }}>
+                {activeFilterCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Filters Panel */}
+      {/* Advanced Filters Panel */}
       {showFilters && (
         <div className="px-6 py-4 border-b bg-gray-50 dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C]">
-          <div className="space-y-4">
-            {/* Similarity Slider */}
+          {/* Similarity Slider */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+                Min Similarity
+              </span>
+              <span className="text-sm font-mono text-[#666666] dark:text-[#9A9FA6]" style={{ fontFamily: "'Breeze Sans'" }}>
+                {minSimilarity.toFixed(2)}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={minSimilarity}
+              onChange={(e) => setMinSimilarity(parseFloat(e.target.value))}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, ${isDarkMode ? '#3e91ff' : '#0072de'} 0%, ${isDarkMode ? '#3e91ff' : '#0072de'} ${minSimilarity * 100}%, ${isDarkMode ? '#3A3A3C' : '#E5E5E5'} ${minSimilarity * 100}%, ${isDarkMode ? '#3A3A3C' : '#E5E5E5'} 100%)`
+              }}
+            />
+          </div>
+
+          {/* Cluster Filter with Show More/Less */}
+          {clusters.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
-                  Min Similarity:
-                </label>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-[#E5E5E5] dark:bg-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]">
-                  {minSimilarity.toFixed(2)}
+                <span className="text-sm font-medium text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
+                  Clusters ({selectedClusters.size > 0 ? selectedClusters.size : 'All'})
                 </span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={minSimilarity}
-                onChange={(e) => setMinSimilarity(parseFloat(e.target.value))}
-                className="w-full"
-              />
-            </div>
-
-            {/* Cluster Filter */}
-            {clusters.length > 0 && (
-              <div className="flex items-start gap-2">
-                <span className="text-xs font-medium pt-1 whitespace-nowrap text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>
-                  Clusters:
-                </span>
-                <div className="flex-1 flex flex-wrap gap-1.5">
-                  {(showAllClusters ? clusters : clusters.slice(0, 3)).map(clusterId => {
-                    const isActive = allClustersSelected || selectedClusters.has(clusterId)
-                    const clusterLabel = graphMode === 'projects'
-                      ? generateProjectClusterLabel(graph.nodes, clusterId)
-                      : generateClusterLabel(graph.nodes, clusterId)
-                    return (
-                      <button
-                        key={clusterId}
-                        onClick={() => toggleCluster(clusterId)}
-                        className="px-2.5 py-1 text-xs font-medium rounded-full transition-all"
-                        style={{
-                          backgroundColor: isActive ? getClusterColor(clusterId) : (isDarkMode ? '#2C2C2E' : '#FFFFFF'),
-                          color: isActive ? '#FFFFFF' : (isDarkMode ? '#FFFFFF' : '#080A0B'),
-                          border: `1px solid ${isActive ? getClusterColor(clusterId) : (isDarkMode ? '#3A3A3C' : '#E5E5E5')}`,
-                          fontFamily: "'Breeze Sans'"
-                        }}>
-                        {clusterLabel}
-                      </button>
-                    )
-                  })}
-                  {clusters.length > 3 && (
+                <div className="flex items-center gap-3">
+                  {clusters.length > 8 && (
                     <button
                       onClick={() => setShowAllClusters(!showAllClusters)}
-                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all bg-white dark:bg-[#2C2C2E] border-[#E5E5E5] dark:border-[#3A3A3C] text-[#080A0B] dark:text-[#FFFFFF]"
-                      style={{
-                        border: '1px solid',
-                        fontFamily: "'Breeze Sans'"
-                      }}>
-                      {showAllClusters ? 'Show Less' : `+${clusters.length - 3} More`}
+                      className="text-sm text-[#0072de] dark:text-[#3e91ff] hover:underline"
+                      style={{ fontFamily: "'Breeze Sans'" }}
+                    >
+                      {showAllClusters ? 'Show Less' : `Show All (${clusters.length})`}
                     </button>
                   )}
-                  {!allClustersSelected && (
+                  {selectedClusters.size > 0 && (
                     <button
                       onClick={clearClusterFilter}
-                      className="px-2.5 py-1 text-xs font-medium rounded-full transition-all underline text-[#0072de] dark:text-[#3e91ff]"
-                      style={{ fontFamily: "'Breeze Sans'" }}>
+                      className="text-sm text-[#0072de] dark:text-[#3e91ff] hover:underline"
+                      style={{ fontFamily: "'Breeze Sans'" }}
+                    >
                       Clear
                     </button>
                   )}
                 </div>
               </div>
-            )}
-          </div>
+              <div 
+                className="flex flex-wrap gap-2 transition-all"
+                style={{
+                  maxHeight: showAllClusters ? '300px' : 'auto',
+                  overflowY: showAllClusters ? 'auto' : 'visible'
+                }}
+              >
+                {(showAllClusters ? clusters : clusters.slice(0, 8)).map(clusterId => {
+                  const isSelected = selectedClusters.has(clusterId)
+                  const clusterLabel = graphMode === 'projects' 
+                    ? generateProjectClusterLabel(filteredNodes, clusterId)
+                    : generateClusterLabel(filteredNodes, clusterId)
+                  const clusterColor = getClusterColor(clusterId)
+                  
+                  return (
+                    <button
+                      key={clusterId}
+                      onClick={() => toggleCluster(clusterId)}
+                      className="px-3 py-1.5 text-sm rounded-lg transition-all"
+                      style={{
+                        fontFamily: "'Breeze Sans'",
+                        backgroundColor: isSelected ? clusterColor : clusterColor + '15',
+                        color: isSelected ? '#FFFFFF' : clusterColor,
+                        border: '1px solid',
+                        borderColor: clusterColor
+                      }}
+                    >
+                      {clusterLabel}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
