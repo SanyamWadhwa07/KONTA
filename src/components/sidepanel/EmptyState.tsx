@@ -144,7 +144,7 @@ export function EmptyState({ onShowPopulated, isOnboarding = false }: EmptyState
             <p
               className="text-2xs text-[#9A9FA6] dark:text-[#9A9FA6] mt-2"
               style={{ fontFamily: "'Breeze Sans'" }}>
-              this window will close automatically in {timeRemaining} seconds.
+              This window will close automatically in {timeRemaining} seconds.
             </p>
           </>
         ) : null}

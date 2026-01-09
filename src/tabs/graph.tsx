@@ -23,6 +23,7 @@ function sendMessage<T>(message: any): Promise<T> {
 export default function GraphFullPage() {
   const [graph, setGraph] = useState<KnowledgeGraph | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isFetching, setIsFetching] = useState(false)
   const [minSimilarity, setMinSimilarity] = useState(0.50)
   const [selectedClusters, setSelectedClusters] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState("")
@@ -107,13 +108,14 @@ export default function GraphFullPage() {
     }
   }, [])
 
-  // Check URL parameters for focused cluster
+  // Check URL parameters for focused cluster - run on mount before graph loads
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const clusterParam = urlParams.get('cluster')
     if (clusterParam) {
       const clusterId = parseInt(clusterParam, 10)
       if (!isNaN(clusterId)) {
+        console.log('[GraphFullPage] Setting focused cluster from URL:', clusterId)
         setFocusedClusterId(clusterId)
         setSelectedClusters(new Set([clusterId]))
         setShowFilters(true) // Show filters so user can see the cluster is selected
@@ -137,56 +139,42 @@ export default function GraphFullPage() {
 
   const loadGraph = useCallback(async () => {
     setLoading(true)
+    setIsFetching(true)
     try {
-      // Execute refresh 5 times before showing the graph
-      // for (let i = 0; i < 5; i++) {
-      //   const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
-      //   const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
-      //   if (response?.graph) {
-      //     log(`[GraphFullPage] Refresh ${i + 1}/5 - Graph data received`)
-      //     setGraph(response.graph)
-      //     lastGraphTimestampRef.current = response.graph.lastUpdated
-      //     hasUserInteractedRef.current = false
-      //     refreshCountRef.current = i + 1
-      //     setRefreshCount(i + 1)
-      //   }
-        
-      // // Add delay between refreshes (except after the last one)
-      //   if (i < 4) {
-      //     await new Promise(resolve => setTimeout(resolve, 300))
-      //   }
-
       const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
-      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
-      if (response?.graph) {
-        setGraph(response.graph)
-        lastGraphTimestampRef.current = response.graph.lastUpdated
-        hasUserInteractedRef.current = false
-    }
+      const maxAttempts = 5
+      let success = false
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
+        if (response?.graph) {
+          log('[GraphFullPage] Graph data received on attempt', attempt, '/', maxAttempts, 'nodes:', response.graph.nodes.length)
+          setGraph(response.graph)
+          lastGraphTimestampRef.current = response.graph.lastUpdated
+          hasUserInteractedRef.current = false
+          success = true
+          break
+        }
+
+        // brief delay before retry
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 200))
+        }
+      }
+
+      if (!success) {
+        warn('[GraphFullPage] Graph data not available after retries')
+      }
     } catch (err) {
       error("[GraphFullPage] Failed to load graph:", err)
     } finally {
       setLoading(false)
+      setIsFetching(false)
     }
   }, [graphMode])
 
   const handleRefresh = async () => {
-    try {
-      const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'REFRESH_GRAPH'
-      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
-      if (response?.graph) {
-        setGraph(response.graph)
-        lastGraphTimestampRef.current = response.graph.lastUpdated
-        
-        if (graphRef.current) {
-          setTimeout(() => {
-            graphRef.current?.zoomToFit(400, 150)
-          }, 800)
-        }
-      }
-    } catch (err) {
-      error("[GraphFullPage] Failed to refresh graph:", err)
-    }
+    window.location.reload()
   }
 
   useEffect(() => {
@@ -328,20 +316,30 @@ export default function GraphFullPage() {
 
   const { graphData, filteredNodes, clusters } = useMemo(() => {
     if (!graph) {
-      return { graphData: { nodes: [], links: [] }, filteredNodes: [] }
+      return { graphData: { nodes: [], links: [] }, filteredNodes: [], clusters: [] }
     }
 
     let timeFilteredNodes = graph.nodes
     if (timeFilter !== "all") {
-      const now = Date.now()
       let cutoff: number
       
       if (timeFilter === "today") {
-        cutoff = now - 24 * 60 * 60 * 1000
+        // Start of today (midnight)
+        const startOfToday = new Date()
+        startOfToday.setHours(0, 0, 0, 0)
+        cutoff = startOfToday.getTime()
       } else if (timeFilter === "last3") {
-        cutoff = now - 3 * 24 * 60 * 60 * 1000
+        // Start of 3 days ago (midnight)
+        const startOf3DaysAgo = new Date()
+        startOf3DaysAgo.setDate(startOf3DaysAgo.getDate() - 2)
+        startOf3DaysAgo.setHours(0, 0, 0, 0)
+        cutoff = startOf3DaysAgo.getTime()
       } else if (timeFilter === "last7") {
-        cutoff = now - 7 * 24 * 60 * 60 * 1000
+        // Start of 7 days ago (midnight)
+        const startOf7DaysAgo = new Date()
+        startOf7DaysAgo.setDate(startOf7DaysAgo.getDate() - 6)
+        startOf7DaysAgo.setHours(0, 0, 0, 0)
+        cutoff = startOf7DaysAgo.getTime()
       } else {
         cutoff = 0
       }
@@ -433,25 +431,12 @@ export default function GraphFullPage() {
     }
   }, [graph, searchQuery, timeFilter, selectedClusters, minSimilarity, manualLinks, graphMode, allClustersSelected])
 
-  if (loading && !graph) {
+  if (isFetching || (loading && !graph)) {
     return (
       <div className="flex items-center justify-center w-screen h-screen bg-white dark:bg-[#1C1C1E]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[#0072de] dark:border-[#3e91ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-[#080A0B] dark:text-[#FFFFFF]" style={{ fontFamily: "'Breeze Sans'" }}>Loading knowledge graph...</p>
-          <div className="mt-6 flex items-center justify-center gap-1">
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className={`h-2 w-2 rounded-full transition-all ${
-                  i < refreshCount ? 'bg-[#0072de] dark:bg-[#3e91ff]' : 'bg-gray-300 dark:bg-[#3A3A3C]'
-                }`}
-              />
-            ))}
-          </div>
-          <p className="text-xs text-[#9A9FA6] mt-3" style={{ fontFamily: "'Breeze Sans'" }}>
-            Refresh {refreshCount}/5
-          </p>
         </div>
       </div>
     )
@@ -757,8 +742,8 @@ export default function GraphFullPage() {
       
       // Draw cluster label at the top
       const clusterLabel = graphMode === 'projects' 
-        ? generateProjectClusterLabel(graphData.nodes, clusterId)
-        : generateClusterLabel(graphData.nodes, clusterId)
+        ? generateProjectClusterLabel(graph!.nodes, clusterId)
+        : generateClusterLabel(graph!.nodes, clusterId)
       const centerX = (minX + maxX) / 2
       const labelY = minY - padding - (20 / globalScale)
       
@@ -853,6 +838,10 @@ export default function GraphFullPage() {
   }
 
   const toggleCluster = (clusterId: number) => {
+    // Clear focused cluster when user manually interacts
+    setFocusedClusterId(null)
+    hasUserInteractedRef.current = true
+    
     setSelectedClusters(prev => {
       const newSet = new Set(prev)
       if (newSet.has(clusterId)) {
@@ -865,6 +854,7 @@ export default function GraphFullPage() {
   }
 
   const clearClusterFilter = () => {
+    setFocusedClusterId(null)
     setSelectedClusters(new Set())
   }
 
@@ -1171,8 +1161,8 @@ export default function GraphFullPage() {
                 {(showAllClusters ? clusters : clusters.slice(0, 8)).map(clusterId => {
                   const isSelected = selectedClusters.has(clusterId)
                   const clusterLabel = graphMode === 'projects' 
-                    ? generateProjectClusterLabel(filteredNodes, clusterId)
-                    : generateClusterLabel(filteredNodes, clusterId)
+                    ? generateProjectClusterLabel(graph!.nodes, clusterId)
+                    : generateClusterLabel(graph!.nodes, clusterId)
                   const clusterColor = getClusterColor(clusterId)
                   
                   return (

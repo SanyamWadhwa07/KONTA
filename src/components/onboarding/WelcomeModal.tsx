@@ -27,21 +27,21 @@ export function WelcomeModal({ open, onOpenChange, onAccept }: WelcomeModalProps
           <img src={chrome.runtime.getURL('assets/konta_logo.svg')} alt="Konta" className="w-12 h-12" />
           
           <DialogTitle className="text-2xl font-normal text-center" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-            Welcome to Konta!
+            Welcome to Konta
           </DialogTitle>
         
           <p className="text-center text-sm leading-snug" style={{ color: 'var(--dark)', fontFamily: "'Breeze Sans'" }}>
-            Your private memory assistant.
+            Understands what you’re doing, helps when it matters.
           </p>
           <p className="text-center text-xs leading-snug" style={{ color: 'var(--gray)', fontFamily: "'Breeze Sans'" }}>
-            All your browsing history stays on your device, searchable and secure.
+            Konta organizes your browsing into something you can actually remember.
           </p>
 
           <Button 
             onClick={onAccept}
             className="font-normal h-10 mt-4 border-0 focus:outline-none focus:ring-0 active:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full px-6"
             style={{ backgroundColor: 'var(--primary)', color: 'white', fontFamily: "'Breeze Sans'", border: 'none', outline: 'none', boxShadow: 'none' }}>
-            Get Started
+            Get started
           </Button>
         </div>
       </DialogContent>

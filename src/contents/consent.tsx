@@ -92,7 +92,7 @@ const ConsentOverlay = () => {
         </h1>
 
         <p className="text-[15px] text-center mb-5 leading-normal" style={{ color: '#9A9FA6' }}>
-          Konta stores browsing context locally so you can resume work later.
+          Konta is a privacy-first tool designed to enhance your browsing experience by learning context from your sessions.
         </p>
 
         {/* Privacy Features List */}
@@ -160,7 +160,7 @@ const ConsentOverlay = () => {
           What happens next?
         </p>
         <p className="text-center text-xs leading-snug" style={{ color: '#9A9FA6' }}>
-          Konta will quietly learn this session in the background.
+          Konta will begin learning context from your browsing sessions. It will fetch the last 7 days of your browser history to get started.
         </p>
 
         {/* Learn More Slide-out Panel */}

@@ -696,13 +696,6 @@ export function GraphPanel() {
             }
           </p>
         </div>
-        {!onboardingProgress && (
-          <div className="text-center max-w-xs mx-auto space-y-2">
-            <p className="text-xs leading-relaxed" style={{ color: '#0072DF', fontFamily: "'Breeze Sans'" }}>
-              Imported history data is not part of the knowledge graph until you revisit those pages.
-            </p>
-          </div>
-        )}
         {onboardingProgress && !onboardingProgress.isComplete && (
           <div className="w-64">
             <div className="h-2 bg-[#F0F0F0] dark:bg-[#3A3A3C] rounded-full overflow-hidden">
