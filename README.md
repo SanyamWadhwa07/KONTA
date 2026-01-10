@@ -12,8 +12,10 @@ semantic search and knowledge graph visualization.
 * [Setup Instructions](#setup-instructions)
 * [Build Instructions](#build-instructions)
 * [Run Instructions](#run-instructions)
+* [Demo Video](#demo-video)
 * [Running Evaluations](#running-evaluations)
 * [Project Structure](#project-structure)
+* [Documentation](#documentation)
 * [Technology Stack](#technology-stack)
 
 ---
@@ -106,6 +108,14 @@ path/to/WAH_Aegis/build/chrome-mv3-prod/
 3. Open the sidepanel – access from the popup or extension menu
 4. Browse some pages – sessions are captured automatically
 5. View your knowledge graph – see relationships between pages
+
+---
+
+## Demo Video
+
+[![Konta Demo Video](https://img.youtube.com/vi/zEFOzNH9swI/0.jpg)](https://youtu.be/zEFOzNH9swI)
+
+Direct link: https://youtu.be/zEFOzNH9swI
 
 ---
 
@@ -290,6 +300,13 @@ Root Configuration Files:
 ├── tailwind.config.js
 └── tsconfig.json
 ```
+
+---
+
+## Documentation
+
+* [Final Report](documentation/Final_Report.pdf)
+* [Evaluation Benchmarks](evaluation/Evaluation_Benchmarks.pdf)
 
 ---
 
