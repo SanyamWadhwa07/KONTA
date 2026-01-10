@@ -1,36 +1,249 @@
-# WAH_Aegis
-SRIB-PRISM Program
+# Konta – Context Aware Browsing Extension
 
-This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
+A Chrome extension that automatically captures and organizes your browsing
+sessions into a personal knowledge management system with ML-powered
+semantic search and knowledge graph visualization.
 
-## Getting Started
+---
 
-First, run the development server:
+## Table of Contents
+
+* [Prerequisites](#prerequisites)
+* [Setup Instructions](#setup-instructions)
+* [Build Instructions](#build-instructions)
+* [Run Instructions](#run-instructions)
+* [Project Structure](#project-structure)
+* [Technology Stack](#technology-stack)
+
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+* **Node.js**: v18.0.0 or higher
+* **pnpm** (recommended) or npm
+* **Chrome Browser**: v120 or higher
+* **Git**: For version control
+
+---
+
+## Setup Instructions
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.ecodesamsung.com/SRIB-PRISM/WAH_Aegis
+cd WAH_Aegis
+```
+
+### 2. Install Dependencies
+
+Using pnpm:
+
+```bash
+pnpm install
+```
+
+### 3. Verify Installation
+
+Check that all dependencies are installed:
+
+```bash
+pnpm list
+```
+
+---
+
+## Build Instructions
+
+### Development Build (with hot reload)
+
+Build the extension in development mode with automatic recompilation:
 
 ```bash
 pnpm dev
-# or
-npm run dev
 ```
 
-Open your browser and load the appropriate development build. For example, if you are developing for the chrome browser, using manifest v3, use: `build/chrome-mv3-dev`.
+**Output:**
+`build/chrome-mv3-dev/`
 
-You can start editing the popup by modifying `popup.tsx`. It should auto-update as you make changes. To add an options page, simply add a `options.tsx` file to the root of the project, with a react component default exported. Likewise to add a content page, add a `content.ts` file to the root of the project, importing some module and do some logic, then reload the extension on your browser.
+### Production Build
 
-For further guidance, [visit our Documentation](https://docs.plasmo.com/)
-
-## Making production build
-
-Run the following:
+Create an optimized production bundle:
 
 ```bash
 pnpm build
-# or
-npm run build
 ```
 
-This should create a production bundle for your extension, ready to be zipped and published to the stores.
+**Output:**
+`build/chrome-mv3-prod/`
 
-## Submit to the webstores
+---
 
-The easiest way to deploy your Plasmo extension is to use the built-in [bpp](https://bpp.browser.market) GitHub action. Prior to using this action however, make sure to build your extension and upload the first version to the store to establish the basic credentials. Then, simply follow [this setup instruction](https://docs.plasmo.com/framework/workflows/submit) and you should be on your way for automated submission!
+## Run Instructions
+
+### Load Extension in Chrome (Production)
+
+After running `pnpm build`:
+
+1. Open Chrome and navigate to:
+   `chrome://extensions/`
+2. Enable **Developer Mode** (toggle in top-right corner)
+3. Click **Load unpacked** and select the build folder:
+
+```
+path/to/WAH_Aegis/build/chrome-mv3-prod/
+```
+
+4. Extension loaded! The Konta icon will appear in your toolbar
+
+### Test the Extension
+
+1. Click the extension icon – open the popup
+2. Follow onboarding steps – set up Konta for the first time
+3. Open the sidepanel – access from the popup or extension menu
+4. Browse some pages – sessions are captured automatically
+5. View your knowledge graph – see relationships between pages
+
+---
+
+## Project Structure
+
+```
+src/
+├── popup.tsx                  # Extension popup UI
+├── sidepanel.tsx              # Sidepanel UI
+├── style.css                  # Global styles
+├── background/
+│   ├── index.ts               # Service worker (background script)
+│   ├── sessionManager.ts      # Session detection & management
+│   ├── projectManager.ts      # Project management
+│   ├── embedding-engine.ts    # ML embedding generation
+│   ├── sessionStore.ts        # Session storage
+│   ├── blocklistStore.ts      # Blocklist management
+│   ├── candidateDetector.ts   # Project candidate detection
+│   ├── consent-listener.ts    # User consent handling
+│   ├── contextLearning.ts     # Context learning logic
+│   ├── ephemeralBehavior.ts   # Ephemeral behavior tracking
+│   ├── focusModeManager.ts    # Focus mode management
+│   ├── historyImporter.ts     # Browser history import
+│   ├── labelledSessionsStore.ts # Labelled sessions storage
+│   ├── labelsStore.ts         # Labels storage
+│   ├── layer3-ml-ranker.ts    # ML-based ranking
+│   ├── page-event-listeners.ts # Page event handling
+│   ├── projectSuggestions.ts # Project suggestion logic
+│   ├── reminderManager.ts    # Reminder management
+│   ├── search-coordinator.ts # Search coordination
+│   ├── sidepanel-listeners.ts # Sidepanel event listeners
+│   ├── similarity-notifier.ts # Similarity notifications
+│   └── testHelpers.ts         # Testing utilities
+│
+├── components/
+│   ├── NotificationToast.tsx  # Toast notification component
+│   ├── onboarding/
+│   │   ├── ConsentModal.tsx
+│   │   ├── WelcomeBackModal.tsx
+│   │   └── WelcomeModal.tsx
+│   ├── sidepanel/
+│   │   ├── CoiPanel.tsx
+│   │   ├── EmptyState.tsx
+│   │   ├── FocusPanel.tsx
+│   │   ├── GraphPanel.tsx
+│   │   ├── GraphPanel.tsx.backup
+│   │   ├── PopulatedState.tsx
+│   │   ├── ProjectPanel.tsx
+│   │   └── SettingsModal.tsx
+│   └── ui/                    # Shared UI components (shadcn/ui)
+│       ├── button.tsx
+│       ├── checkbox.tsx
+│       ├── dialog.tsx
+│       └── input.tsx
+│
+├── contents/                  # Content scripts
+│   ├── add-to-project-button.tsx
+│   ├── consent.tsx
+│   ├── google-search.tsx
+│   ├── indicator.tsx
+│   ├── notification.ts
+│   ├── page-capture.ts
+│   ├── project-notification.ts
+│   └── scroll-tracker.ts
+│
+├── derived/
+│   ├── index.ts
+│   └── types.ts
+│
+├── lib/
+│   ├── coi.ts
+│   ├── context-classifier.ts
+│   ├── knowledge-graph.ts
+│   ├── layer1-keyword-search.ts
+│   ├── layer2-semantic-search.ts
+│   ├── logger.ts
+│   ├── resource-extractor.ts
+│   ├── search-explainer.ts
+│   ├── session-title-inference.ts
+│   └── utils.ts
+│
+├── tabs/
+│   └── graph.tsx              # Full-page graph view
+│
+├── types/
+│   ├── index.ts
+│   ├── ephemeral-behavior.ts
+│   ├── focus-mode.ts
+│   ├── page-event.ts
+│   ├── project-candidate.ts
+│   ├── project.ts
+│   ├── session.ts
+│   └── settings.ts
+│
+assets/
+├── Ambient-Motion.json
+├── Ambient-Motion.lottie
+├── BreezeSans-Regular.ttf
+├── icon.png
+├── konta_logo.svg
+├── ort-wasm-simd-threaded.wasm
+├── ort-wasm-simd.wasm
+├── ort-wasm-threaded.wasm
+└── ort-wasm.wasm
+│
+build/
+├── chrome-mv3-dev/            # Development build
+└── chrome-mv3-prod/           # Production build
+│
+Root Configuration Files:
+├── .github/
+├── .gitignore
+├── .plasmo/
+├── .prettierrc.mjs
+├── components.json
+├── DARK_MODE_GUIDE.md
+├── DARK_MODE_IMPLEMENTATION.md
+├── package.json
+├── pnpm-lock.yaml
+├── postcss.config.js
+├── README.md
+├── tailwind.config.js
+└── tsconfig.json
+```
+
+---
+
+## Technology Stack
+
+| Category  | Technology              | Version |
+| --------- | ----------------------- | ------- |
+| Framework | Plasmo                  | 0.90.5  |
+| UI        | React                   | 18.2.0  |
+| Language  | TypeScript              | 5.3.3   |
+| Styling   | Shadcn and Tailwind CSS | 3.4.19  |
+| ML        | Transformers.js         | 2.17.2  |
+| Graph     | react-force-graph-2d    | 1.29.0  |
+| Icons     | Lucide React            | 0.562.0 |
+
+---
+
+Built with ❤️ by **Team Aegis**, Thapar University
