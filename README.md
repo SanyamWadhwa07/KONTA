@@ -113,9 +113,9 @@ path/to/WAH_Aegis/build/chrome-mv3-prod/
 
 ## Demo Video
 
-[![Konta Demo Video](https://img.youtube.com/vi/eqXz6zuXvwI/0.jpg)](https://youtu.be/eqXz6zuXvwI)
+[![Konta Demo Video](https://img.youtube.com/vi/BNX6pw3au-s/0.jpg)](https://youtu.be/BNX6pw3au-s)
 
-Direct link: https://youtu.be/eqXz6zuXvwI
+Direct link: https://youtu.be/BNX6pw3au-s
 
 ---
 
