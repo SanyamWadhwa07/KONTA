@@ -12,6 +12,7 @@ semantic search and knowledge graph visualization.
 * [Setup Instructions](#setup-instructions)
 * [Build Instructions](#build-instructions)
 * [Run Instructions](#run-instructions)
+* [Running Evaluations](#running-evaluations)
 * [Project Structure](#project-structure)
 * [Technology Stack](#technology-stack)
 
@@ -105,6 +106,66 @@ path/to/WAH_Aegis/build/chrome-mv3-prod/
 3. Open the sidepanel – access from the popup or extension menu
 4. Browse some pages – sessions are captured automatically
 5. View your knowledge graph – see relationships between pages
+
+---
+
+## Running Evaluations
+
+The project includes automated evaluation scripts for testing core algorithms:
+
+### Setup Evaluations
+
+First, install `ts-node` for running TypeScript directly:
+
+```bash
+pnpm add -D ts-node
+```
+
+### Available Evaluations
+
+#### 1. Knowledge Graph Evaluation
+Tests clustering algorithm with 8 topic clusters + ambiguous/noise pages.
+Metrics: Precision, Recall, F1 Score, Purity
+
+```bash
+pnpm exec ts-node evaluation/knowledge-graph-eval.ts
+```
+
+#### 2. Search Layers Comparison
+Compares Layer-1 (strict keyword) vs Layer-2 (semantic) search.
+Metrics: Rank@1, NDCG@5
+
+```bash
+pnpm exec ts-node evaluation/layer1_2.ts
+```
+
+#### 3. Project Detection
+Tests project detection algorithm with 50 synthetic candidates (35 real, 15 noise).
+Metrics: Precision, Recall, F1 Score, Confusion Matrix
+
+```bash
+pnpm exec ts-node evaluation/project_detection.ts
+```
+
+### Add NPM Scripts (Optional)
+
+For convenience, add these to `package.json` scripts:
+
+```json
+"eval:graph": "ts-node evaluation/knowledge-graph-eval.ts",
+"eval:layers": "ts-node evaluation/layer1_2.ts",
+"eval:project": "ts-node evaluation/project_detection.ts",
+"eval:all": "pnpm eval:graph && pnpm eval:layers && pnpm eval:project"
+```
+
+Then run evaluations with:
+
+```bash
+pnpm eval:all      # Run all evaluations
+pnpm eval:graph    # Knowledge graph clustering only
+pnpm eval:layers   # Search comparison only
+pnpm eval:project  # Project detection only
+```
 
 ---
 

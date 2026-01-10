@@ -1,7 +1,7 @@
 // Automated test for REAL project detection algorithm
 // Tests the actual calculateCandidateScore logic from candidateDetector.ts
 
-import type { ProjectCandidate } from "../../types/project-candidate"
+import type { ProjectCandidate } from "~/types/project-candidate"
 
 // Match your production thresholds
 const THRESHOLDS = {

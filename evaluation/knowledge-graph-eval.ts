@@ -1,5 +1,5 @@
-import { buildKnowledgeGraph } from "../knowledge-graph"
-import type { PageEvent } from "../../types/page-event"
+import { buildKnowledgeGraph } from "~/lib/knowledge-graph"
+import type { PageEvent } from "~/types/page-event"
 
 // Generate vector with controlled variation
 function generateEmbedding(

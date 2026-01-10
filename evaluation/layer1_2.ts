@@ -4,9 +4,9 @@
 // - Expose true semantic advantage of Layer-2
 // - Use mathematically correct IR metrics (NDCG@5)
 
-import { searchSemantic } from "../layer2-semantic-search"
-import { searchByKeywords } from "../layer1-keyword-search"
-import type { PageEvent } from "../../types/page-event"
+import { searchSemantic } from "~/lib/layer2-semantic-search"
+import { searchByKeywords } from "~/lib/layer1-keyword-search"
+import type { PageEvent } from "~/types/page-event"
 
 /* -------------------------------------------------------
    CONFIG: Keyword strictness knobs
