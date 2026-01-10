@@ -139,37 +139,18 @@ export default function GraphFullPage() {
 
   const loadGraph = useCallback(async () => {
     setLoading(true)
-    setIsFetching(true)
     try {
       const messageType = graphMode === 'projects' ? 'GET_PROJECT_GRAPH' : 'GET_GRAPH'
-      const maxAttempts = 5
-      let success = false
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
-        if (response?.graph) {
-          log('[GraphFullPage] Graph data received on attempt', attempt, '/', maxAttempts, 'nodes:', response.graph.nodes.length)
-          setGraph(response.graph)
-          lastGraphTimestampRef.current = response.graph.lastUpdated
-          hasUserInteractedRef.current = false
-          success = true
-          break
-        }
-
-        // brief delay before retry
-        if (attempt < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 200))
-        }
-      }
-
-      if (!success) {
-        warn('[GraphFullPage] Graph data not available after retries')
-      }
+      const response = await sendMessage<{ graph: KnowledgeGraph }>({ type: messageType })
+      if (response?.graph) {
+        setGraph(response.graph)
+        lastGraphTimestampRef.current = response.graph.lastUpdated
+        hasUserInteractedRef.current = false
+    }
     } catch (err) {
       error("[GraphFullPage] Failed to load graph:", err)
     } finally {
       setLoading(false)
-      setIsFetching(false)
     }
   }, [graphMode])
 
@@ -431,7 +412,7 @@ export default function GraphFullPage() {
     }
   }, [graph, searchQuery, timeFilter, selectedClusters, minSimilarity, manualLinks, graphMode, allClustersSelected])
 
-  if (isFetching || (loading && !graph)) {
+  if ((loading && !graph)) {
     return (
       <div className="flex items-center justify-center w-screen h-screen bg-white dark:bg-[#1C1C1E]">
         <div className="text-center">
@@ -838,9 +819,6 @@ export default function GraphFullPage() {
   }
 
   const toggleCluster = (clusterId: number) => {
-    // Clear focused cluster when user manually interacts
-    setFocusedClusterId(null)
-    hasUserInteractedRef.current = true
     
     setSelectedClusters(prev => {
       const newSet = new Set(prev)
@@ -854,7 +832,6 @@ export default function GraphFullPage() {
   }
 
   const clearClusterFilter = () => {
-    setFocusedClusterId(null)
     setSelectedClusters(new Set())
   }
 

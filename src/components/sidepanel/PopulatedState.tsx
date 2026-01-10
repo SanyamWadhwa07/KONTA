@@ -1671,9 +1671,22 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
   const [showLabelPicker, setShowLabelPicker] = useState(false)
   const [suggestedLabel, setSuggestedLabel] = useState<{ labelName: string; confidence: number } | null>(null)
   const [isDismissed, setIsDismissed] = useState(false)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editedName, setEditedName] = useState(session.inferredTitle || "")
   const timeStart = new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const timeEnd = new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const domains = [...new Set(session.pages.map((p) => new URL(p.url).hostname.replace('www.', '')))].slice(0, 3)
+  
+  const handleUpdateSessionName = async () => {
+    if (editedName.trim()) {
+      await sendMessage({
+        type: "UPDATE_SESSION_NAME",
+        sessionId: session.id,
+        customName: editedName.trim()
+      })
+      setIsEditingName(false)
+    }
+  }
   
   // Fetch label suggestion if session has no label
   useEffect(() => {
@@ -1720,7 +1733,7 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
 
   return (
     <div 
-      className="flex flex-col gap-1.5 p-3 rounded-xl transition-all relative bg-white dark:bg-[#2C2C2E] border border-[#BCBCBC] dark:border-[#3A3A3C]"
+      className="group flex flex-col gap-1.5 p-3 rounded-xl transition-all relative bg-white dark:bg-[#2C2C2E] border border-[#BCBCBC] dark:border-[#3A3A3C]"
       style={{ 
         backgroundColor: isExpanded ? (document.documentElement.classList.contains('dark') ? '#2C2C2E' : '#F5F5F5') : undefined
       }}>
@@ -1731,12 +1744,44 @@ function SessionItem({ session, isExpanded, onToggle, labels, onUpdateSessionLab
           onToggle()
         }}
         className="flex items-center gap-2 w-full cursor-pointer">
-        <div className="flex items-center gap-3 flex-1">
-          <p
-            className="text-sm font-medium leading-tight text-[#080A0B] dark:text-[#FFFFFF]"
-            style={{ fontFamily: "'Breeze Sans'" }}>
-            {sessionTitle}
-          </p>
+        <div className="flex items-center gap-2 flex-1">
+          {isEditingName ? (
+            <input
+              type="text"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleUpdateSessionName()
+                } else if (e.key === 'Escape') {
+                  setIsEditingName(false)
+                  setEditedName(session.inferredTitle || "")
+                }
+              }}
+              onBlur={handleUpdateSessionName}
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+              className="text-sm font-medium leading-tight px-2 py-1 rounded border flex-1 text-[#080A0B] dark:text-[#FFFFFF] bg-white dark:bg-[#3A3A3C] border-[#BCBCBC] dark:border-[#3A3A3C]"
+              style={{ fontFamily: "'Breeze Sans'" }}
+            />
+          ) : (
+            <p
+              className="text-sm font-medium leading-tight text-[#080A0B] dark:text-[#FFFFFF] flex-1"
+              style={{ fontFamily: "'Breeze Sans'" }}>
+              {sessionTitle}
+            </p>
+          )}
+          {!isEditingName && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsEditingName(true)
+              }}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-[#3A3A3C] transition-colors opacity-0 group-hover:opacity-100"
+              title="Edit session name">
+              <Edit2 className="h-3.5 w-3.5 text-[#9A9FA6]" />
+            </button>
+          )}
         </div>
         {/* Label Badge */}
         {session.labelId && (

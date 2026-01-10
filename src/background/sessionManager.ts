@@ -414,6 +414,23 @@ export async function updateSessionLabel(sessionId: string, labelId: string | un
 }
 
 /**
+ * Update a session's custom name
+ */
+export async function updateSessionName(sessionId: string, customName: string): Promise<void> {
+  const session = sessions.find((s) => s.id === sessionId)
+  if (!session) return
+
+  // Store custom name in inferredTitle field
+  session.inferredTitle = customName.trim() || inferSessionTitle(session)
+
+  try {
+    await saveSessions(sessions)
+  } catch (error) {
+    error("Failed to persist session name update:", error)
+  }
+}
+
+/**
  * Delete a page from a session
  */
 export async function deletePageFromSession(sessionId: string, pageUrl: string): Promise<void> {

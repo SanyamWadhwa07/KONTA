@@ -6,7 +6,7 @@ import {
   setupOpenSidepanelListener
 } from "./sidepanel-listeners"
 import { setupConsentListener } from "./consent-listener"
-import { getSessions, initializeSessions, resetSessionInitialization, updateSessionLabel, deletePageFromSession, deleteSession } from "./sessionManager"
+import { getSessions, initializeSessions, resetSessionInitialization, updateSessionLabel, updateSessionName, deletePageFromSession, deleteSession } from "./sessionManager"
 import { executeSearch } from "./search-coordinator"
 import { loadLabels, addLabel, deleteLabel, getLabelById } from "./labelsStore"
 import { loadLearnedAssociations, learnFromSession, predictLabelForSession } from "./contextLearning"
@@ -494,6 +494,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch((error) => {
         error("UPDATE_SESSION_LABEL failed:", error)
+        sendResponse({ success: false })
+      })
+    return true
+  }
+
+  if (message.type === "UPDATE_SESSION_NAME") {
+    const { sessionId, customName } = message
+    updateSessionName(sessionId, customName)
+      .then(() => {
+        sendResponse({ success: true })
+        broadcastSessionUpdate()
+      })
+      .catch((error) => {
+        error("UPDATE_SESSION_NAME failed:", error)
         sendResponse({ success: false })
       })
     return true
@@ -1505,14 +1519,28 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
     // Update last alert timestamp
     lastCoiAlertTimestamp = now
 
-    // Get active tab to send notification (remove currentWindow to handle cases where DevTools or other windows are focused)
-    const tabs = await chrome.tabs.query({ active: true })
-    log("[COI Alert] Active tabs found:", tabs.length)
-    if (tabs.length === 0) return
+    // Get most recently opened regular tab (not chrome:// or extension pages)
+    const tabs = await chrome.tabs.query({})
+    const regularTabs = tabs.filter(tab => 
+      tab.url && 
+      !tab.url.startsWith('chrome://') && 
+      !tab.url.startsWith('chrome-extension://') &&
+      !tab.url.startsWith('about:') &&
+      tab.id !== undefined
+    )
+    
+    // Sort by most recently accessed
+    regularTabs.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))
+    
+    log("[COI Alert] Regular tabs found:", regularTabs.length)
+    if (regularTabs.length === 0) {
+      log("[COI Alert] No regular tabs available for notification")
+      return
+    }
 
-    const activeTab = tabs[0]
+    const activeTab = regularTabs[0]
     if (!activeTab.id) {
-      log("[COI Alert] No active tab ID")
+      log("[COI Alert] No tab ID")
       return
     }
 
@@ -1532,40 +1560,11 @@ async function checkCoiThresholdAndNotify(sessionCoiScore: number) {
     } catch (err) {
       const error = err as Error
       log("[COI Alert] ⚠️ Content script unavailable:", error.message)
+      log("[COI Alert] Skipping notification - content script not loaded on this page")
       
-      // If the error is "Receiving end does not exist", try injecting the content script
-      if (error.message.includes("Receiving end does not exist")) {
-        log("[COI Alert] Attempting to inject content script...")
-        try {
-          // Inject the indicator content script
-          await chrome.scripting.executeScript({
-            target: { tabId: activeTab.id },
-            files: ['contents/indicator.tsx']
-          })
-          log("[COI Alert] Content script injected, retrying notification...")
-          
-          // Wait a bit for the script to initialize
-          await new Promise(resolve => setTimeout(resolve, 500))
-          
-          // Retry sending the message
-          await chrome.tabs.sendMessage(activeTab.id, {
-            type: "COI_ALERT",
-            payload: {
-              score: sessionCoiScore,
-              threshold,
-              message: `Working for a while. Taking a short break might help you.`
-            }
-          })
-          log("[COI Alert] ✅ In-page notification delivered after injection")
-          return
-        } catch (injectErr) {
-          log("[COI Alert] Failed to inject/retry:", (injectErr as Error).message)
-        }
-      }
-      
-      // Fallback to native notification
-      // log("[COI Alert] Using native notification fallback")
-      // await showNativeChromeNotification(sessionCoiScore, threshold)
+      // Content scripts are auto-injected by manifest.json on matching pages
+      // If they're not available, it means the page doesn't support them (e.g., chrome:// pages)
+      // We skip notification rather than trying to inject manually
     }
   } catch (err) {
     warn("[Background] Failed to check COI threshold", err)
